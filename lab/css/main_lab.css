@@ -1,0 +1,499 @@
+/* ========================================
+   style_main.css — Базовые стили
+   ======================================== */
+
+/* === Обнуление и базовые стили === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Inter-Regular", sans-serif;
+    background-color: #f6f6f6;
+    color: #000;
+    overflow-x: hidden;
+    line-height: 1.5;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+/* === Основной экран === */
+.screen {
+    min-width: 320px;
+    width: 100%;
+    min-height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+    overflow-x: hidden;
+}
+
+.screen .div {
+    width: 100%;
+    min-height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* === Контейнеры === */
+.container-3 {
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+    .container-3 {
+        padding: 0 40px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .container-3 {
+        padding: 0 60px;
+    }
+}
+
+/* === Кнопки (общие) === */
+.btn-primary {
+    width: 100%;
+    height: 60px;
+    background-color: #1a1982;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 20px;
+    font-family: "Inter-Regular", sans-serif;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #14136b;
+    transform: translateY(-2px);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* === Поля ввода (общие) === */
+.input-field {
+    width: 100%;
+    height: 60px;
+    padding: 0 15px;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    font-family: "Inter-Regular", sans-serif;
+    font-size: 18px;
+    color: #000;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input-field:focus {
+    border-color: #1a1982;
+    box-shadow: 0 0 0 3px rgba(26, 25, 130, 0.1);
+}
+
+/* === Адаптивность === */
+@media (max-width: 768px) {
+    .input-field,
+    .btn-primary {
+        height: 55px;
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .input-field,
+    .btn-primary {
+        height: 50px;
+        font-size: 16px;
+    }
+}
+
+/* ========================================
+   style_index.css — Стили главной страницы
+   ======================================== */
+
+/* === Отступ под фиксированную шапку === */
+.screen .div {
+    padding-top: 130px;
+}
+
+/* === Блок с призывом к действию === */
+.overlap-4 {
+    width: 100%;
+    height: 400px;
+    background-image: url('../img/back2.jpg');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
+    margin: 150px 0 50px;
+}
+
+.text-wrapper-7 {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 36px;
+    margin-bottom: 20px;
+    max-width: 900px;
+    line-height: 1.3;
+}
+
+.text-wrapper-6 {
+    font-family: "Inter-Regular", Helvetica, sans-serif;
+    font-weight: 400;
+    font-size: 18px;
+    max-width: 700px;
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+.btn1 {
+    width: 250px;
+    height: 50px;
+    background-color: #e7e8f3;
+    border: none;
+    border-radius: 21px;
+    color: #000000;
+    font-family: "Inter-Regular", Helvetica, sans-serif;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+}
+
+.btn1:hover {
+    background-color: #d0d1e0;
+}
+
+/* === Блок "О лаборатории" === */
+.view {
+    width: 90%;
+    max-width: 1232px;
+    margin: 60px auto 0;
+    position: relative;
+}
+
+.overlap-group {
+    width: 100%;
+    padding: 30px 20px;
+    background-color: #ffffff;
+    border-radius: 15px;
+}
+
+.text-wrapper-2 {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 28px;
+    color: #000000;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.p {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-weight: 300;
+    font-size: 18px;
+    color: #000000;
+    text-align: center;
+    line-height: 1.6;
+}
+
+/* === Блок "Наши разработки" === */
+.view-2 {
+    width: 90%;
+    max-width: 1409px;
+    margin: 30px auto;
+    position: relative;
+}
+
+.overlap-2 {
+    width: 100%;
+    position: relative;
+    padding: 20px;
+}
+
+.rectangle-2 {
+    position: relative;
+    width: 90%;
+    max-width: 1003px;
+    height: 400px;
+    margin: 20px auto;
+    background-color: #f7f7fd;
+    border-radius: 14px;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    padding: 20px;
+    flex-wrap: wrap;
+}
+
+.image-wrapper {
+    width: 35%;
+    min-width: 250px;
+    height: auto;
+    background-color: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.image {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.text-wrapper-5 {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    color: #000000;
+    font-size: 22px;
+    margin-top: 10px;
+}
+
+.text-wrapper-4 {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-weight: 300;
+    color: #161651;
+    font-size: 16px;
+    line-height: 1.5;
+    flex: 1;
+    min-width: 300px;
+}
+
+.text-wrapper-3 {
+    font-family: "Inter-Medium", Helvetica, sans-serif;
+    font-weight: 500;
+    color: #1a1982;
+    font-size: 18px;
+    cursor: pointer;
+    text-align: center;
+    margin-top: 15px;
+    transition: color 0.2s;
+}
+
+.text-wrapper-3:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* === Заголовки "Новости" и "Поддержка" === */
+.text-wrapper-9,
+.text-wrapper-10 {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: #000000;
+    margin: 40px 0 20px;
+    text-align: center;
+}
+
+/* === Карточки новостей === */
+.view-3 {
+    width: 90%;
+    max-width: 350px;
+    background-color: #e7e8f396;
+    border-radius: 6px;
+    padding: 20px;
+    margin: 10px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.text-wrapper-11 {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #000000;
+    margin-bottom: 10px;
+}
+
+.text-wrapper-12 {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-weight: 300;
+    font-size: 14px;
+    color: #000000;
+    line-height: 1.5;
+}
+
+.img-wrapper {
+    width: 100%;
+    height: 180px;
+    background-color: #ffffff;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.image-2 {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* === Текст поддержки === */
+.text-wrapper-13 {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    color: #000000;
+    text-align: center;
+    max-width: 600px;
+    margin: 40px auto 20px;
+    line-height: 1.6;
+}
+
+/* === Кнопка "Задать вопрос" === */
+.btn-1 {
+    width: 250px;
+    height: 50px;
+    background-color: #1a1982;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.2);
+    margin: 20px auto;
+    display: block;
+    transition: background-color 0.3s;
+}
+
+.btn-1:hover {
+    background-color: #14136b;
+}
+
+/* === Flex-раскладка для карточек === */
+.product-flex-layout {
+    display: flex;
+    gap: 16px;
+    height: 100%;
+    padding: 16px;
+}
+
+.product-image-side {
+    flex: 0 0 375px;
+    height: 350px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+.product-image-side img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-content-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* === Адаптивность главной === */
+@media (max-width: 768px) {
+    .screen .div {
+        padding-top: 150px;
+    }
+
+    .overlap-4 {
+        height: 300px;
+        margin: 120px 0 40px;
+    }
+
+    .text-wrapper-7 {
+        font-size: 28px;
+    }
+
+    .text-wrapper-6 {
+        font-size: 16px;
+    }
+
+    .btn1 {
+        width: 220px;
+        height: 45px;
+        font-size: 16px;
+    }
+
+    .rectangle-2 {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        height: auto;
+        padding: 20px;
+    }
+
+    .image-wrapper {
+        width: 200px;
+        height: 150px;
+    }
+
+    .text-wrapper-5 {
+        font-size: 20px;
+    }
+
+    .text-wrapper-4 {
+        font-size: 15px;
+    }
+
+    .text-wrapper-3 {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .text-wrapper-2,
+    .text-wrapper-9,
+    .text-wrapper-10 {
+        font-size: 24px;
+    }
+
+    .p,
+    .text-wrapper-6 {
+        font-size: 14px;
+    }
+
+    .text-wrapper-7 {
+        font-size: 24px;
+    }
+
+    .btn1,
+    .btn-1 {
+        width: 200px;
+        height: 45px;
+        font-size: 15px;
+    }
+
+    .view-3 {
+        width: 95%;
+        margin: 10px auto;
+    }
+}

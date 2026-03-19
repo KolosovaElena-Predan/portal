@@ -1,0 +1,493 @@
+/* ========================================
+   style_catalog.css — Каталог оборудования
+   ======================================== */
+
+/* === Основной контейнер === */
+.catalog-content {
+    width: 100%;
+    max-width: 1600px;
+    margin: 140px auto 60px;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.catalog-title {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: #000000;
+    margin-bottom: 40px;
+    text-align: left;
+}
+
+/* === Блок поиска === */
+.search-container {
+    width: 70%;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.search-container .input-field {
+    flex: 1;
+    height: 60px;
+    font-size: 14px;
+    border-radius: 12px;
+    border: 1px solid #ccc;
+    padding: 0 15px;
+    font-family: "Inter-Regular", sans-serif;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.search-container .input-field:focus {
+    border-color: #1a1982;
+    box-shadow: 0 0 0 3px rgba(26, 25, 130, 0.1);
+}
+
+.btn-search {
+    width: 150px;
+    height: 60px;
+    background-color: #1a1982;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: "Inter-Regular", sans-serif;
+    white-space: nowrap;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-search:hover {
+    background-color: #14136b;
+    transform: translateY(-1px);
+}
+
+/* === Сетка карточек === */
+.catalog-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.device-card-link {
+    text-decoration: none;
+    color: inherit;
+    width: 100%;
+    display: block;
+}
+
+.device-card {
+    position: relative;
+    width: 100%;
+    max-width: 1115px;
+    height: 380px;
+    background-color: #fffdfd;
+    border-radius: 30px;
+    padding: 25px 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    /*margin: 0 auto;*/
+}
+
+.device-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.device-image {
+    position: absolute;
+    width: 284px;
+    height: 217px;
+    top: 56px;
+    left: 65px;
+    object-fit: cover;
+    border-radius: 12px;
+}
+
+.device-name {
+    position: absolute;
+    top: 45px;
+    left: 394px;
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    color: #000000;
+    font-size: 20px;
+}
+
+.device-desc {
+    position: absolute;
+    top: 80px;
+    left: 394px;
+    width: 428px;
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-weight: 300;
+    color: #000000;
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+.device-stock {
+    position: absolute;
+    top: 80px;
+    left: 898px;
+    font-family: "Inter-Medium", Helvetica, sans-serif;
+    font-weight: 500;
+    color: #008240;
+    font-size: 20px;
+}
+
+.stock-icon {
+    position: absolute;
+    width: 23px;
+    height: 23px;
+    top: 84px;
+    left: 870px;
+    object-fit: cover;
+}
+
+.device-price {
+    position: absolute;
+    top: 123px;
+    left: 870px;
+    font-family: "Inter-Medium", Helvetica, sans-serif;
+    font-weight: 500;
+    color: #1a1982;
+    font-size: 24px;
+}
+
+.btn-order {
+    position: absolute;
+    top: 191px;
+    left: 870px;
+    width: 150px;
+    height: 45px;
+    background-color: #1a1982;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 20px;
+    cursor: pointer;
+    font-family: "Inter-Regular", sans-serif;
+    transition: background-color 0.3s;
+}
+
+.btn-order:hover {
+    background-color: #14136b;
+}
+
+.no-devices {
+    font-family: "Inter-Light", sans-serif;
+    font-size: 20px;
+    color: #777;
+    text-align: center;
+    margin: 40px 0;
+}
+
+/* === АДАПТИВНОСТЬ === */
+
+/* Планшеты (до 1200px) */
+@media (max-width: 1200px) {
+    .catalog-content {
+        margin: 140px 20px 60px;
+    }
+    
+    .catalog-title {
+        font-size: 24px;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .device-card {
+        max-width: 900px;
+    }
+    
+    .device-image {
+        left: 40px;
+        width: 250px;
+        height: 190px;
+    }
+    
+    .device-name,
+    .device-desc {
+        left: 320px;
+    }
+    
+    .device-stock,
+    .stock-icon,
+    .device-price,
+    .btn-order {
+        left: calc(100% - 220px);
+    }
+}
+
+/* Планшеты малые (до 900px) */
+@media (max-width: 900px) {
+    .catalog-title {
+        font-size: 20px;
+        text-align: center;
+    }
+    
+    .search-container {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .search-container .input-field,
+    .btn-search {
+        width: 100%;
+        max-width: 400px;
+    }
+    
+    .device-card {
+        height: auto;
+        padding: 40px 20px 60px;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .device-image,
+    .device-name,
+    .device-desc,
+    .device-stock,
+    .stock-icon,
+    .device-price,
+    .btn-order {
+        position: static;
+        left: auto;
+        top: auto;
+        margin: 10px auto;
+    }
+    
+    .device-image {
+        width: 300px;
+        height: 250px;
+        margin: 0 auto 15px;
+    }
+    
+    .device-desc {
+        width: 100%;
+        max-width: 500px;
+    }
+    
+    .btn-order {
+        width: 140px;
+        height: 45px;
+        font-size: 18px;
+    }
+}
+
+/* Мобильные (до 480px) */
+@media (max-width: 480px) {
+    .catalog-content {
+        margin: 120px 15px 50px;
+        padding: 0 10px;
+    }
+    
+    .catalog-title {
+        font-size: 26px;
+    }
+    
+    .search-container .input-field,
+    .btn-search {
+        height: 50px;
+        font-size: 16px;
+    }
+    
+    .device-card {
+        padding: 20px 15px;
+        border-radius: 20px;
+    }
+    
+    .device-image {
+        width: 100%;
+        max-width: 250px;
+        height: 200px;
+    }
+    
+    .device-name {
+        font-size: 20px;
+    }
+    
+    .device-desc {
+        font-size: 16px;
+    }
+    
+    .device-price {
+        font-size: 26px;
+    }
+    
+    .btn-order {
+        width: 120px;
+        height: 40px;
+        font-size: 16px;
+    }
+}
+
+/* === Схемы применения === */
+.schemes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.scheme-card {
+    border: 1px solid #eee;
+    padding: 10px;
+    border-radius: 8px;
+    background: #fff;
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+}
+
+    .scheme-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    }
+
+    .scheme-card img {
+        width: 100%;
+        height: 180px;
+        object-fit: contain;
+        border-radius: 4px;
+        background: #f8f8f8;
+    }
+
+.scheme-zoom-hint {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(26, 25, 130, 0.9);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.scheme-card:hover .scheme-zoom-hint {
+    opacity: 1;
+}
+
+.scheme-card h3 {
+    margin: 12px 0 8px;
+    font-size: 16px;
+    color: #1a1982;
+}
+
+.scheme-card p {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* === Лайтбокс для схем === */
+.scheme-lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 3000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+    .scheme-lightbox.active {
+        display: flex;
+    }
+
+.scheme-lightbox-content {
+    max-width: 95%;
+    max-height: 95vh;
+    position: relative;
+}
+
+.scheme-lightbox-img {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+}
+
+.scheme-lightbox-title {
+    color: white;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 18px;
+    font-family: "Inter-Medium", sans-serif;
+}
+
+.scheme-lightbox-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    color: white;
+    font-size: 40px;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+    .scheme-lightbox-close:hover {
+        color: #ccc;
+    }
+
+.scheme-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: white;
+    font-size: 32px;
+    cursor: pointer;
+    padding: 20px;
+    transition: color 0.3s;
+}
+
+    .scheme-lightbox-nav:hover {
+        color: #ccc;
+    }
+
+.scheme-lightbox-prev {
+    left: 20px;
+}
+
+.scheme-lightbox-next {
+    right: 20px;
+}
+
+/* Адаптив для схем */
+@media (max-width: 768px) {
+    .schemes-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    .scheme-card img {
+        height: 150px;
+    }
+
+    .scheme-lightbox-close {
+        top: 10px;
+        right: 20px;
+        font-size: 36px;
+    }
+}

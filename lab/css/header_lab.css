@@ -1,0 +1,295 @@
+/* ========================================
+   style_header.css — Стили шапки
+   ======================================== */
+
+/* === Контейнер шапки === */
+.view-6 {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 30px;
+    background-color: #e7e8f3;
+    width: 100vw;
+    height: 110px;
+    padding: 0 30px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid #d0d1e0;
+    box-sizing: border-box;
+}
+
+/* === Логотип === */
+.image-3 {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.image-3:hover {
+    opacity: 0.9;
+}
+
+/* === Ссылка на заголовок === */
+.header-title-link {
+    text-decoration: none;
+}
+
+/* === Название лаборатории === */
+.text-wrapper-36 {
+    font-family: "Roboto-Medium", Helvetica, sans-serif;
+    font-weight: 500;
+    color: #1a1982;
+    font-size: 20px;
+    text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+}
+
+/* === Пункты меню === */
+.text-wrapper-17 {
+    font-family: "Inter-Medium", Helvetica, sans-serif;
+    font-weight: 500;
+    color: #161551;
+    font-size: 20px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    text-decoration: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.text-wrapper-17:hover {
+    color: #1a1982;
+}
+
+/* === Стрелочка для выпадающего меню === */
+.dropdown-arrow {
+    font-size: 10px;
+    transition: transform 0.3s ease;
+    color: #1a1982;
+}
+
+.dropdown:hover .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+/* === Выпадающее меню === */
+.menu-item.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #ffffff;
+    min-width: 280px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 10px 0;
+    z-index: 1001;
+    border: 1px solid #e0e0e0;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.dropdown-menu a {
+    display: block;
+    padding: 12px 20px;
+    color: #333333;
+    text-decoration: none;
+    font-size: 16px;
+    font-family: "Inter-Regular", Helvetica, sans-serif;
+    transition: background-color 0.2s, color 0.2s;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-menu a:last-child {
+    border-bottom: none;
+}
+
+.dropdown-menu a:hover {
+    background-color: #f7f7fd;
+    color: #1a1982;
+    padding-left: 25px;
+}
+
+/* Показываем меню при наведении */
+.menu-item.dropdown:hover .dropdown-menu {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* === Кнопка "Личный кабинет" === */
+.btn-2 {
+    width: 180px;
+    height: 40px;
+    background-color: #1a1982;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    font-family: "Inter-Regular", sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-left: auto;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-2:hover {
+    background-color: #14136b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* === Адаптивность шапки === */
+@media (max-width: 1200px) {
+    .view-6 {
+        padding: 0 20px;
+        height: 100px;
+        gap: 20px;
+    }
+
+    .image-3 {
+        width: 90px;
+        height: 90px;
+    }
+
+    .text-wrapper-36 {
+        font-size: 18px;
+    }
+
+    .text-wrapper-17 {
+        font-size: 18px;
+    }
+
+    .btn-2 {
+        width: 160px;
+        height: 38px;
+        font-size: 16px;
+    }
+
+    .dropdown-menu {
+        min-width: 250px;
+    }
+}
+
+@media (max-width: 900px) {
+    .view-6 {
+        flex-wrap: wrap;
+        justify-content: center;
+        height: auto;
+        padding: 10px 15px 12px;
+        text-align: center;
+    }
+
+    .image-3 {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 5px;
+    }
+
+    .text-wrapper-36 {
+        font-size: 16px;
+        width: 100%;
+    }
+
+    .text-wrapper-17 {
+        font-size: 16px;
+    }
+
+    .btn-2 {
+        width: 150px;
+        height: 36px;
+        font-size: 15px;
+        margin-left: 0;
+        margin-top: 10px;
+    }
+
+    .dropdown-menu {
+        position: static;
+        display: none;
+        width: 100%;
+        box-shadow: none;
+        border: none;
+        padding: 0;
+    }
+
+    .menu-item.dropdown:hover .dropdown-menu {
+        display: block;
+    }
+
+    .dropdown-menu a {
+        padding: 10px 15px;
+        background-color: #f7f7fd;
+        border-bottom: 1px solid #e0e0e0;
+    }
+}
+
+@media (max-width: 600px) {
+    .view-6 {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+
+    .image-3 {
+        width: 70px;
+        height: 70px;
+    }
+
+    .text-wrapper-36 {
+        font-size: 15px;
+    }
+
+    .text-wrapper-17 {
+        font-size: 14px;
+    }
+
+    .btn-2 {
+        width: 130px;
+        height: 34px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .view-6 {
+        min-height: 90px;
+        padding: 8px;
+    }
+
+    .image-3 {
+        width: 60px;
+        height: 60px;
+    }
+
+    .text-wrapper-36 {
+        font-size: 14px;
+    }
+
+    .text-wrapper-17 {
+        display: none;
+    }
+
+    .btn-2 {
+        width: 120px;
+        height: 32px;
+        font-size: 13px;
+    }
+}

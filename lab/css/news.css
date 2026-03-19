@@ -1,0 +1,235 @@
+/* ========================================
+   style_news.css — Страница "Новости"
+   ======================================== */
+
+/* === Обёртка контента === */
+.content-wrapper {
+    width: 100%;
+    min-height: calc(100vh - 110px); /* 110px — высота шапки */
+    padding-top: 140px; /* Отступ под фиксированную шапку (110px + 30px) */
+    padding-bottom: 60px;
+    background-color: #f6f6f6;
+}
+
+/* === Контейнер новостей === */
+.news-container {
+    max-width: 900px; /* Уменьшено с 1200px */
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.news-title {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-size: 22px; /* Уменьшено для пропорциональности */
+    font-weight: 700;
+    color: #000000; /* Единый цвет с сайтом */
+    margin: 0 0 8px 0; /* Убран лишний отступ сверху */
+    line-height: 1.4; /* Улучшена читаемость */
+    padding-right: 20px; /* Чтобы текст не прилипал к краю */
+}
+
+/* === Пустой список === */
+.news-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #777777;
+    background-color: #ffffff;
+    border-radius: 12px;
+    font-size: 18px;
+}
+
+/* === Карточка новости === */
+.news-item {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 25px 30px; /* Уменьшено с 40px */
+    margin-bottom: 25px; /* Уменьшено с 30px */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.3s ease;
+}
+
+.news-item:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* === Заголовок новости === */
+.news-title {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-size: 22px; /* Уменьшено с 28px */
+    font-weight: 700;
+    color: #000000;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
+/* === Дата === */
+.news-date {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 14px; /* Уменьшено с 16px */
+    color: #7f8c8d;
+    margin-bottom: 15px;
+}
+
+/* === Изображение === */
+.news-image {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin: 15px 0;
+    display: block;
+}
+
+/* === Краткий текст === */
+.news-excerpt {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 16px; /* Уменьшено с 18px */
+    line-height: 1.6;
+    color: #333333;
+    margin-bottom: 10px;
+}
+
+.news-dots {
+    display: inline;
+}
+
+/* === Полный текст (скрыт по умолчанию) === */
+.news-full {
+    display: none;
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #333333;
+    margin: 10px 0 15px 0;
+    white-space: pre-wrap;
+}
+
+/* === Кнопка "Читать далее" === */
+.btn-read-more {
+    background: #e7e8f3;
+    color: #1a1982;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: "Inter-Medium", Helvetica, sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-read-more:hover {
+    background: #d0d1e0;
+    transform: translateY(-2px);
+}
+
+.btn-read-more:active {
+    transform: translateY(0);
+}
+
+/* === АДАПТИВНОСТЬ === */
+
+/* Планшеты (до 1024px) */
+@media (max-width: 1024px) {
+    .content-wrapper {
+        padding-top: 130px;
+    }
+
+    .news-container {
+        padding: 0 15px;
+    }
+
+    .news-page-title {
+        font-size: 28px;
+        margin-bottom: 40px;
+    }
+
+    .news-item {
+        padding: 20px 25px;
+    }
+
+    .news-title {
+        font-size: 20px;
+    }
+}
+
+/* Планшеты малые (до 768px) */
+@media (max-width: 768px) {
+    .content-wrapper {
+        padding-top: 120px;
+        padding-bottom: 40px;
+    }
+
+    .news-page-title {
+        font-size: 26px;
+        margin-bottom: 35px;
+    }
+
+    .news-title {
+        font-size: 19px;
+    }
+
+    .news-excerpt,
+    .news-full {
+        font-size: 15px;
+    }
+
+    .news-image {
+        max-height: 250px;
+    }
+
+    .btn-read-more {
+        width: 100%;
+        padding: 12px;
+    }
+}
+
+/* Мобильные (до 480px) */
+@media (max-width: 480px) {
+    .content-wrapper {
+        padding-top: 110px;
+        padding-bottom: 30px;
+    }
+
+    .news-container {
+        padding: 0 10px;
+    }
+
+    .news-page-title {
+        font-size: 24px;
+        margin-bottom: 30px;
+    }
+
+    .news-item {
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .news-title {
+        font-size: 18px;
+    }
+
+    .news-date {
+        font-size: 13px;
+    }
+
+    .news-excerpt,
+    .news-full {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .news-image {
+        max-height: 200px;
+    }
+
+    .btn-read-more {
+        font-size: 15px;
+        padding: 10px;
+    }
+
+    .news-empty {
+        font-size: 16px;
+        padding: 30px 15px;
+    }
+}

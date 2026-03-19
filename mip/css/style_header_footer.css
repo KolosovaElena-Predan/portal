@@ -1,0 +1,87 @@
+
+
+/* === Базовый подвал === */
+.div-wrapper {
+    width: 100%;
+    background-color: #1a1982;
+    padding: 60px 0 30px;
+    margin-top: 80px;
+}
+
+/* === Подвал МИП (темнее) === */
+.footer-mip {
+    background-color: #14136b;
+}
+
+/* === Контент подвала === */
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 40px;
+    padding: 0 30px;
+}
+
+.footer-section h4 {
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-size: 18px;
+    color: #ffffff;
+    margin-bottom: 20px;
+}
+
+.footer-section p {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 15px;
+    color: #e0e0e0;
+    line-height: 1.8;
+}
+
+.footer-link {
+    display: block;
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 15px;
+    color: #e0e0e0;
+    text-decoration: none;
+    margin-bottom: 10px;
+    transition: color 0.3s, padding-left 0.3s;
+}
+
+.footer-link:hover {
+    color: #ffffff;
+    padding-left: 5px;
+}
+
+/* === Нижняя часть подвала === */
+.footer-bottom {
+    max-width: 1200px;
+    margin: 40px auto 0;
+    padding: 30px 30px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
+}
+
+.copyright {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 14px;
+    color: #a0a0a0;
+    margin-bottom: 15px;
+}
+
+.footer-legal {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+}
+
+.footer-legal-link {
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-size: 14px;
+    color: #a0a0a0;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.footer-legal-link:hover {
+    color: #ffffff;
+}

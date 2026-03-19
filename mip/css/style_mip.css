@@ -1,0 +1,577 @@
+/* ============================================
+   style_mip_home.css — Главная страница МИП
+   ============================================ */
+
+:root {
+    --primary: #1a1982;
+    --primary-dark: #0d0c4a;
+    --accent: #008240;
+    --bg-light: #f7f7fd;
+    --text-main: #333;
+    --text-light: #666;
+    --white: #ffffff;
+    --shadow: 0 5px 20px rgba(0,0,0,0.08);
+    --radius: 12px;
+}
+
+/* ============================================
+   ОБЩИЕ СТИЛИ СЕКЦИЙ
+   ============================================ */
+.mip-section {
+    padding: 60px 0;
+}
+
+.bg-light {
+    background-color: var(--bg-light);
+}
+
+.container {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Заголовки секций */
+.section-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.section-title {
+    font-family: "Inter-Bold", sans-serif;
+    font-size: 36px;
+    color: var(--primary);
+    margin: 0;
+    position: relative;
+    display: inline-block;
+}
+
+    .section-title::after {
+        content: '';
+        display: block;
+        width: 60px;
+        height: 4px;
+        background: var(--accent);
+        margin: 12px auto 0;
+        border-radius: 2px;
+    }
+
+.section-subtitle {
+    color: var(--text-light);
+    margin-top: 10px;
+    font-size: 16px;
+}
+
+/* ============================================
+   СЛАЙДЕР ТОВАРОВ
+   ============================================ */
+.slider-wrapper {
+    position: relative;
+    max-width: 1409px;
+    margin: 0 auto;
+    overflow: hidden;
+    padding: 20px 0;
+}
+
+.slider-container {
+    display: block;
+    width: 100%;
+}
+
+.slider-slide {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    animation: fadeIn 0.5s ease;
+}
+
+    .slider-slide.active {
+        display: block;
+    }
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slider-dots {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.slider-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin: 0 5px;
+    border-radius: 50%;
+    background: #ccc;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+    .slider-dot.active,
+    .slider-dot:hover {
+        background: #1a1982;
+    }
+
+/* Кнопки слайдера */
+.slider-wrapper .btn2 {
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 50%;
+    background-color: #e7e8f3;
+    color: #000;
+    font-size: 30px;
+    cursor: pointer;
+    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.slider-wrapper .btn2-1 {
+    right: 20px;
+}
+
+.slider-wrapper .btn2-2 {
+    left: 20px;
+}
+
+.slider-wrapper .btn2:hover {
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   БЛОК УСЛУГИ
+   ============================================ */
+.services-section {
+    width: 90%;
+    max-width: 1400px;
+    margin: 60px auto;
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.service-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.3s;
+}
+
+    .service-card:hover {
+        transform: translateY(-5px);
+    }
+
+.service-img {
+    /*width: 100%;*/
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.service-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.service-name {
+    font-family: "Inter-Bold", sans-serif;
+    font-size: 18px;
+    color: #000;
+    margin-bottom: 10px;
+    min-height: 48px;
+}
+
+.service-price {
+    font-family: "Inter-Medium", sans-serif;
+    font-size: 22px;
+    color: #1a1982;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.service-link {
+    display: inline-block;
+    padding: 10px 25px;
+    background: #1a1982;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 16px;
+    transition: background 0.3s;
+}
+
+    .service-link:hover {
+        background: #14136b;
+    }
+
+/* ============================================
+   SPLIT-СЕКЦИЯ (Новинки/Популярное + Новости)
+   ============================================ */
+.split-section {
+    display: flex;
+    gap: 30px;
+    max-width: 1400px;
+    margin: 60px auto;
+    padding: 0 20px;
+    flex-wrap: wrap;
+}
+
+.split-left,
+.split-right {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.split-block {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.split-title {
+    font-family: "Inter-Bold", sans-serif;
+    font-size: 22px;
+    color: #000;
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e7e8f3;
+}
+
+.product-mini-list,
+.news-mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.product-mini-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px;
+    background: #f9f9fd;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.3s;
+}
+
+    .product-mini-card:hover {
+        background: #e7e8f3;
+    }
+
+    .product-mini-card img {
+        width: 70px;
+        height: 70px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+
+    .product-mini-card span {
+        font-family: "Inter-Medium", sans-serif;
+        font-size: 16px;
+        color: #1a1982;
+    }
+
+.news-mini-card {
+    padding: 15px;
+    background: #f9f9fd;
+    border-radius: 8px;
+    /*border-left: 3px solid #1a1982;*/
+}
+
+.news-mini-date {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 5px;
+}
+
+.news-mini-title {
+    font-family: "Inter-Bold", sans-serif;
+    font-size: 16px;
+    color: #000;
+    margin-bottom: 8px;
+}
+
+.news-mini-excerpt {
+    font-size: 14px;
+    color: #555;
+    margin: 0 0 10px 0;
+    line-height: 1.4;
+}
+
+.news-read-more {
+    font-size: 14px;
+    color: #1a1982;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+    .news-read-more:hover {
+        text-decoration: underline;
+    }
+
+.empty-msg {
+    color: #999;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* ============================================
+   АДАПТИВНОСТЬ
+   ============================================ */
+@media (max-width: 900px) {
+    .split-section {
+        flex-direction: column;
+    }
+
+    .split-left,
+    .split-right {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .slider-wrapper .btn2 {
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+    }
+
+    .slider-wrapper .btn2-1 {
+        right: 10px;
+    }
+
+    .slider-wrapper .btn2-2 {
+        left: 10px;
+    }
+
+    .services-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .service-img {
+        height: 50px;
+    }
+
+    .split-title {
+        font-size: 20px;
+    }
+
+    .product-mini-card img {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .slider-wrapper {
+        padding: 10px 0;
+    }
+
+    .services-section {
+        margin: 40px auto;
+    }
+
+    .split-section {
+        margin: 40px auto;
+        padding: 0 15px;
+    }
+
+    .split-block {
+        padding: 15px;
+    }
+}
+
+
+/* === Изображения новостей === */
+.news-card {
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: transform 0.3s;
+    text-decoration: none;
+    color: inherit;
+}
+
+    .news-card:hover {
+        transform: translateY(-5px);
+    }
+
+.news-img-box {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+    .news-img-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s;
+    }
+
+.news-card:hover .news-img-box img {
+    transform: scale(1.1);
+}
+
+.news-body {
+    padding: 25px;
+}
+
+.news-date {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.news-headline {
+    font-size: 19px;
+    font-weight: 700;
+    color: #000;
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+
+.news-excerpt {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.news-read-more {
+    color: #1a1982;
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-block;
+}
+
+    .news-read-more:hover {
+        text-decoration: underline;
+    }
+
+/* Для страницы новостей (полный список) */
+.news-item {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.news-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.news-date {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-bottom: 15px;
+}
+
+.news-image {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+/* Для mini-новостей в split-секции */
+.news-mini-card {
+    padding: 15px;
+    background: #f9f9fd;
+    border-radius: 8px;
+    /*border-left: 3px solid #1a1982;*/
+    margin-bottom: 10px;
+}
+
+    .news-mini-card .news-img-box {
+        height: 150px;
+        margin-bottom: 12px;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+        .news-mini-card .news-img-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+/* Адаптивность для новостей */
+@media (max-width: 768px) {
+    .news-img-box {
+        height: 180px;
+    }
+
+    .news-headline {
+        font-size: 18px;
+    }
+
+    .news-excerpt {
+        font-size: 14px;
+    }
+
+    .news-image {
+        max-height: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .news-img-box {
+        height: 160px;
+    }
+
+    .news-title {
+        font-size: 20px;
+    }
+
+    .news-image {
+        max-height: 200px;
+    }
+}
+
+.text-wrapper-1{
+    text-align:center;
+    font-size:32px;
+}
