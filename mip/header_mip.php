@@ -11,7 +11,7 @@
     <a href="services_catalog.php" class="text-wrapper-17">Услуги</a>
     <a href="news.php" class="text-wrapper-17">Новости</a>
     <a href="question.php" class="text-wrapper-17">Поддержка</a>
-    <a href="contacts.php" class="text-wrapper-17">Поиск</a>
+    <!--<a href="contacts.php" class="text-wrapper-17">Поиск</a>-->
     <a href="cart.php" class="text-wrapper-17">Корзина</a>
 
     <?php if (isset($_SESSION['user_id'])): ?>

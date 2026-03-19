@@ -2,11 +2,19 @@
 session_start();
 require_once 'config.php';
 
-if (!isset($_SESSION['cart'])) {
-    $_SESSION['cart'] = [];
+// 🔐 Проверка авторизации — если пользователь не вошёл, перенаправляем на login
+if (!isset($_SESSION['user_id'])) {
+    // Сохраняем текущий URL для возврата после входа
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $current_url = $protocol . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+    
+    // 🔗 Редирект на authorization.php в родительской папке
+    $redirect = '../authorization.php?redirect=' . urlencode($current_url);
+    header('Location: ' . $redirect);
+    exit;
 }
 
-// Добавление
+// Добавление товара в корзину
 if (isset($_GET['action']) && $_GET['action'] === 'add' && !empty($_GET['id'])) {
     $id = (int)$_GET['id'];
     $_SESSION['cart'][$id] = ($_SESSION['cart'][$id] ?? 0) + 1;
@@ -14,7 +22,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'add' && !empty($_GET['id'])) 
     exit;
 }
 
-// Удаление
+// Удаление товара из корзины
 if (isset($_GET['action']) && $_GET['action'] === 'remove' && !empty($_GET['id'])) {
     $id = (int)$_GET['id'];
     unset($_SESSION['cart'][$id]);
@@ -23,11 +31,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'remove' && !empty($_GET['id']
 }
 
 // Оформление заказа
-if (isset($_POST['action']) && $_POST['action'] === 'checkout' && isset($_SESSION['user_id'])) {
+if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
     $address = trim($_POST['address'] ?? '');
 
     if (empty($address)) {
-        echo json_encode(['error' => 'Укажите адрес доставки']);
+        echo json_encode(['error' => 'Укажите адрес доставки'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -47,23 +55,23 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout' && isset($_SESSIO
 
             $pdo->prepare("
                 INSERT INTO request (user_id, device_type_id, product_id, message, status, datetime, type)
-                VALUES (?, ?, ?,?, 'new', NOW(), 'r')
-            ")->execute([$_SESSION['user_id'], $product_id,$product_id, $message]);
+                VALUES (?, ?, ?, ?, 'new', NOW(), 'r')
+            ")->execute([$_SESSION['user_id'], $product_id, $product_id, $message]);
         }
 
         $_SESSION['cart'] = [];
-        echo json_encode(['success' => true]);
+        echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
         exit;
     }
 }
 
-// Загрузка данных
+// Загрузка данных корзины
 $products = [];
 $total = 0;
 
 if (!empty($_SESSION['cart'])) {
     $ids = array_keys($_SESSION['cart']);
-    $placeholders = str_repeat('?,', count($ids) - 1) . '?';
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
     $stmt = $pdo->prepare("
         SELECT p.id, p.name, p.base_price as price,
@@ -356,13 +364,11 @@ if (!empty($_SESSION['cart'])) {
                 </div>
                 <?php endif; ?>
             </div>
-
-     
         </div>
     </div>
 
     <script>
-    const prices = <?= json_encode(array_column($products, 'price', 'id')) ?>;
+    const prices = <?= json_encode(array_column($products, 'price', 'id'), JSON_UNESCAPED_UNICODE) ?>;
 
     function changeQty(id, delta) {
         const input = document.querySelector(`.cart-item[data-id="${id}"] .qty-input`);
@@ -421,6 +427,10 @@ if (!empty($_SESSION['cart'])) {
                 } else {
                     alert('Ошибка: ' + (data.error || ''));
                 }
+            })
+            .catch(err => {
+                console.error('Ошибка:', err);
+                alert('Произошла ошибка при оформлении заказа');
             });
     }
     </script>

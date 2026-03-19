@@ -68,7 +68,7 @@ $user = getCurrentUserFromSession();
             </div>
         </a>
 
-        <!-- Кнопка 3. Мониторинг -->
+        <!-- Кнопка 3. Мониторинг 
         <a href="lab/main_lab.php" class="card">
             <div class="card-icon">
                 <img src="img/icon_monitoring.png" alt="Мониторинг" class="custom-icon">
@@ -76,7 +76,7 @@ $user = getCurrentUserFromSession();
             <div class="card-text">
                 <h2 class="card-title">Мониторинг</h2>
             </div>
-        </a>
+        </a>-->
 
     </main>
 

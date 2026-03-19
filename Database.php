@@ -3,7 +3,7 @@ class Database
 {
     private PDO $pdo;
 
-    public function __construct(string $host = 'localhost', string $dbname = 'lab_db', string $user = 'root', string $pass = '')
+    public function __construct(string $host = 'localhost', string $dbname = 'lab_db', string $user = 'siteuser', string $pass = '12345')
     {
         $this->pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

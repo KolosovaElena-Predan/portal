@@ -43,7 +43,7 @@ class ClientUser extends User
 {
     public function getDashboardUrl(): string
     {
-        return 'index.php';
+        return 'mip/mip.php';
     }
 
     // Специфичная логика клиента
