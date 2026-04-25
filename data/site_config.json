@@ -1,0 +1,44 @@
+{
+  "header": {
+    "logo": {"image": "img/logo_mip.png", "text": "", "link": "mip.php"},
+    "company_name": {"image": "", "text": "ООО МИП \"НПЦ ПИТиА\"", "link": "mip.php"},
+    "menu": [
+      {"image": "", "text": "Каталог", "link": "catalog.php"},
+      {"image": "", "text": "Услуги", "link": "services_catalog.php"},
+      {"image": "", "text": "Новости", "link": "news.php"},
+      {"image": "", "text": "Поддержка", "link": "question.php"}
+    ],
+    "lk_btn": {"image": "", "text": "Личный кабинет", "link": "lk_user.php"},
+    "login_btn": {"image": "", "text": "Войти", "link": "../authorization.php"}
+  },
+  "footer": {
+    "company": {"image": "", "text": "ООО МИП \"НПЦ ПИТиА\"", "link": ""},
+    "subtitle": {"image": "", "text": "Коммерциализация научных разработок", "link": ""},
+    "catalog_title": {"image": "", "text": "Каталог", "link": ""},
+    "catalog_links": [
+      {"image": "", "text": "Все устройства", "link": "catalog.php"},
+      {"image": "", "text": "Услуги", "link": "services_catalog.php"}
+    ],
+    "contacts_title": {"image": "", "text": "Контакты", "link": ""},
+    "contacts_info": {"image": "", "text": "г. Чита, ул. Баргузинская, 49\nТел: +7 (3022) XX-XX-XX\nEmail: mip@zabgu.ru", "link": ""},
+    "info_title": {"image": "", "text": "Информация", "link": ""},
+    "info_links": [
+      {"image": "", "text": "Новости", "link": "news.php"},
+      {"image": "", "text": "Поддержка", "link": "question.php"}
+    ],
+    "copyright": {"image": "", "text": "© {year} ООО МИП \"НПЦ ПИТиА\". Все права защищены.", "link": ""},
+    "privacy": {"image": "", "text": "Политика конфиденциальности", "link": "privacy.php"}
+  },
+  "main": {
+    "banner_title": {"image": "", "text": "ООО МИП \"НПЦ ПИТиА\"", "link": ""},
+    "banner_desc": {"image": "", "text": "Малое инновационное предприятие \"Научно-производственный центр...\"", "link": ""},
+    "slider_header": {"image": "", "text": "НАШИ РАЗРАБОТКИ", "link": "catalog.php"},
+    "services_header": {"image": "", "text": "УСЛУГИ", "link": "services_catalog.php"},
+    "new_header": {"image": "", "text": "НОВИНКИ", "link": ""},
+    "popular_header": {"image": "", "text": "ПОПУЛЯРНОЕ", "link": ""},
+    "news_header": {"image": "", "text": "НОВОСТИ", "link": "news.php"},
+    "empty_services": {"image": "", "text": "Услуги временно недоступны", "link": ""},
+    "empty_new": {"image": "", "text": "Новинок пока нет", "link": ""},
+    "empty_popular": {"image": "", "text": "Популярных товаров пока нет", "link": ""}
+  }
+}

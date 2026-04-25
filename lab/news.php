@@ -1,100 +1,112 @@
 <?php
 session_start();
-require_once 'config.php';
+require_once '../config.php';
 
 try {
-    $stmt = $pdo->prepare("SELECT id, title, content, image_url, datetime FROM News ORDER BY datetime DESC");
+    $stmt = $pdo->prepare("
+        SELECT 
+            n.id, 
+            n.title, 
+            n.content, 
+            n.datetime,
+            n.section,
+            (SELECT image_url FROM news_images WHERE news_id = n.id ORDER BY is_main DESC, sort_order LIMIT 1) as main_image
+        FROM news n
+        WHERE n.section = 'lab'
+        ORDER BY n.datetime DESC
+    ");
     $stmt->execute();
-    $news = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $newsList = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    $news = [];
+    $newsList = [];
     error_log("Ошибка загрузки новостей: " . $e->getMessage());
 }
 ?>
-
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="css/main_lab.css" />
-    <link rel="stylesheet" href="css/header_lab.css" />
-    <link rel="stylesheet" href="css/footer.css" />
-    <link rel="stylesheet" href="css/news.css" />
-    <title>Новости</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:title" content="Новости — Лаборатория ПЭТ" />
+    <meta property="og:description" content="Актуальная информация о проектах и достижениях лаборатории перспективных энергетических технологий" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/header_lab.css" />
+    <link rel="stylesheet" href="../css/footer.css" />
+    <link rel="stylesheet" href="css/style_news_lab.css" />
+    <title>Новости — Лаборатория ПЭТ</title>
 </head>
 <body>
-    <?php require_once 'header.php'; ?>
+    <div class="screen">
+        <div class="div">
+            <?php 
+                $context = 'lab';
+                require_once '../header.php'; 
+            ?>
+            
+            <!-- Заголовок страницы -->
+            <section class="news-header-section">
+                <h1 class="news-page-title">Новости лаборатории</h1>
+                <p class="news-page-subtitle">Актуальная информация о проектах, исследованиях и достижениях</p>
+            </section>
 
-    <main class="content-wrapper">
-        <div class="news-container">
-            <h1 class="news-page-title">Новости</h1>
-
-            <?php if (empty($news)): ?>
-                <div class="news-empty">
-                    <p>Новости пока отсутствуют.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($news as $item): ?>
-                    <?php
-                        $content = strip_tags($item['content']);
-                        $limit = 300;
-                        $excerpt = mb_strimwidth($content, 0, $limit, '');
-                        $remainder = mb_strlen($content) > $limit ? mb_substr($content, $limit) : '';
-                        $hasRemainder = !empty($remainder);
-                    ?>
-
-                    <article class="news-item">
-                        <h2 class="news-title"><?= htmlspecialchars($item['title']) ?></h2>
-                        <time class="news-date" datetime="<?= $item['datetime'] ?>">
-                            <?= date('d.m.Y H:i', strtotime($item['datetime'])) ?>
-                        </time>
-
-                        <?php if (!empty($item['image_url'])): ?>
-                            <img src="<?= htmlspecialchars($item['image_url']) ?>"
-                                 alt="<?= htmlspecialchars($item['title']) ?>"
-                                 class="news-image">
-                        <?php endif; ?>
-
-                        <div class="news-excerpt">
-                            <?= htmlspecialchars($excerpt) ?>
-                            <?php if ($hasRemainder): ?>
-                                <span class="news-dots" id="dots-<?= $item['id'] ?>">...</span>
+            <!-- Контейнер новостей -->
+            <div class="news-container">
+                <?php if (empty($newsList)): ?>
+                    <div class="no-news">
+                        <i class="fas fa-newspaper"></i>
+                        <p>Новостей пока нет</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($newsList as $item): ?>
+                        <article class="news-item">
+                            <?php if (!empty($item['main_image'])): ?>
+                                <a href="news_view.php?id=<?= $item['id'] ?>" class="news-image-link">
+                                    <img src="<?= htmlspecialchars($item['main_image']) ?>" 
+                                         alt="<?= htmlspecialchars($item['title']) ?>" 
+                                         class="news-item-image"
+                                         loading="lazy">
+                                </a>
+                            <?php else: ?>
+                                <a href="news_view.php?id=<?= $item['id'] ?>" class="news-image-link">
+                                    <div class="news-item-image-placeholder">
+                                        <i class="fas fa-flask"></i>
+                                    </div>
+                                </a>
                             <?php endif; ?>
-                        </div>
-
-                        <?php if ($hasRemainder): ?>
-                            <div class="news-full" id="full-<?= $item['id'] ?>">
-                                <?= nl2br(htmlspecialchars($remainder)) ?>
+                            
+                            <div class="news-item-content">
+                                <div class="news-item-header">
+                                    <div class="news-date">
+                                        <i class="far fa-calendar-alt"></i>
+                                        <?= date('d.m.Y', strtotime($item['datetime'])) ?>
+                                    </div>
+                                    <h2 class="news-title">
+                                        <a href="news_view.php?id=<?= $item['id'] ?>">
+                                            <?= htmlspecialchars($item['title']) ?>
+                                        </a>
+                                    </h2>
+                                </div>
+                                
+                                <p class="news-excerpt">
+                                    <?= htmlspecialchars(mb_strimwidth(strip_tags($item['content']), 0, 200, '...')) ?>
+                                </p>
+                                
+                                <a href="news_view.php?id=<?= $item['id'] ?>" class="btn-read-more">
+                                    Читать далее <i class="fas fa-arrow-right"></i>
+                                </a>
                             </div>
-                            <button class="btn btn-read-more" onclick="toggleContent(<?= $item['id'] ?>)">
-                                <span id="btn-text-<?= $item['id'] ?>">Читать далее</span>
-                            </button>
-                        <?php endif; ?>
-                    </article>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-    </main>
+                        </article>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
 
-    <?php require_once 'footer.php'; ?>
-
-    <script>
-        function toggleContent(id) {
-            const fullText = document.getElementById('full-' + id);
-            const btnText = document.getElementById('btn-text-' + id);
-            const dots = document.getElementById('dots-' + id);
-
-            if (fullText.style.display === 'block') {
-                fullText.style.display = 'none';
-                btnText.textContent = 'Читать далее';
-                if (dots) dots.style.display = 'inline';
-            } else {
-                fullText.style.display = 'block';
-                btnText.textContent = 'Свернуть';
-                if (dots) dots.style.display = 'none';
+            <?php
+            if (!isset($context)) {
+                $context = 'lab';
             }
-        }
-    </script>
+            require_once '../footer.php';
+            ?>
+        </div>
+    </div>
 </body>
 </html>

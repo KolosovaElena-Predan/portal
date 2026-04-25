@@ -8,13 +8,30 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     die('Метод не поддерживается');
 }
 
-// 1. Получаем и очищаем данные
+// Получаем и очищаем данные из формы
 $full_name = trim($_POST['full_name'] ?? '');
 $email = trim($_POST['email'] ?? '');
 $question = trim($_POST['question'] ?? '');
 $consent = isset($_POST['consent']);
 
-// 2. Валидация
+// Если пользователь авторизован — используем данные из БД как приоритетные
+if (isLoggedIn() && !empty($_SESSION['user_id'])) {
+    try {
+        $stmt = $pdo->prepare("SELECT name, email FROM `user` WHERE id = ? LIMIT 1");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            // Приоритет: данные из БД (защита от подмены в форме)
+            $full_name = $full_name ?: $user['name'];
+            $email = $email ?: $user['email'];
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching user data in submit: " . $e->getMessage());
+    }
+}
+
+// Валидация
 $errors = [];
 
 if (empty($full_name)) {
@@ -40,6 +57,12 @@ if (!$consent) {
 // Если есть ошибки — возвращаем назад
 if (!empty($errors)) {
     $_SESSION['error'] = implode(', ', $errors);
+    // Сохраняем введённые данные для восстановления формы (кроме паролей)
+    $_SESSION['old_input'] = [
+        'full_name' => $full_name,
+        'email' => $email,
+        'question' => $question
+    ];
     header('Location: question.php');
     exit;
 }
@@ -49,18 +72,15 @@ try {
 
     $user_id = null;
 
-    // 3. ЛОГИКА РАБОТЫ С ПОЛЬЗОВАТЕЛЕМ
+    // Работа с пользователем
     if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
-        // АВТОРИЗОВАННЫЙ ПОЛЬЗОВАТЕЛЬ
         $user_id = (int)$_SESSION['user_id'];
         
-        // Обновляем имя и email в профиле
-        $stmt = $pdo->prepare("UPDATE `user` SET name = ?, email = ? WHERE id = ?");
-        $stmt->execute([$full_name, $email, $user_id]);
+        // обновляем имя и email в профиле, если они изменились
+        // $stmt = $pdo->prepare("UPDATE `user` SET name = ?, email = ? WHERE id = ?");
+        // $stmt->execute([$full_name, $email, $user_id]);
         
     } else {
-        // ГОСТЬ (Неавторизованный)
-        
         // Проверяем, нет ли уже пользователя с таким email
         $stmt = $pdo->prepare("SELECT id FROM `user` WHERE email = ? LIMIT 1");
         $stmt->execute([$email]);
@@ -70,12 +90,11 @@ try {
             // Пользователь уже есть
             $user_id = (int)$existingUser['id'];
             
-            // Обновляем имя, если оно изменилось
-            $stmt = $pdo->prepare("UPDATE `user` SET name = ? WHERE id = ?");
-            $stmt->execute([$full_name, $user_id]);
+            // обновляем имя, если оно изменилось
+            // $stmt = $pdo->prepare("UPDATE `user` SET name = ? WHERE id = ?");
+            // $stmt->execute([$full_name, $user_id]);
         } else {
             // Создаём НОВОГО пользователя-гостя
-            // password = NULL, role = 'guest'
             $stmt = $pdo->prepare("
                 INSERT INTO `user` (email, name, password, role) 
                 VALUES (?, ?, NULL, 'guest')
@@ -84,11 +103,9 @@ try {
             
             $user_id = (int)$pdo->lastInsertId();
         }
-        
-        
     }
 
-    // 4. СОХРАНЕНИЕ ВОПРОСА В ТАБЛИЦУ request
+    // Сохранение запроса в таблицу
     $stmt = $pdo->prepare("
         INSERT INTO `request` (
             user_id, 
@@ -110,9 +127,11 @@ try {
 
     $pdo->commit();
 
-    // Успех
-    $_SESSION['success'] = '✅ Ваш вопрос успешно отправлен! Мы ответим вам в ближайшее время.';
-    header('Location: question.php');
+    // Очистка старых данных из сессии
+    unset($_SESSION['old_input']);
+    
+    $_SESSION['success'] = 'Ваш вопрос успешно отправлен! Мы ответим вам в ближайшее время.';
+    header('Location: mip.php');
     exit;
 
 } catch (Exception $e) {

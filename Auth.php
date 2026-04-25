@@ -6,7 +6,7 @@ class Auth
 
     public function __construct(UserRepository $userRepository)
     {
-        $this->userRepository = $userRepository; // ← агрегация
+        $this->userRepository = $userRepository;
     }
 
     public function attempt(string $login, string $password): ?User
@@ -26,7 +26,9 @@ class Auth
 
     public function login(User $user): void
     {
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+			session_start();
+		}
         $_SESSION['user_id'] = $user->id;
         $_SESSION['role'] = $user->role;
         $_SESSION['name'] = $user->name;

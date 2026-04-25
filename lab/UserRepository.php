@@ -6,7 +6,7 @@ class UserRepository
 
     public function __construct(Database $db)
     {
-        $this->db = $db; // ← агрегация
+        $this->db = $db;
     }
 
     public function findByLogin(string $login): ?User

@@ -2,37 +2,8 @@
 session_start();
 require_once 'config.php';
 
-$searchQuery = isset($_GET['search']) ? trim($_GET['search']) : '';
-
-try {
-    $sql = "
-        SELECT id, name, short_description, full_description, price, img_url, duration, is_active
-        FROM services
-        WHERE is_active = 1
-    ";
-    
-    $params = [];
-    
-    if (!empty($searchQuery)) {
-        $escaped = preg_quote($searchQuery, '/');
-        $sql .= " AND (
-            name REGEXP :search 
-            OR short_description REGEXP :search 
-            OR full_description REGEXP :search
-        )";
-        $params[':search'] = $escaped;
-    }
-    
-    $sql .= " ORDER BY sort_order ASC, created_at DESC";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-} catch (Exception $e) {
-    $services = [];
-    error_log("Ошибка загрузки услуг: " . $e->getMessage());
-}
+// Подключаем получение данных
+require_once 'includes/get_services.php';
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -45,12 +16,16 @@ try {
     <link rel="stylesheet" href="css/style_main.css" />
     <link rel="stylesheet" href="css/style_catalog2.css" />
     <link rel="stylesheet" href="css/header_mip.css" />
+    <link rel="stylesheet" href="css/modals.css" />
     <title>Каталог услуг</title>
 </head>
 <body>
     <div class="screen">
         <div class="div">
-            <?php require_once 'header_mip.php'; ?>
+            <?php 
+                $context = 'mip';
+                require_once '../header.php'; 
+            ?>
 
             <div class="catalog-content">
                 <h1 class="catalog-title">Каталог услуг</h1>
@@ -71,104 +46,105 @@ try {
                         </p>
                     <?php else: ?>
                         <?php foreach ($services as $service): ?>
-                        <a href="service_detail.php?id=<?= $service['id'] ?>" class="service-card-link">
-                            <div class="service-card">
-                                <div class="service-image-wrap">
-                                    <img class="service-image"
-                                         src="<?= htmlspecialchars($service['img_url'] ?: 'img/placeholder.jpg') ?>"
-                                         alt="<?= htmlspecialchars($service['name']) ?>"
-                                         onerror="this.src='https://via.placeholder.com/240x180?text=Услуга'">
-                                </div>
-                                <div class="service-content">
-                                    <h3 class="service-name"><?= htmlspecialchars($service['name']) ?></h3>
-                                    <p class="service-desc"><?= htmlspecialchars(mb_strimwidth(strip_tags($service['short_description']), 0, 120, '...')) ?></p>
-                                    <?php if (!empty($service['duration'])): ?>
-                                        <div class="service-duration"><?= htmlspecialchars($service['duration']) ?></div>
-                                    <?php endif; ?>
-                                    <div class="service-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
-                                    
-                                    <!-- Кнопка "Заказать" — добавляет в личный кабинет -->
-                                    <button class="btn-order" 
-                                            data-service-id="<?= $service['id'] ?>"
-                                            data-service-name="<?= htmlspecialchars($service['name']) ?>"
-                                            data-service-price="<?= $service['price'] ?>">
-                                        Заказать
-                                    </button>
-                                </div>
+                        <div class="service-card">
+                            <div class="service-image-wrap">
+                                <img class="service-image"
+                                     src="<?= htmlspecialchars($service['img_url'] ?: 'img/placeholder.jpg') ?>"
+                                     alt="<?= htmlspecialchars($service['name']) ?>"
+                                     onerror="this.src='img/placeholder.jpg'">
                             </div>
-                        </a>
+                            <div class="service-content">
+                                <h3 class="service-name"><?= htmlspecialchars($service['name']) ?></h3>
+                                <p class="service-desc"><?= htmlspecialchars(mb_strimwidth(strip_tags($service['short_description']), 0, 120, '...')) ?></p>
+                                <?php if (!empty($service['duration'])): ?>
+                                    <div class="service-duration"><?= htmlspecialchars($service['duration']) ?></div>
+                                <?php endif; ?>
+                                <div class="service-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
+                                
+                                <button class="service-order-btn" 
+                                        data-service-id="<?= $service['id'] ?>"
+                                        data-service-name="<?= htmlspecialchars($service['name']) ?>"
+                                        data-service-price="<?= $service['price'] ?>">
+                                    Заказать
+                                </button>
+                            </div>
+                        </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
             </div>
 
-            <?php require_once 'footer_mip.php'; ?>
+            <!-- Модальные окна -->
+            <div id="authModal" class="auth-modal">
+                <div class="auth-modal-content">
+                    <div class="auth-modal-header">
+                        <h3>Требуется авторизация</h3>
+                        <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
+                    </div>
+                    <div class="auth-modal-body">
+                        <p>Для заказа услуги необходимо войти в личный кабинет.</p>
+                    </div>
+                    <div class="auth-modal-footer">
+                        <a href="../authorization.php" class="btn-auth btn-login-page">Войти</a>
+                        <a href="../authorization.php#register" class="btn-auth btn-register-page">Зарегистрироваться</a>
+                        <button class="btn-auth btn-cancel" onclick="closeAuthModal()">Отмена</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="serviceOrderModal" class="service-modal">
+                <div class="service-modal-content">
+                    <div class="service-modal-header">
+                        <h3>Подтверждение заказа</h3>
+                        <button class="service-modal-close" onclick="closeServiceModal()">&times;</button>
+                    </div>
+                    <div class="service-modal-body">
+                        <div class="service-info-block">
+                            <span class="service-info-label">Услуга:</span>
+                            <span class="service-info-value" id="modalServiceName"></span>
+                        </div>
+                        <div class="service-info-block">
+                            <span class="service-info-label">Стоимость:</span>
+                            <span class="service-info-value" id="modalServicePrice"></span>
+                        </div>
+                        <div class="service-description">
+                            <p>Услуга будет добавлена в ваш личный кабинет.</p>
+                            <p>После подтверждения заказа с вами свяжется специалист.</p>
+                        </div>
+                    </div>
+                    <div class="service-modal-footer">
+                        <button class="btn-service btn-service-confirm" id="confirmOrderBtn">Подтвердить заказ</button>
+                        <button class="btn-service btn-service-cancel" onclick="closeServiceModal()">Отмена</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="roleErrorModal" class="role-modal">
+                <div class="role-modal-content">
+                    <div class="role-modal-header">
+                        <h3>Доступ запрещён</h3>
+                        <button class="role-modal-close" onclick="closeRoleErrorModal()">&times;</button>
+                    </div>
+                    <div class="role-modal-body">
+                        <p>Заказ услуг доступен только клиентам.</p>
+                        <p>Ваша роль: <strong id="userRole"></strong></p>
+                    </div>
+                    <div class="role-modal-footer">
+                        <button class="btn-role btn-role-logout" onclick="logoutAndRedirect()">Выйти</button>
+                        <button class="btn-role btn-role-cancel" onclick="closeRoleErrorModal()">Закрыть</button>
+                    </div>
+                </div>
+            </div>
+
+            <?php
+            if (!isset($context)) {
+                $context = 'lab';
+            }
+            require_once '../footer.php';
+            ?>
         </div>
     </div>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Валидация поиска
-        const searchForm = document.getElementById('searchForm');
-        const searchInput = document.getElementById('searchInput');
-        if (searchForm) {
-            searchForm.addEventListener('submit', function(e) {
-                const query = searchInput.value.trim();
-                if (query.length > 0 && query.length < 2) {
-                    e.preventDefault();
-                    alert('Введите минимум 2 символа для поиска');
-                    searchInput.focus();
-                }
-            });
-        }
-        
-        // Найдите обработчик кнопки и замените на:
-document.querySelectorAll('.btn-order').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const serviceId = this.dataset.serviceId;
-        const serviceName = this.closest('.service-card').querySelector('.service-name').textContent;
-        
-        // ✅ Подтверждение перед заказом
-        if (!confirm(`Заказать услугу "${serviceName}"?\n\nОна будет добавлена в ваш личный кабинет.`)) {
-            return;
-        }
-        
-        // Визуальная обратная связь
-        const originalText = this.textContent;
-        this.textContent = 'Добавление...';
-        this.disabled = true;
-        
-        fetch('add_service.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `service_id=${serviceId}&service_name=${encodeURIComponent(serviceName)}`
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-         
-                setTimeout(() => {
-                    this.textContent = originalText;
-                    this.style.background = '';
-                    this.disabled = false;
-                }, 2000);
-                alert('Услуга добавлена в личный кабинет!');
-            } else {
-                throw new Error(data.error || 'Ошибка');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            this.textContent = originalText;
-            this.disabled = false;
-            alert('Ошибка: ' + err.message);
-        });
-    });
-});
-    });
-    </script>
+    <script src="js/services.js"></script>
 </body>
 </html>

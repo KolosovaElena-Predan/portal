@@ -1,6 +1,11 @@
 <?php
 session_start();
+echo "<!-- DEBUG: user_id = " . ($_SESSION['user_id'] ?? 'NOT SET') . ", role = " . ($_SESSION['role'] ?? 'NOT SET') . " -->";
+$context = 'mip';
 require_once 'config.php';
+
+// Подключаем шапку
+require_once '../header.php';
 
 function getImageUrl($url) {
     if (empty($url)) return 'img/placeholder.png';
@@ -8,110 +13,17 @@ function getImageUrl($url) {
     return file_exists($url) ? $url : 'img/placeholder.png';
 }
 
+// Инициализация переменных по умолчанию
+$sliderProducts = [];
+$services = [];
+$newItems = [];
+$popularItems = [];
+$news = [];
 
-try {
-    $stmt = $pdo->prepare("
-        SELECT 
-            p.id, 
-            p.name, 
-            p.short_description as description, 
-            p.base_price as price,
-            p.stock,
-            pi.image_url as img_url
-        FROM products p
-        LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_main = 1
-        WHERE p.is_slider = 1 
-            AND p.status = 'active'
-        ORDER BY p.sort_order ASC, p.created_at DESC 
-        LIMIT 5
-    ");
-    $stmt->execute();
-    $sliderProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $sliderProducts = [];
-    error_log("Slider error: " . $e->getMessage());
-}
-
-
-try {
-    $stmt = $pdo->prepare("
-        SELECT id, name, short_description as description, price, img_url 
-        FROM services 
-        WHERE is_active = 1 
-        ORDER BY sort_order ASC, id DESC 
-        LIMIT 3
-    ");
-    $stmt->execute();
-    $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $services = [];
-    error_log("Services error: " . $e->getMessage());
-}
-
-
-try {
-    $stmt = $pdo->prepare("
-        SELECT 
-            p.id, 
-            p.name, 
-            pi.image_url as img_url,
-            p.base_price as price
-        FROM products p
-        LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_main = 1
-        WHERE p.is_new = 1 
-            AND p.status = 'active'
-        ORDER BY p.created_at DESC 
-        LIMIT 2
-    ");
-    $stmt->execute();
-    $newItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $newItems = [];
-}
-
-
-try {
-    $stmt = $pdo->prepare("
-        SELECT 
-            p.id, 
-            p.name, 
-            pi.image_url as img_url,
-            p.base_price as price,
-            p.orders_count
-        FROM products p
-        LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_main = 1
-        WHERE p.status = 'active'
-        ORDER BY p.orders_count DESC, p.views_count DESC 
-        LIMIT 2
-    ");
-    $stmt->execute();
-    $popularItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $popularItems = [];
-}
-
-
-try {
-    $stmt = $pdo->prepare("
-        SELECT 
-            n.id, 
-            n.title, 
-            n.content, 
-            n.datetime,
-            (SELECT image_url FROM news_images WHERE news_id = n.id ORDER BY is_main DESC, sort_order LIMIT 1) as main_image
-        FROM news n
-        ORDER BY n.datetime DESC 
-        LIMIT 3
-    ");
-    $stmt->execute();
-    $news = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $news = [];
-    error_log("News error: " . $e->getMessage());
-}
-
-
-$cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
+// Подключаем получение данных
+require_once 'includes/get_slider_data.php';
+require_once 'includes/get_services_data.php';
+require_once 'includes/get_news_data.php';
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -123,6 +35,7 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
     <link rel="stylesheet" href="css/style_main.css" />
     <link rel="stylesheet" href="css/style_mip.css" />
     <link rel="stylesheet" href="css/header_mip.css" />
+    <link rel="stylesheet" href="css/modals.css" />
     <title>ООО МИП "НПЦ ПИТиА" — Главная</title>
 </head>
 <body>
@@ -130,60 +43,66 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
         <div class="div">
             
             <!-- Шапка -->
-            <?php require_once 'header_mip.php'; ?>
-            <div class="overlap-4">
-			<div class="text-wrapper-7">ООО МИП "НПЦ ПИТиА"</div>
-            <p class="text-wrapper-6">
-                Малое инновационное предприятие "Научно-производственный центр передовых интеллектуальных технологий и автоматизации"
-            </p>
+            <?php 
+                $context = 'mip';
+                require_once '../header.php'; 
+            ?>
             
+            <!-- Hero блок -->
+            <div class="overlap-4">
+                <div class="text-wrapper-7">ООО МИП "НПЦ ПИТиА"</div>
+                <p class="text-wrapper-6">
+                    Малое инновационное предприятие "Научно-производственный центр передовых интеллектуальных технологий и автоматизации"
+                </p>
             </div>
 
-            <!--  НАШИ РАЗРАБОТКИ (Слайдер) -->
+            <!-- Слайдер -->
             <section class="view-2">
                 <div class="overlap-2">
                     <a href="catalog.php">
-                    <h2 class="text-wrapper-2">НАШИ РАЗРАБОТКИ</h2>
+                        <h2 class="text-wrapper-2">НАШИ РАЗРАБОТКИ</h2>
                     </a>
                     <div class="slider-wrapper">
                         <button class="btn2 btn2-2" id="prevBtn" type="button">&#10094;</button>
                         <button class="btn2 btn2-1" id="nextBtn" type="button">&#10095;</button>
-    
                         <div class="slider-container" id="productsSlider">
-                            <?php foreach ($sliderProducts as $index => $prod): ?>
-                                <!-- Класс active ТОЛЬКО у первого слайда -->
-                                <div class="rectangle-2 slider-slide <?= $index === 0 ? 'active' : '' ?>">
-                                    <div class="product-flex-layout">
-                                        <div class="product-image-side">
-                                            <img src="<?= htmlspecialchars(getImageUrl($prod['img_url'])) ?>"
-                                                 alt="<?= htmlspecialchars($prod['name']) ?>"
-                                                 loading="lazy">
-                                        </div>
-                                        <div class="product-content-side">
-                                            <h3 class="text-wrapper-5"><?= htmlspecialchars($prod['name']) ?></h3>
-                                            <p class="text-wrapper-4">
-                                                <?= htmlspecialchars(mb_strimwidth(strip_tags($prod['description']), 0, 250, '...')) ?>
-                                            </p>
-                                            <div class="product-price">
-                                                <?= number_format($prod['price'], 2, ',', ' ') ?> ₽
+                            <?php if (!empty($sliderProducts)): ?>
+                                <?php foreach ($sliderProducts as $index => $prod): ?>
+                                    <div class="rectangle-2 slider-slide <?= $index === 0 ? 'active' : '' ?>">
+                                        <div class="product-flex-layout">
+                                            <div class="product-image-side">
+                                                <img src="<?= htmlspecialchars(getImageUrl($prod['img_url'])) ?>"
+                                                     alt="<?= htmlspecialchars($prod['name']) ?>"
+                                                     loading="lazy">
                                             </div>
-                                            <a href="product.php?id=<?= (int)$prod['id'] ?>" class="text-wrapper-3">Подробнее</a>
+                                            <div class="product-content-side">
+                                                <h3 class="text-wrapper-5"><?= htmlspecialchars($prod['name']) ?></h3>
+                                                <p class="text-wrapper-4">
+                                                    <?= htmlspecialchars(mb_strimwidth(strip_tags($prod['description']), 0, 250, '...')) ?>
+                                                </p>
+                                                <div class="product-price">
+                                                    от <?= number_format($prod['price'], 0, ',', ' ') ?> ₽
+                                                </div>
+                                                <a href="product.php?id=<?= (int)$prod['id'] ?>" class="text-wrapper-3">Подробнее</a>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p style="text-align:center;padding:50px;">Нет товаров в слайдере</p>
+                            <?php endif; ?>
                         </div>
                         <div class="slider-dots" id="sliderDots"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- УСЛУГИ -->
+            <!-- Услуги -->
             <section class="services-section">
                 <div class="view">
                     <div class="overlap-group">
                         <a href="services_catalog.php">
-                        <h2 class="text-wrapper-1">УСЛУГИ</h2>
+                            <h2 class="text-wrapper-2">УСЛУГИ</h2>
                         </a>
                         <div class="services-grid">
                             <?php if (!empty($services)): ?>
@@ -196,11 +115,11 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
                                         <div class="service-info">
                                             <h3 class="service-name"><?= htmlspecialchars($svc['name']) ?></h3>
                                             <?php if (!empty($svc['description'])): ?>
-                                                <p style="font-size:14px;color:#555;margin-bottom:10px;">
+                                                <p style="font-size:18px;color:#555;margin-bottom:10px;">
                                                     <?= htmlspecialchars(mb_strimwidth($svc['description'], 0, 100, '...')) ?>
                                                 </p>
                                             <?php endif; ?>
-                                            <div class="service-price"><?= number_format($svc['price'], 2, ',', ' ') ?> ₽</div>
+                                            <div class="service-price">от <?= number_format($svc['price'], 2, ',', ' ') ?> ₽</div>
                                             <button class="service-link" 
                                                     data-service-id="<?= (int)$svc['id'] ?>"
                                                     data-service-name="<?= htmlspecialchars($svc['name']) ?>"
@@ -220,11 +139,7 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
 
             <!-- Новинки/Популярное + Новости -->
             <section class="split-section">
-                
-                <!-- ЛЕВАЯ КОЛОНКА -->
                 <div class="split-left">
-                    
-                    <!-- Новинки -->
                     <div class="split-block">
                         <h3 class="split-title">НОВИНКИ</h3>
                         <div class="product-mini-list">
@@ -243,7 +158,6 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
                         </div>
                     </div>
                     
-                    <!-- Популярное -->
                     <div class="split-block">
                         <h3 class="split-title">ПОПУЛЯРНОЕ</h3>
                         <div class="product-mini-list">
@@ -261,10 +175,8 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
                             <?php endif; ?>
                         </div>
                     </div>
-                    
                 </div>
                 
-                <!-- ПРАВАЯ КОЛОНКА: Новости -->
                 <div class="split-right">
                     <a href="news.php">
                         <h3 class="split-title">НОВОСТИ</h3>
@@ -280,9 +192,6 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
                                                  loading="lazy">
                                         </div>
                                     <?php endif; ?>
-                                    <time class="news-mini-date" datetime="<?= $item['datetime'] ?>">
-                                        <?= date('d.m.Y', strtotime($item['datetime'])) ?>
-                                    </time>
                                     <h4 class="news-mini-title"><?= htmlspecialchars($item['title']) ?></h4>
                                     <p class="news-mini-excerpt">
                                         <?= htmlspecialchars(mb_strimwidth(strip_tags($item['content']), 0, 120, '...')) ?>
@@ -293,123 +202,124 @@ $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
                         <?php endif; ?>
                     </div>
                 </div>
-                
             </section>
 
             <!-- Подвал -->
-            <?php require_once 'footer_mip.php'; ?>
+            <?php require_once '../footer.php'; ?>
             
         </div>
     </div>
 
-    <!-- JavaScript для слайдера -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const slides = document.querySelectorAll('.slider-slide');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        const dotsContainer = document.getElementById('sliderDots');
-        
-        if (slides.length <= 1) {
-            if(prevBtn) prevBtn.style.display = 'none';
-            if(nextBtn) nextBtn.style.display = 'none';
-            return;
-        }
-        
-        let currentSlide = 0;
-        let slideInterval;
-        
-        // Точки навигации
-        slides.forEach((_, index) => {
-            const dot = document.createElement('span');
-            dot.className = 'slider-dot' + (index === 0 ? ' active' : '');
-            dot.setAttribute('role', 'button');
-            dot.setAttribute('aria-label', 'Перейти к слайду ' + (index + 1));
-            dot.addEventListener('click', () => { goToSlide(index); resetInterval(); });
-            dotsContainer.appendChild(dot);
-        });
-        
-        const dots = document.querySelectorAll('.slider-dot');
-        
-        function goToSlide(index) {
-            slides[currentSlide]?.classList.remove('active');
-            dots[currentSlide]?.classList.remove('active');
-            
-            currentSlide = (index + slides.length) % slides.length;
-            
-            slides[currentSlide]?.classList.add('active');
-            dots[currentSlide]?.classList.add('active');
-        }
-        
-        function nextSlide() { goToSlide(currentSlide + 1); }
-        function prevSlide() { goToSlide(currentSlide - 1); }
-        
-        if(nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); resetInterval(); });
-        if(prevBtn) prevBtn.addEventListener('click', () => { prevSlide(); resetInterval(); });
-        
-        function startInterval() { slideInterval = setInterval(nextSlide, 5000); }
-        function resetInterval() { clearInterval(slideInterval); startInterval(); }
-        
-        const sliderWrapper = document.querySelector('.slider-wrapper');
-        if(sliderWrapper) {
-            sliderWrapper.addEventListener('mouseenter', () => clearInterval(slideInterval));
-            sliderWrapper.addEventListener('mouseleave', startInterval);
-        }
-        
-        startInterval();
-    });
-    document.querySelectorAll('.service-link').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const serviceId = this.dataset.serviceId;
-        const serviceName = this.closest('.service-card').querySelector('.service-name').textContent;
-        
-        // ✅ Подтверждение перед заказом
-        if (!confirm(`Заказать услугу "${serviceName}"?\n\nОна будет добавлена в ваш личный кабинет.`)) {
-            return;
-        }
-        
-        // Визуальная обратная связь
-        const originalText = this.textContent;
-        this.textContent = 'Добавление...';
-        this.disabled = true;
-        
-        fetch('add_service.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `service_id=${serviceId}&service_name=${encodeURIComponent(serviceName)}`
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                setTimeout(() => {
-                    this.textContent = originalText;
-                    this.style.background = '';
-                    this.disabled = false;
-                }, 2000);
-                alert('Услуга добавлена в личный кабинет!');
-            } else if (data.error === 'Необходимо авторизоваться') {
-                // 🔁 Перенаправление на авторизацию
-                if (confirm('Для заказа услуги необходимо войти в аккаунт.\n\nПерейти на страницу входа?')) {
-                    window.location.href = 'authorization.php?redirect=' + encodeURIComponent(window.location.href);
-                } else {
-                    this.textContent = originalText;
-                    this.disabled = false;
-                }
-            } else {
-                throw new Error(data.error || 'Ошибка');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            this.textContent = originalText;
-            this.disabled = false;
-            alert('Ошибка: ' + err.message);
-        });
-    });
-});
-    </script>
+    <!-- Модальные окна -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <div class="auth-modal-header">
+                <h3>Требуется авторизация</h3>
+                <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
+            </div>
+            <div class="auth-modal-body">
+                <p>Для заказа услуги необходимо войти в личный кабинет.</p>
+                <p>У вас уже есть аккаунт или нужно зарегистрироваться?</p>
+            </div>
+            <div class="auth-modal-footer">
+                <a href="../authorization.php" class="btn-auth btn-login-page">Войти</a>
+                <a href="../authorization.php#register" class="btn-auth btn-register-page">Зарегистрироваться</a>
+                <button class="btn-auth btn-cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="serviceOrderModal" class="service-modal">
+        <div class="service-modal-content">
+            <div class="service-modal-header">
+                <h3>Подтверждение заказа</h3>
+                <button class="service-modal-close" onclick="closeServiceModal()">&times;</button>
+            </div>
+            <div class="service-modal-body">
+                <div class="service-info-block">
+                    <span class="service-info-label">Услуга:</span>
+                    <span class="service-info-value" id="modalServiceName"></span>
+                </div>
+                <div class="service-info-block">
+                    <span class="service-info-label">Стоимость:</span>
+                    <span class="service-info-value" id="modalServicePrice"></span>
+                </div>
+                <div class="service-description">
+                    <p>Услуга будет добавлена в ваш личный кабинет.</p>
+                    <p>После подтверждения заказа с вами свяжется специалист.</p>
+                </div>
+            </div>
+            <div class="service-modal-footer">
+                <button class="btn-service btn-service-confirm" id="confirmOrderBtn">Подтвердить заказ</button>
+                <button class="btn-service btn-service-cancel" onclick="closeServiceModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+	
+	<!-- Модальное окно для авторизации -->
+<div id="authModal" class="auth-modal">
+    <div class="auth-modal-content">
+        <div class="auth-modal-header">
+            <h3>Требуется авторизация</h3>
+            <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
+        </div>
+        <div class="auth-modal-body">
+            <p>Для заказа услуги необходимо войти в личный кабинет.</p>
+        </div>
+        <div class="auth-modal-footer">
+            <a href="../authorization.php" class="btn-auth btn-login-page">Войти</a>
+            <a href="../authorization.php#register" class="btn-auth btn-register-page">Зарегистрироваться</a>
+            <button class="btn-auth btn-cancel" onclick="closeAuthModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения заказа услуги -->
+<div id="serviceOrderModal" class="service-modal">
+    <div class="service-modal-content">
+        <div class="service-modal-header">
+            <h3>Подтверждение заказа</h3>
+            <button class="service-modal-close" onclick="closeServiceModal()">&times;</button>
+        </div>
+        <div class="service-modal-body">
+            <div class="service-info-block">
+                <span class="service-info-label">Услуга:</span>
+                <span class="service-info-value" id="modalServiceName"></span>
+            </div>
+            <div class="service-info-block">
+                <span class="service-info-label">Стоимость:</span>
+                <span class="service-info-value" id="modalServicePrice"></span>
+            </div>
+            <div class="service-description">
+                <p>Услуга будет добавлена в ваш личный кабинет.</p>
+                <p>После подтверждения заказа с вами свяжется специалист.</p>
+            </div>
+        </div>
+        <div class="service-modal-footer">
+            <button class="btn-service btn-service-confirm" id="confirmOrderBtn">Подтвердить заказ</button>
+            <button class="btn-service btn-service-cancel" onclick="closeServiceModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для ошибки роли -->
+<div id="roleErrorModal" class="role-modal">
+    <div class="role-modal-content">
+        <div class="role-modal-header">
+            <h3>Доступ запрещён</h3>
+            <button class="role-modal-close" onclick="closeRoleErrorModal()">&times;</button>
+        </div>
+        <div class="role-modal-body">
+            <p>Заказ услуг доступен только клиентам.</p>
+            <p>Ваша роль: <strong id="userRole"></strong></p>
+        </div>
+        <div class="role-modal-footer">
+            <button class="btn-role btn-role-logout" onclick="logoutAndRedirect()">Выйти</button>
+            <button class="btn-role btn-role-cancel" onclick="closeRoleErrorModal()">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+    <script src="js/mip.js"></script>
 </body>
 </html>

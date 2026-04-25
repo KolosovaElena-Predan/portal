@@ -3,20 +3,32 @@
   "WorkspaceRootPath": "C:\\xampp\\htdocs\\portal\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\img\\icon_lab.png||{58961B49-13E0-48C0-9258-13CBC4D40279}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:img\\icon_lab.png||{58961B49-13E0-48C0-9258-13CBC4D40279}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\config.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\config.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\img\\icon_lab2.png||{58961B49-13E0-48C0-9258-13CBC4D40279}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:img\\icon_lab2.png||{58961B49-13E0-48C0-9258-13CBC4D40279}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\catalog2.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\catalog2.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\img\\back1.jpg||{58961B49-13E0-48C0-9258-13CBC4D40279}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:img\\back1.jpg||{58961B49-13E0-48C0-9258-13CBC4D40279}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\catalog.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\catalog.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\index.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:index.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\submit_question.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\submit_question.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\UserRepository.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\UserRepository.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\Auth.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\Auth.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\xampp\\htdocs\\portal\\mip\\authorization.php||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mip\\authorization.php||{3B902123-F8A7-4915-9F01-361F908088D0}"
     }
   ],
   "DocumentGroupContainers": [
@@ -47,50 +59,92 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "icon_lab.png",
-              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\img\\icon_lab.png",
-              "RelativeDocumentMoniker": "img\\icon_lab.png",
-              "ToolTip": "C:\\xampp\\htdocs\\portal\\img\\icon_lab.png",
-              "RelativeToolTip": "img\\icon_lab.png",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001533|",
-              "WhenOpened": "2026-02-27T13:42:18.419Z",
+              "Title": "config.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\config.php",
+              "RelativeDocumentMoniker": "mip\\config.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\config.php",
+              "RelativeToolTip": "mip\\config.php",
+              "ViewState": "AgIAAA4AAAAAAAAAAAAgwDQAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-28T04:36:54.482Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "icon_lab2.png",
-              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\img\\icon_lab2.png",
-              "RelativeDocumentMoniker": "img\\icon_lab2.png",
-              "ToolTip": "C:\\xampp\\htdocs\\portal\\img\\icon_lab2.png",
-              "RelativeToolTip": "img\\icon_lab2.png",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001533|",
-              "WhenOpened": "2026-02-27T13:28:02.629Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "back1.jpg",
-              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\img\\back1.jpg",
-              "RelativeDocumentMoniker": "img\\back1.jpg",
-              "ToolTip": "C:\\xampp\\htdocs\\portal\\img\\back1.jpg",
-              "RelativeToolTip": "img\\back1.jpg",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001533|",
-              "WhenOpened": "2026-02-27T13:28:00.604Z",
+              "Title": "catalog2.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\catalog2.php",
+              "RelativeDocumentMoniker": "mip\\catalog2.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\catalog2.php",
+              "RelativeToolTip": "mip\\catalog2.php",
+              "ViewState": "AgIAAHoAAAAAAAAAAAAgwKAAAAAHAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-28T04:27:45.291Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 3,
-              "Title": "index.php",
-              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\index.php",
-              "RelativeDocumentMoniker": "index.php",
-              "ToolTip": "C:\\xampp\\htdocs\\portal\\index.php",
-              "RelativeToolTip": "index.php",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAHAAAAAAAAAA==",
+              "Title": "submit_question.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\submit_question.php",
+              "RelativeDocumentMoniker": "mip\\submit_question.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\submit_question.php",
+              "RelativeToolTip": "mip\\submit_question.php",
+              "ViewState": "AgIAAEgAAAAAAAAAAAAAAFcAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-02-27T13:14:33.489Z",
+              "WhenOpened": "2026-02-28T04:17:43.226Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "UserRepository.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\UserRepository.php",
+              "RelativeDocumentMoniker": "mip\\UserRepository.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\UserRepository.php",
+              "RelativeToolTip": "mip\\UserRepository.php",
+              "ViewState": "AgIAADoAAAAAAAAAAAAgwFAAAAAzAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-28T04:07:53.005Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "Auth.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\Auth.php",
+              "RelativeDocumentMoniker": "mip\\Auth.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\Auth.php",
+              "RelativeToolTip": "mip\\Auth.php",
+              "ViewState": "AgIAABoAAAAAAAAAAAAgwEAAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-28T04:07:35.139Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "authorization.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\authorization.php",
+              "RelativeDocumentMoniker": "mip\\authorization.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\authorization.php",
+              "RelativeToolTip": "mip\\authorization.php",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-28T04:06:17.537Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "catalog.php",
+              "DocumentMoniker": "C:\\xampp\\htdocs\\portal\\mip\\catalog.php",
+              "RelativeDocumentMoniker": "mip\\catalog.php",
+              "ToolTip": "C:\\xampp\\htdocs\\portal\\mip\\catalog.php",
+              "RelativeToolTip": "mip\\catalog.php",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAJUAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-27T17:20:35.316Z",
               "EditorCaption": ""
             }
           ]

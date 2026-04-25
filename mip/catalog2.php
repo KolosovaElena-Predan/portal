@@ -56,7 +56,10 @@ try {
 <body>
     <div class="screen">
         <div class="div">
-            <?php require_once 'header_mip.php'; ?>
+            <?php 
+				$context = 'mip';
+				require_once '../header.php'; 
+			?>
 
             <div class="catalog-content">
                 <h1 class="catalog-title">Каталог продукции</h1>
@@ -126,7 +129,12 @@ try {
             </div>
 
         </div>
-        <?php require_once 'footer_mip.php'; ?>
+        <?php
+if (!isset($context)) {
+    $context = 'lab';
+}
+require_once '../footer.php';
+?>
     </div>
 
     <script>

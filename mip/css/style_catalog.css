@@ -1,12 +1,32 @@
 /* ========================================
-   style_catalog.css — Каталог оборудования
-   ======================================== */
+style_catalog.css — Каталог оборудования (Бирюзовая тема)
+======================================== */
+
+:root {
+    /* === Цветовая палитра (Бирюзовая) === */
+    --primary: #00b5b0;           /* Яркий бирюзовый */
+    --primary-dark: #00302e;      /* Тёмно-бирюзовый */
+    --primary-light: #e0f7f6;     /* Светло-бирюзовый фон */
+    --primary-very-light: #f0fbfb;/* Очень светлый фон */
+    --text-main: #2c3e50;         /* Основной текст */
+    --text-light: #546e7a;        /* Второстепенный текст */
+    --white: #ffffff;
+    --shadow: 0 4px 12px rgba(0, 181, 176, 0.12);
+    --radius: 12px;
+}
+
+body {
+    font-family: "Inter-Regular", sans-serif;
+    background-color: var(--white);
+    color: var(--text-main);
+    overflow-x: hidden;
+}
 
 /* === Основной контейнер === */
 .catalog-content {
     width: 100%;
     max-width: 1600px;
-    margin: 140px auto 60px;
+    margin: 0px auto 60px;
     padding: 0 20px;
     display: flex;
     flex-direction: column;
@@ -15,196 +35,312 @@
 
 .catalog-title {
     font-family: "Inter-Bold", Helvetica, sans-serif;
-    font-size: 24px;
+    font-size: 32px;
     font-weight: 700;
-    color: #000000;
-    margin-bottom: 40px;
+    color: var(--primary-dark); /* 🔹 Тёмно-бирюзовый заголовок */
+    margin-bottom: 30px;
     text-align: left;
+    width: 100%;
 }
 
-/* === Блок поиска === */
+/* === Блок фильтров и поиска === */
+.catalog-filters {
+    width: 100%;
+    margin-left: 220px;
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 .search-container {
-    width: 70%;
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 15px;
-    margin-bottom: 30px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
 }
 
 .search-container .input-field {
     flex: 1;
+    max-width: 950px;
+    min-width: 300px;
     height: 60px;
-    font-size: 14px;
+    font-size: 18px;
     border-radius: 12px;
-    border: 1px solid #ccc;
-    padding: 0 15px;
+    border: 2px solid #e0e0e0;
+    padding: 0 20px;
     font-family: "Inter-Regular", sans-serif;
     outline: none;
     transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .search-container .input-field:focus {
-    border-color: #1a1982;
-    box-shadow: 0 0 0 3px rgba(26, 25, 130, 0.1);
+    border-color: var(--primary); /* 🔹 Бирюзовая обводка */
+    box-shadow: 0 0 0 4px rgba(0, 181, 176, 0.1);
 }
 
 .btn-search {
-    width: 150px;
+    min-width: 150px;
     height: 60px;
-    background-color: #1a1982;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); /* 🔹 Бирюзовый градиент */
     color: white;
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: "Inter-Regular", sans-serif;
+    white-space: nowrap;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-search:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #005954 100%);
+}
+
+.btn-reset {
+    height: 60px;
+    padding: 0 20px;
+    background: #f0f0f0;
+    color: #666;
+    border: none;
+    border-radius: 12px;
     font-size: 16px;
     cursor: pointer;
     font-family: "Inter-Regular", sans-serif;
     white-space: nowrap;
-    transition: background-color 0.3s, transform 0.2s;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-.btn-search:hover {
-    background-color: #14136b;
-    transform: translateY(-1px);
+.btn-reset:hover {
+    background: #e0e0e0;
+    color: #333;
+}
+
+/* === Фильтр по категориям === */
+.category-filter {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.filter-label {
+    font-family: "Inter-Medium", sans-serif;
+    font-size: 24px;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.category-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.category-btn {
+    padding: 10px 20px;
+    background: var(--primary-light); /* 🔹 Светло-бирюзовый фон */
+    color: var(--primary-dark);       /* 🔹 Тёмно-бирюзовый текст */
+    border: 2px solid var(--primary-light);
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s;
+    font-family: "Inter-Medium", sans-serif;
+}
+
+.category-btn:hover {
+    background: var(--white);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.category-btn.active {
+    background: var(--primary);       /* 🔹 Яркий бирюзовый */
+    color: white;
+    border-color: var(--primary);
+}
+
+/* === Счётчик товаров === */
+.products-count {
+    font-size: 20px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+    margin-left: 225px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e0e0e0;
+    width: 75%;
+    text-align: left;
+}
+
+.products-count strong {
+    color: var(--primary); /* 🔹 Бирюзовый акцент */
+    font-weight: 300;
 }
 
 /* === Сетка карточек === */
 .catalog-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: 40px;
     width: 100%;
-    max-width: 1200px;
 }
 
 .device-card-link {
     text-decoration: none;
     color: inherit;
     width: 100%;
+    max-width: 1115px;
     display: block;
 }
 
+/* 🔹 УМЕНЬШЕННАЯ КАРТОЧКА */
 .device-card {
     position: relative;
     width: 100%;
-    max-width: 1115px;
-    height: 380px;
-    background-color: #fffdfd;
-    border-radius: 30px;
-    padding: 25px 30px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    height: 320px; /* 🔹 Было 380px → стало 320px */
+    background-color: var(--white);
+    border-radius: 24px; /* 🔹 Чуть меньше скругление */
+    padding: 20px 25px;  /* 🔹 Чуть меньше отступы */
+    box-shadow: var(--shadow);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    /*margin: 0 auto;*/
+    border: 1px solid #e0e0e0;
 }
 
 .device-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 20px rgba(0, 181, 176, 0.2);
+    border-color: var(--primary);
 }
 
+/* 🔹 УМЕНЬШЕННОЕ ИЗОБРАЖЕНИЕ */
 .device-image {
     position: absolute;
-    width: 284px;
-    height: 217px;
-    top: 56px;
-    left: 65px;
+    width: 240px;  /* 🔹 Было 284px → стало 240px */
+    height: 180px; /* 🔹 Было 217px → стало 180px */
+    top: 50px;     /* 🔹 Подкорректировано положение */
+    left: 55px;
     object-fit: cover;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
+/* 🔹 Текст: уменьшен шрифт и скорректированы позиции */
 .device-name {
     position: absolute;
-    top: 45px;
-    left: 394px;
+    top: 40px;
+    left: 330px;   /* 🔹 Сдвинуто левее из-за уменьшенной картинки */
     font-family: "Inter-Bold", Helvetica, sans-serif;
     font-weight: 700;
-    color: #000000;
-    font-size: 20px;
+    color: var(--primary-dark); /* 🔹 Тёмно-бирюзовый */
+    font-size: 24px;            /* 🔹 Было 24px */
+    margin: 0;
+    padding: 0;
 }
 
 .device-desc {
     position: absolute;
-    top: 80px;
-    left: 394px;
-    width: 428px;
+    top: 70px;
+    left: 330px;
+    width: 400px;  /* 🔹 Чуть уже */
     font-family: "Inter-Light", Helvetica, sans-serif;
     font-weight: 300;
-    color: #000000;
-    font-size: 18px;
+    color: var(--text-light);   /* 🔹 Серо-бирюзовый текст */
+    font-size: 20px;            /* 🔹 Было 20px */
     line-height: 1.5;
+    margin: 0;
+    padding: 0;
 }
 
 .device-stock {
     position: absolute;
-    top: 80px;
-    left: 898px;
+    top: 50px;
+    left: 800px;   /* 🔹 Скорректировано */
     font-family: "Inter-Medium", Helvetica, sans-serif;
     font-weight: 500;
-    color: #008240;
-    font-size: 20px;
-}
-
-.stock-icon {
-    position: absolute;
-    width: 23px;
-    height: 23px;
-    top: 84px;
-    left: 870px;
-    object-fit: cover;
+    color: #008240; /* Зелёный (сток) оставляем */
+    font-size: 24px;
+    margin: 0;
 }
 
 .device-price {
     position: absolute;
-    top: 123px;
-    left: 870px;
+    top: 90px;     /* 🔹 Скорректировано */
+    left: 800px;
     font-family: "Inter-Medium", Helvetica, sans-serif;
     font-weight: 500;
-    color: #1a1982;
-    font-size: 24px;
+    color: var(--primary); /* 🔹 Яркий бирюзовый */
+    font-size: 32px;       /* 🔹 Было 32px */
+    margin: 0;
 }
 
+/* 🔹 Кнопка "Заказать" — бирюзовая, без границ */
 .btn-order {
     position: absolute;
-    top: 191px;
-    left: 870px;
-    width: 150px;
-    height: 45px;
-    background-color: #1a1982;
+    top: 145px;    /* 🔹 Скорректировано */
+    left: 800px;
+    width: 140px;  /* 🔹 Чуть уже */
+    height: 42px;
+    background-color: var(--primary);
     color: white;
     border: none;
     border-radius: 10px;
-    font-size: 20px;
+    font-size: 18px;       /* 🔹 Было 20px */
     cursor: pointer;
     font-family: "Inter-Regular", sans-serif;
-    transition: background-color 0.3s;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0;
+    line-height: 1;
+    box-shadow: none;      /* 🔹 Без тени */
 }
 
 .btn-order:hover {
-    background-color: #14136b;
+    background-color: var(--primary-dark);
 }
 
 .no-devices {
     font-family: "Inter-Light", sans-serif;
     font-size: 20px;
-    color: #777;
+    color: var(--text-light);
     text-align: center;
     margin: 40px 0;
+    padding: 40px;
+    background: var(--primary-very-light); /* 🔹 Светло-бирюзовый фон */
+    border-radius: 12px;
+    width: 100%;
+    max-width: 1115px;
 }
 
 /* === АДАПТИВНОСТЬ === */
-
-/* Планшеты (до 1200px) */
 @media (max-width: 1200px) {
     .catalog-content {
         margin: 140px 20px 60px;
     }
     
     .catalog-title {
-        font-size: 24px;
-    }
-    
-    .search-container {
-        width: 100%;
+        font-size: 32px;
     }
     
     .device-card {
@@ -213,66 +349,86 @@
     
     .device-image {
         left: 40px;
-        width: 250px;
-        height: 190px;
+        width: 220px;
+        height: 165px;
     }
     
     .device-name,
     .device-desc {
-        left: 320px;
+        left: 290px;
     }
     
     .device-stock,
-    .stock-icon,
     .device-price,
     .btn-order {
-        left: calc(100% - 220px);
+        left: calc(100% - 210px);
     }
 }
 
-/* Планшеты малые (до 900px) */
 @media (max-width: 900px) {
     .catalog-title {
-        font-size: 20px;
-        text-align: center;
+        font-size: 28px;
+        text-align: left;
+    }
+    
+    .catalog-title::after {
+        margin: 10px 0 0;
     }
     
     .search-container {
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
+        justify-content: flex-start;
+    }
+    
+    .search-container .input-field {
+        max-width: 100%;
         width: 100%;
     }
     
-    .search-container .input-field,
-    .btn-search {
+    .btn-search,
+    .btn-reset {
         width: 100%;
         max-width: 400px;
     }
     
+    .category-filter {
+        justify-content: flex-start;
+    }
+    
+    .category-buttons {
+        justify-content: flex-start;
+    }
+    
+    .products-count {
+        text-align: left;
+    }
+    
+    .catalog-wrapper {
+        align-items: flex-start;
+    }
+    
     .device-card {
         height: auto;
-        padding: 40px 20px 60px;
-        flex-direction: column;
-        text-align: center;
+        padding: 30px 20px 50px;
     }
     
     .device-image,
     .device-name,
     .device-desc,
     .device-stock,
-    .stock-icon,
     .device-price,
     .btn-order {
         position: static;
         left: auto;
         top: auto;
-        margin: 10px auto;
+        margin: 10px 0;
     }
     
     .device-image {
-        width: 300px;
-        height: 250px;
-        margin: 0 auto 15px;
+        width: 280px;
+        height: 210px;
+        margin: 0 0 15px;
     }
     
     .device-desc {
@@ -281,17 +437,16 @@
     }
     
     .btn-order {
-        width: 140px;
-        height: 45px;
-        font-size: 18px;
+        width: 130px;
+        height: 42px;
+        font-size: 17px;
     }
 }
 
-/* Мобильные (до 480px) */
 @media (max-width: 480px) {
     .catalog-content {
         margin: 120px 15px 50px;
-        padding: 0 10px;
+        padding: 0 15px;
     }
     
     .catalog-title {
@@ -312,7 +467,7 @@
     .device-image {
         width: 100%;
         max-width: 250px;
-        height: 200px;
+        height: 190px;
     }
     
     .device-name {
@@ -324,7 +479,7 @@
     }
     
     .device-price {
-        font-size: 26px;
+        font-size: 24px;
     }
     
     .btn-order {
@@ -332,162 +487,14 @@
         height: 40px;
         font-size: 16px;
     }
-}
-
-/* === Схемы применения === */
-.schemes-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-}
-
-.scheme-card {
-    border: 1px solid #eee;
-    padding: 10px;
-    border-radius: 8px;
-    background: #fff;
-    transition: transform 0.3s, box-shadow 0.3s;
-    cursor: pointer;
-}
-
-    .scheme-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-    }
-
-    .scheme-card img {
+    
+    .category-buttons {
         width: 100%;
-        height: 180px;
-        object-fit: contain;
-        border-radius: 4px;
-        background: #f8f8f8;
+        overflow-x: auto;
+        padding-bottom: 10px;
     }
-
-.scheme-zoom-hint {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: rgba(26, 25, 130, 0.9);
-    color: white;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.scheme-card:hover .scheme-zoom-hint {
-    opacity: 1;
-}
-
-.scheme-card h3 {
-    margin: 12px 0 8px;
-    font-size: 16px;
-    color: #1a1982;
-}
-
-.scheme-card p {
-    font-size: 14px;
-    color: #666;
-    margin: 0;
-    line-height: 1.4;
-}
-
-/* === Лайтбокс для схем === */
-.scheme-lightbox {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    z-index: 3000;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-}
-
-    .scheme-lightbox.active {
-        display: flex;
-    }
-
-.scheme-lightbox-content {
-    max-width: 95%;
-    max-height: 95vh;
-    position: relative;
-}
-
-.scheme-lightbox-img {
-    max-width: 100%;
-    max-height: 90vh;
-    object-fit: contain;
-    border-radius: 4px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-}
-
-.scheme-lightbox-title {
-    color: white;
-    text-align: center;
-    margin-top: 15px;
-    font-size: 18px;
-    font-family: "Inter-Medium", sans-serif;
-}
-
-.scheme-lightbox-close {
-    position: absolute;
-    top: -40px;
-    right: 0;
-    color: white;
-    font-size: 40px;
-    cursor: pointer;
-    transition: color 0.3s;
-}
-
-    .scheme-lightbox-close:hover {
-        color: #ccc;
-    }
-
-.scheme-lightbox-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    color: white;
-    font-size: 32px;
-    cursor: pointer;
-    padding: 20px;
-    transition: color 0.3s;
-}
-
-    .scheme-lightbox-nav:hover {
-        color: #ccc;
-    }
-
-.scheme-lightbox-prev {
-    left: 20px;
-}
-
-.scheme-lightbox-next {
-    right: 20px;
-}
-
-/* Адаптив для схем */
-@media (max-width: 768px) {
-    .schemes-grid {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    }
-
-    .scheme-card img {
-        height: 150px;
-    }
-
-    .scheme-lightbox-close {
-        top: 10px;
-        right: 20px;
-        font-size: 36px;
+    
+    .category-btn {
+        white-space: nowrap;
     }
 }

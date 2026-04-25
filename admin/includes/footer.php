@@ -7,7 +7,7 @@
 <!-- /.content-wrapper -->
 
 <footer class="main-footer">
-    <strong>Copyright &copy; <?= date('Y') ?> МИП.</strong> Все права защищены.
+    <strong><?= date('Y') ?></strong> Все права защищены.
 </footer>
 </div>
 <!-- ./wrapper -->

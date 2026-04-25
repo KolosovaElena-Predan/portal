@@ -1,0 +1,139 @@
+/* ==========================================
+   footer.css — Простой и надёжный
+   ========================================== */
+
+:root {
+    --footer-bg: #0f0f1a;
+    --footer-bg-bottom: #0a0a12;
+    --footer-accent: #fff;
+    --footer-text: #b0b0c0;
+    --footer-title: #ffffff;
+}
+
+body.theme-mip { --footer-accent: #00b5b0; }
+
+* { box-sizing: border-box; }
+a { text-decoration: none; transition: 0.3s; }
+ul { list-style: none; padding: 0; margin: 0; }
+
+/* 🔹 ПОДВАЛ: просто на 100% ширины родителя */
+.portal-footer {
+    width: 100%;           /* 🔹 Без vw и calc */
+    max-width: 100%;       /* 🔹 Без ограничений */
+    background: var(--footer-bg);
+    color: var(--footer-text);
+    padding: 50px 0;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    /* 🔹 УБРАНЫ: position, left, margin с calc() */
+}
+
+/* 🔹 КОНТЕНТ: тоже на всю ширину, с небольшими отступами */
+.footer-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 4%;         /* 🔹 Отступы по краям */
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 50px;
+}
+
+/* === Лого и контакты === */
+.footer-logo-area {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+.footer-logo-img {
+    height: 50px;
+    filter: brightness(0) invert(1);
+}
+.footer-title {
+    color: var(--footer-title);
+    font-size: 20px;
+    font-weight: 700;
+}
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 15px;
+}
+.contact-item i {
+    color: var(--footer-accent);
+    width: 20px;
+}
+
+/* === Заголовки === */
+.footer-heading {
+    color: var(--footer-title);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--footer-accent);
+    display: inline-block;
+}
+
+/* === Ссылки === */
+.footer-links a {
+    color: var(--footer-text);
+    font-size: 15px;
+    display: block;
+    margin-bottom: 12px;
+}
+.footer-links a:hover {
+    color: var(--footer-accent);
+    padding-left: 5px;
+}
+
+/* === Кнопка "Наверх" === */
+.btn-back-to-top {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    background: var(--footer-accent);
+    color: #fff;
+    border-radius: 50%;
+    margin-top: 20px;
+}
+
+/* === Нижняя полоса === */
+.footer-bottom {
+    /*background: var(--footer-bg-bottom);*/
+    padding: 20px 4%;
+    margin-top: 40px;
+    /*border-top: 1px solid rgba(255,255,255,0.05);*/
+    font-size: 14px;
+    opacity: 0.7;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* === Адаптив === */
+@media (max-width: 900px) {
+    .footer-container {
+        grid-template-columns: 1fr 1fr;
+    }
+    .footer-col:first-child {
+        grid-column: 1 / -1;
+        margin-bottom: 30px;
+    }
+}
+@media (max-width: 600px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+    .footer-logo-area { justify-content: center; }
+    .contact-item { justify-content: center; }
+    .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+}

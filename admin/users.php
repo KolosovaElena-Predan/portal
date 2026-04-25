@@ -1,9 +1,14 @@
 <?php
 $activePage = 'users';
 $pageTitle = 'Пользователи | Админ-панель';
-
 require_once 'includes/auth_check.php';
 
+// Проверка прав: только админ и специалист поддержки
+if (!in_array($_SESSION['role'] ?? '', ['admin', 'support_specialist'])) {
+    redirect('index.php');
+}
+
+// Убран created_at из запроса
 $users = $pdo->query("SELECT id, email, name, login, role FROM user ORDER BY id DESC")->fetchAll();
 
 $pageScript = '$("#usersTable").DataTable({ "responsive": true, "language": {"url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json"} });';
@@ -27,7 +32,14 @@ require_once 'includes/sidebar.php';
                 <div class="card-body">
                     <table id="usersTable" class="table table-bordered table-striped">
                         <thead>
-                            <tr><th>ID</th><th>Имя</th><th>Login</th><th>Email</th><th>Роль</th><th>Действия</th></tr>
+                            <tr>
+                                <th>ID</th>
+                                <th>Имя</th>
+                                <th>Login</th>
+                                <th>Email</th>
+                                <th>Роль</th>
+                                <th>Действия</th>
+                            </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($users as $u): ?>
@@ -36,9 +48,20 @@ require_once 'includes/sidebar.php';
                                 <td><?= e($u['name'] ?? '—') ?></td>
                                 <td><?= e($u['login'] ?? '—') ?></td>
                                 <td><?= e($u['email'] ?? '—') ?></td>
-                                <td><span class="badge badge-<?= ['admin'=>'danger','support_specialist'=>'warning','guest'=>'secondary'][$u['role']] ?? 'info' ?>"><?= e($u['role']) ?></span></td>
                                 <td>
-                                    <a href="user_delete.php?id=<?= $u['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Удалить?')"><i class="fas fa-trash"></i></a>
+                                    <span <!--class="badge badge-<?= 
+                                        ['admin'=>'danger','support_specialist'=>'warning','user'=>'info','guest'=>'secondary'][$u['role']] ?? 'secondary' 
+                                    ?>">
+                                        <?= e($u['role']) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="user_edit.php?id=<?= $u['id'] ?>" class="btn btn-sm btn-primary" title="Редактировать">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="user_delete.php?id=<?= $u['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Удалить пользователя?')" title="Удалить">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

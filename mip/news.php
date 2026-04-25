@@ -1,14 +1,17 @@
 ﻿<?php
 session_start();
-require_once 'config.php';
-
-// Получаем все новости
+require_once '../config.php';
 try {
     $stmt = $pdo->prepare("
         SELECT 
-            n.*,
+            n.id, 
+            n.title, 
+            n.content, 
+            n.datetime,
+            n.section,
             (SELECT image_url FROM news_images WHERE news_id = n.id ORDER BY is_main DESC, sort_order LIMIT 1) as main_image
         FROM news n
+        WHERE n.section = 'mip'
         ORDER BY n.datetime DESC
     ");
     $stmt->execute();
@@ -21,74 +24,80 @@ try {
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:title" content="Новости — МИП" />
+    <meta property="og:description" content="Актуальная информация о проектах и достижениях МИП" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style_header_footer.css" />
-    <link rel="stylesheet" href="css/style_mip.css" />
-    <link rel="stylesheet" href="css/style_main.css" />
+    <link rel="stylesheet" href="../css/header_mip.css" />
+    <link rel="stylesheet" href="../css/footer.css" />
     <link rel="stylesheet" href="css/style_news.css" />
-    <link rel="stylesheet" href="css/header_mip.css" />
-    <title>Новости — ООО МИП "НПЦ ПИТиА"</title>
+    <title>Новости — МИП</title>
 </head>
 <body>
     <div class="screen">
         <div class="div">
-            
-            <!-- Шапка -->
-            <?php require_once 'header_mip.php'; ?>
-
+            <?php
+            $context = 'mip';
+            require_once '../header.php';
+            ?>
             <!-- Заголовок страницы -->
-            <div class="news-header-section">
-                <h1 class="news-page-title">Новости</h1>
-                <p class="news-page-subtitle">Актуальная информация о наших проектах и достижениях</p>
-            </div>
-
-            <!-- Список новостей -->
+            <section class="news-header-section">
+                <h1 class="news-page-title">Новости МИП</h1>
+                <p class="news-page-subtitle">Актуальная информация о проектах, разработках и достижениях</p>
+            </section>
+            <!-- Контейнер новостей -->
             <div class="news-container">
                 <?php if (empty($newsList)): ?>
-                    <p class="no-news">Новостей пока нет</p>
+                    <div class="no-news">
+                        <i class="fas fa-newspaper"></i>
+                        <p>Новостей пока нет</p>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($newsList as $item): ?>
                         <article class="news-item">
                             <?php if (!empty($item['main_image'])): ?>
                                 <a href="news_view.php?id=<?= $item['id'] ?>" class="news-image-link">
-                                    <img src="<?= htmlspecialchars($item['main_image']) ?>" 
+                                    <!-- ✅ Исправлен путь -->
+                                    <img src="../<?= htmlspecialchars($item['main_image']) ?>"
                                          alt="<?= htmlspecialchars($item['title']) ?>"
                                          class="news-item-image"
                                          loading="lazy">
                                 </a>
+                            <?php else: ?>
+                                <a href="news_view.php?id=<?= $item['id'] ?>" class="news-image-link">
+                                    <div class="news-item-image-placeholder">
+                                        <i class="fas fa-microchip"></i>
+                                    </div>
+                                </a>
                             <?php endif; ?>
-                            
                             <div class="news-item-content">
                                 <div class="news-item-header">
-                                    <time class="news-date" datetime="<?= $item['datetime'] ?>">
+                                    <div class="news-date">
+                                        <i class="far fa-calendar-alt"></i>
                                         <?= date('d.m.Y', strtotime($item['datetime'])) ?>
-                                    </time>
+                                    </div>
+                                    <h2 class="news-title">
+                                        <a href="news_view.php?id=<?= $item['id'] ?>">
+                                            <?= htmlspecialchars($item['title']) ?>
+                                        </a>
+                                    </h2>
                                 </div>
-                                
-                                <h2 class="news-title">
-                                    <a href="news_view.php?id=<?= $item['id'] ?>">
-                                        <?= htmlspecialchars($item['title']) ?>
-                                    </a>
-                                </h2>
-                                
                                 <p class="news-excerpt">
-                                    <?= htmlspecialchars(mb_strimwidth(strip_tags($item['content']), 0, 250, '...')) ?>
+                                    <?= htmlspecialchars(mb_strimwidth(strip_tags($item['content']), 0, 200, '...')) ?>
                                 </p>
-                                
                                 <a href="news_view.php?id=<?= $item['id'] ?>" class="btn-read-more">
-                                    Читать далее</i>
+                                    Читать далее <i class="fas fa-arrow-right"></i>
                                 </a>
                             </div>
                         </article>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
-
-            <!-- Подвал -->
-            <?php require_once 'footer_mip.php'; ?>
-            
+            <?php
+            if (!isset($context)) { $context = 'mip'; }
+            require_once '../footer.php';
+            ?>
         </div>
     </div>
 </body>

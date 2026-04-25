@@ -1,0 +1,45 @@
+/* ===== ДОПОЛНИТЕЛЬНЫЕ ЭФФЕКТЫ ===== */
+
+/* Плавная загрузка изображений */
+img[loading="lazy"] {
+    transition: opacity 0.3s ease;
+    opacity: 0;
+}
+
+img[loading="lazy"].loaded {
+    opacity: 1;
+}
+
+/* Анимация появления секций при скролле */
+section {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+section.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Улучшение доступности */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Фокус для клавиатурной навигации */
+a:focus, button:focus, .slider-dot:focus {
+    outline: 3px solid var(--primary-hover);
+    outline-offset: 2px;
+}
+
+/* Состояние загрузки для кнопок */
+.service-link:disabled {
+    opacity: 0.7;
+    cursor: wait;
+    transform: none !important;
+}

@@ -41,7 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class="screen">
         <div class="div">
-            <?php require_once 'header.php'; ?>
+            <?php 
+				$context = 'lab';
+				require_once '../header.php'; 
+			?>
 
             <div class="login-container">
                 <div class="login-box">

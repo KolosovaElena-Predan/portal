@@ -1,324 +1,366 @@
 /* ========================================
-   style_services_catalog.css Ч  аталог услуг
-   ======================================== */
+style_catalog2.css — Каталог услуг
+Вертикальные карточки, бирюзовая тема
+======================================== */
 
-/* === ќсновной контейнер === */
+:root {
+    --primary: #00b5b0;
+    --primary-dark: #00302e;
+    --primary-light: #e0f7f6;
+    --primary-very-light: #f0fbfb;
+    --text-main: #2c3e50;
+    --text-light: #546e7a;
+    --white: #ffffff;
+    --shadow: 0 4px 12px rgba(0, 181, 176, 0.12);
+    --radius: 12px;
+}
+
+body {
+    font-family: "Inter-Regular", sans-serif;
+    background-color: var(--white);
+    color: var(--text-main);
+}
+
+/* === Основной контейнер === */
 .catalog-content {
-	width: 100%;
-	max-width: 1600px;
-	margin: 140px auto 60px;
-	padding: 0 20px;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0px auto 60px;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .catalog-title {
-	font-family: "Inter-Bold", Helvetica, sans-serif;
-	font-size: 24px;
-	font-weight: 700;
-	color: #000000;
-	margin-bottom: 24px;
-	text-align: left;
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin-bottom: 30px;
+    text-align: left;
+    width: 100%;
+    position: relative;
+    padding-bottom: 15px;
 }
 
-/* === Ѕлок поиска === */
+.catalog-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: var(--primary);
+    border-radius: 2px;
+}
+
+/* === Блок поиска === */
 .search-container {
-	width: 75%;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	margin-bottom: 24px;
+    width: 100%;
+    max-width: 800px;
+    margin-left: 220px;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-	.search-container .input-field {
-		flex: 1;
-		height: 48px;
-		font-size: 14px;
-		border-radius: 10px;
-		border: 1px solid #ccc;
-		padding: 0 14px;
-		font-family: "Inter-Regular", sans-serif;
-		outline: none;
-		transition: border-color 0.3s, box-shadow 0.3s;
-	}
+.search-container .input-field {
+    flex: 1;
+    min-width: 250px;
+    height: 56px;
+    font-size: 16px;
+    border-radius: 12px;
+    border: 2px solid #e0e0e0;
+    padding: 0 20px;
+    font-family: "Inter-Regular", sans-serif;
+    background: var(--white);
+    color: var(--text-main);
+}
 
-		.search-container .input-field:focus {
-			border-color: #1a1982;
-			box-shadow: 0 0 0 3px rgba(26, 25, 130, 0.1);
-		}
+.search-container .input-field::placeholder {
+    color: #999;
+}
+
+.search-container .input-field:focus {
+    border-color: var(--primary);
+    outline: none;
+}
 
 .btn-search {
-	width: 120px;
-	height: 48px;
-	background-color: #1a1982;
-	color: white;
-	border: none;
-	border-radius: 8px;
-	font-size: 14px;
-	cursor: pointer;
-	font-family: "Inter-Regular", sans-serif;
-	white-space: nowrap;
-	transition: background-color 0.3s, transform 0.2s;
+    min-width: 140px;
+    height: 56px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: "Inter-Regular", sans-serif;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-	.btn-search:hover {
-		background-color: #14136b;
-		transform: translateY(-1px);
-	}
+.btn-search:active {
+    opacity: 0.9;
+}
 
-/* === —етка карточек услуг === */
+.btn-search.btn-reset {
+    background: #6c757d;
+    min-width: 100px;
+}
+
+/* === Сетка карточек === */
 .catalog-wrapper {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 24px;
-	width: 75%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 32px;
+    width: 100%;
 }
 
 .service-card-link {
-	text-decoration: none;
-	color: inherit;
-	width: 100%;
-	display: block;
+    text-decoration: none !important;
+    color: inherit;
+    display: block;
+    width: 100%;
 }
 
+/* === КАРТОЧКА УСЛУГИ === */
 .service-card {
-	position: relative;
-	width: 100%;
-	max-width: 1115px;
-	min-height: 280px;
-	background-color: #fffdfd;
-	border-radius: 24px;
-	padding: 20px 24px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-	transition: transform 0.3s ease, box-shadow 0.3s ease;
-	margin: 0 auto;
-	display: flex;
-	gap: 24px;
-	align-items: center;
+    width: 100%;
+    background: var(--white);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-	.service-card:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-	}
-
-/* »зображение услуги */
+/* === Изображение === */
 .service-image-wrap {
-	flex: 0 0 240px;
-	height: 80%;
-	width: 80%;
-	border-radius: 10px;
-	overflow: hidden;
-	background: #f0f0f0;
+    width: 100%;
+    height: 200px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--primary-very-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    padding: 12px;
+    box-sizing: border-box;
 }
 
 .service-image {
-	width: 60%;
-	height: 60%;
-	object-fit: cover;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
 }
 
-/*  онтент карточки */
+/* === Контент === */
 .service-content {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .service-name {
-	font-family: "Inter-Bold", Helvetica, sans-serif;
-	font-weight: 700;
-	color: #000000;
-	font-size: 18px;
-	margin: 0;
-	line-height: 1.3;
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 20px;
+    margin: 0 0 12px;
+    line-height: 1.35;
+    min-height: 54px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .service-desc {
-	font-family: "Inter-Light", Helvetica, sans-serif;
-	font-weight: 300;
-	color: #000000;
-	font-size: 14px;
-	line-height: 1.4;
-	margin: 0;
+    font-family: "Inter-Light", Helvetica, sans-serif;
+    font-weight: 300;
+    color: var(--text-light);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 65px;
 }
 
 .service-duration {
-	font-family: "Inter-Medium", sans-serif;
-	font-size: 13px;
-	color: #666;
-	display: flex;
-	align-items: center;
-	gap: 6px;
+    font-family: "Inter-Medium", sans-serif;
+    font-size: 13px;
+    color: var(--text-light);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 6px 14px;
+    background: var(--primary-light);
+    border-radius: 20px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-	.service-duration i {
-		color: #1a1982;
-	}
+.service-duration i {
+    color: var(--primary);
+    font-size: 12px;
+}
 
+/* === Цена === */
 .service-price {
-	font-family: "Inter-Medium", Helvetica, sans-serif;
-	font-weight: 500;
-	color: #1a1982;
-	font-size: 22px;
-	margin: 4px 0;
+    font-family: "Inter-Bold", Helvetica, sans-serif;
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 24px;
+    margin: 0 0 18px;
+    padding-top: 12px;
+    border-top: 2px dashed rgba(0, 181, 176, 0.25);
+    width: 100%;
+    text-align: center;
 }
 
-.btn-order {
-	align-self: flex-start;
-	width: 130px;
-	height: 38px;
-	background-color: #1a1982;
-	color: white;
-	border: none;
-	border-radius: 8px;
-	font-size: 14px;
-	cursor: pointer;
-	font-family: "Inter-Regular", sans-serif;
-	transition: background-color 0.3s;
-	margin-top: 8px;
+/* === КНОПКА ЗАКАЗА (УНИКАЛЬНЫЙ КЛАСС) === */
+.service-order-btn {
+    /* Полный сброс всех стилей */
+    all: initial !important;
+    
+    /* Восстанавливаем только нужное */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 46px !important;
+    background: var(--primary) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    font-family: "Inter-Regular", sans-serif !important;
+    cursor: pointer !important;
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    text-decoration: none !important;
+    position: static !important;
+    line-height: normal !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
-	.btn-order:hover {
-		background-color: #14136b;
-	}
+.service-order-btn:active {
+    opacity: 0.9 !important;
+}
 
+.service-order-btn:disabled {
+    background: #999 !important;
+    cursor: not-allowed !important;
+}
+
+/* === Пустой результат === */
 .no-devices {
-	font-family: "Inter-Light", sans-serif;
-	font-size: 14px;
-	color: #777;
-	text-align: center;
-	margin: 32px 0;
-	width: 100%;
+    font-family: "Inter-Light", sans-serif;
+    font-size: 16px;
+    color: var(--text-light);
+    text-align: center;
+    margin: 40px 0;
+    padding: 60px 40px;
+    background: var(--primary-very-light);
+    border-radius: 20px;
+    width: 100%;
+    border: 1px dashed rgba(0, 181, 176, 0.3);
 }
 
-/* === јƒјѕ“»¬Ќќ—“№ === */
-
-/* ѕланшеты (до 1200px) */
-@media (max-width: 1200px) {
-	.catalog-content {
-		margin: 140px 20px 60px;
-	}
-
-	.catalog-title {
-		font-size: 22px;
-	}
-
-	.service-card {
-		max-width: 900px;
-		min-height: 260px;
-		flex-direction: column;
-		text-align: center;
-	}
-
-	.service-image-wrap {
-		flex: none;
-		width: 100%;
-		max-width: 300px;
-		height: 200px;
-	}
-
-	.service-content {
-		align-items: center;
-	}
-
-	.service-name {
-		font-size: 20px;
-	}
-
-	.btn-order {
-		align-self: center;
-	}
+/* === АДАПТИВНОСТЬ === */
+@media (max-width: 1024px) {
+    .catalog-wrapper {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 28px;
+    }
+    .catalog-title { font-size: 28px; }
+    .service-image-wrap { height: 180px; }
 }
 
-/* ѕланшеты малые (до 900px) */
-@media (max-width: 900px) {
-	.catalog-title {
-		font-size: 20px;
-		text-align: center;
-	}
-
-	.search-container {
-		flex-direction: column;
-		align-items: center;
-		width: 100%;
-	}
-
-		.search-container .input-field,
-		.btn-search {
-			width: 100%;
-			max-width: 400px;
-		}
-
-	.service-card {
-		padding: 24px 20px;
-	}
-
-	.service-image-wrap {
-		width: 260px;
-		height: 190px;
-	}
-
-	.service-name {
-		font-size: 19px;
-	}
-
-	.service-desc {
-		font-size: 13px;
-	}
-
-	.service-price {
-		font-size: 20px;
-	}
+@media (max-width: 768px) {
+    .catalog-content { margin: 32px auto 50px; padding: 0 16px; }
+    .catalog-title { font-size: 26px; }
+    
+    .search-container {
+        flex-direction: column;
+        align-items: stretch;
+        max-width: 100%;
+        margin-left: 0;
+    }
+    
+    .search-container .input-field,
+    .btn-search { width: 100%; max-width: none; }
+    
+    .catalog-wrapper {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 24px;
+    }
+    
+    .service-card { padding: 20px; border-radius: 16px; }
+    .service-image-wrap { height: 170px; margin-bottom: 16px; }
+    .service-name { font-size: 18px; min-height: 50px; }
+    .service-desc { font-size: 13px; min-height: 60px; }
+    .service-price { font-size: 22px; }
+    .service-order-btn { height: 44px; font-size: 15px; }
 }
 
-/* ћобильные (до 480px) */
 @media (max-width: 480px) {
-	.catalog-content {
-		margin: 120px 15px 50px;
-		padding: 0 10px;
-	}
+    .catalog-content { margin: 24px auto 40px; padding: 0 12px; }
+    .catalog-title { font-size: 24px; padding-bottom: 12px; }
+    .catalog-title::after { width: 50px; }
+    .search-container { margin-bottom: 32px; }
+    .search-container .input-field,
+    .btn-search { height: 52px; font-size: 15px; }
+    
+    .catalog-wrapper { grid-template-columns: 1fr; gap: 24px; }
+    .service-card { padding: 20px 16px; }
+    .service-image-wrap { height: 160px; }
+    .service-name { font-size: 17px; min-height: auto; }
+    .service-desc { font-size: 13px; -webkit-line-clamp: 2; min-height: auto; }
+    .service-price { font-size: 20px; }
+    .service-order-btn { height: 42px; font-size: 14px; }
+}
 
-	.catalog-title {
-		font-size: 18px;
-	}
+/* === Глобальный сброс === */
+.service-card,
+.service-order-btn,
+.btn-search,
+.input-field {
+    box-shadow: none !important;
+    outline: none !important;
+    transition: none !important;
+    transform: none !important;
+}
 
-	.search-container .input-field,
-	.btn-search {
-		height: 44px;
-		font-size: 13px;
-	}
-
-	.service-card {
-		padding: 16px 12px;
-		border-radius: 16px;
-		min-height: auto;
-	}
-
-	.service-image-wrap {
-		width: 100%;
-		max-width: 220px;
-		height: 160px;
-	}
-
-	.service-name {
-		font-size: 16px;
-	}
-
-	.service-desc {
-		font-size: 12px;
-	}
-
-	.service-price {
-		font-size: 18px;
-	}
-
-	.btn-order {
-		width: 110px;
-		height: 34px;
-		font-size: 13px;
-	}
+.service-card {
+    box-shadow: var(--shadow) !important;
+    border: 1px solid #e0e0e0 !important;
 }

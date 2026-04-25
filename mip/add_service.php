@@ -1,5 +1,4 @@
 <?php
-// add_service.php
 session_start();
 require_once 'config.php';
 
@@ -11,8 +10,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Метод не поддерживается']);
+// ? ПРОВЕРКА РОЛИ — ТОЛЬКО КЛИЕНТЫ
+if ($_SESSION['role'] !== 'client') {
+    echo json_encode(['success' => false, 'error' => 'Только клиенты могут заказывать услуги']);
     exit;
 }
 
@@ -58,4 +58,3 @@ try {
     error_log("Add service error: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => 'Ошибка сервера']);
 }
-?>

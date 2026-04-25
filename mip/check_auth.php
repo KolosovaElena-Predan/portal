@@ -14,7 +14,11 @@ if (isset($_SESSION['user_id'])) {
             if ($user['role'] === 'client') {
                 header('Location: lk_user.php');
             } else {
-                header('Location: lk_support.php');
+                if ($user['role'] === 'admin') {
+                header('Location: ../lk_admin.php');
+                else {
+                    header('Location: ../lk_support.php');
+                }
             }
         } else {
             header('Location: authorization.php');

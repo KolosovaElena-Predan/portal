@@ -1,0 +1,308 @@
+/* Модальное окно авторизации */
+.auth-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+.auth-modal.show {
+    display: flex;
+}
+.auth-modal-content {
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 520px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: modalFadeIn 0.25s ease;
+    overflow: hidden;
+}
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+.auth-modal-header {
+    padding: 32px 32px 0 32px;
+}
+.auth-modal-header h3 {
+    font-family: "Inter-SemiBold", "Inter", sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin: 0;
+    text-align: center;
+}
+.auth-modal-close {
+    display: none;
+}
+.auth-modal-body {
+    padding: 24px 32px;
+    text-align: center;
+}
+.auth-modal-body p {
+    font-size: 16px;
+    color: #334155;
+    margin: 8px 0;
+    line-height: 1.6;
+}
+.auth-modal-body p:first-child {
+    font-weight: 500;
+    color: #0f172a;
+    font-size: 17px;
+}
+.auth-modal-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 32px 32px 32px;
+}
+.btn-auth {
+    display: block;
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+.btn-login-page {
+    background: #00a896;
+    color: #ffffff;
+}
+.btn-login-page:hover {
+    background: #008a7a;
+}
+.btn-register-page {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+.btn-register-page:hover {
+    background: #e2e8f0;
+}
+.btn-cancel {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+.btn-cancel:hover {
+    background: #f8fafc;
+    color: #334155;
+}
+
+/* Модальное окно подтверждения услуги */
+.service-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+.service-modal.show {
+    display: flex;
+}
+.service-modal-content {
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 460px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: modalFadeIn 0.25s ease;
+    overflow: hidden;
+}
+.service-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 28px 0 28px;
+}
+.service-modal-header h3 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+}
+.service-modal-close {
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.2s;
+    line-height: 1;
+}
+.service-modal-close:hover {
+    color: #1e293b;
+}
+.service-modal-body {
+    padding: 24px 28px;
+}
+.service-info-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+}
+.service-info-block:last-of-type {
+    margin-bottom: 0;
+}
+.service-info-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: #475569;
+}
+.service-info-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+}
+.service-description {
+    margin-top: 24px;
+    padding-top: 20px;
+}
+.service-description p {
+    font-size: 15px;
+    color: #475569;
+    line-height: 1.5;
+    margin: 8px 0;
+}
+.service-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 0 28px 28px 28px;
+}
+.btn-service {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+.btn-service-confirm {
+    background: #00a896;
+    color: #ffffff;
+}
+.btn-service-confirm:hover {
+    background: #008a7a;
+}
+.btn-service-cancel {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+.btn-service-cancel:hover {
+    background: #f8fafc;
+    color: #334155;
+}
+
+/* Модальное окно ошибки роли */
+.role-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+.role-modal.show {
+    display: flex;
+}
+.role-modal-content {
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: modalFadeIn 0.25s ease;
+    overflow: hidden;
+}
+.role-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 24px 0 24px;
+}
+.role-modal-header h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #dc2626;
+    margin: 0;
+}
+.role-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.2s;
+}
+.role-modal-close:hover {
+    color: #1e293b;
+}
+.role-modal-body {
+    padding: 20px 24px;
+    text-align: center;
+}
+.role-modal-body p {
+    font-size: 15px;
+    color: #334155;
+    margin: 10px 0;
+    line-height: 1.5;
+}
+.role-modal-body #userRole {
+    color: #dc2626;
+    font-weight: 600;
+}
+.role-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 0 24px 24px 24px;
+}
+.btn-role {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+.btn-role-logout {
+    background: #dc2626;
+    color: #ffffff;
+}
+.btn-role-logout:hover {
+    background: #b91c1c;
+}
+.btn-role-cancel {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+.btn-role-cancel:hover {
+    background: #f8fafc;
+}

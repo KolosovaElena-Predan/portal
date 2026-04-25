@@ -4,10 +4,10 @@ session_start();
 session_destroy();
 
 // Редирект на главную или страницу, с которой пришёл пользователь
-$referer = $_SERVER['HTTP_REFERER'] ?? 'index.php';
+$referer = $_SERVER['HTTP_REFERER'] ?? 'mip.php';
 // Защита от открытых редиректов
 if (strpos($referer, $_SERVER['HTTP_HOST']) === false) {
-    $referer = 'index.php';
+    $referer = 'mip.php';
 }
 header('Location: ' . $referer);
 exit;

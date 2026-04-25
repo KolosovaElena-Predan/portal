@@ -12,9 +12,13 @@
 
     <!-- Шапка -->
     <?php
-require_once 'auth_check.php';
-$user = getCurrentUserFromSession();
-?>
+        require_once 'auth_check.php';
+        $user = getCurrentUserFromSession();
+        /*if (isset($pdo)) {
+            require_once __DIR__ . '../includes/track_visit.php';
+            trackVisit($pdo);
+        }*/
+    ?>
 
 <div class="top-controls">
     <!-- Поиск -->
@@ -25,7 +29,6 @@ $user = getCurrentUserFromSession();
 
     <!-- Авторизация -->
     <?php if ($user): ?>
-        <!-- Пользователь авторизован -->
         <div class="login-btn">
             <div class="user-info">
                 <span class="user-name"><?= htmlspecialchars($user['name']) ?></span>
@@ -35,7 +38,6 @@ $user = getCurrentUserFromSession();
                 </a>
         </div>
     <?php else: ?>
-        <!-- Пользователь не авторизован -->
         <a href="authorization.php" class="login-btn">
             <i class="fa-regular fa-user"></i>
             <span>Войти</span>
@@ -60,7 +62,7 @@ $user = getCurrentUserFromSession();
         <!-- Кнопка 2. МИП -->
         <a href="mip/mip.php" class="card">
             <div class="card-icon">
-                <img src="img/icon_mip.png" alt="МИП" class="custom-icon">
+                <img src="img/logo_mip.png" alt="МИП" class="custom-icon">
             </div>
             <div class="card-text">
                 <h2 class="card-title">ООО МИП "НПЦ ПИТиА"</h2>

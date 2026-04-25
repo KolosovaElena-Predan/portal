@@ -21,10 +21,10 @@ function getCurrentUserFromSession(): ?array {
 function getLoginRedirectUrl(): string {
     if (isset($_SESSION['role'])) {
         return match ($_SESSION['role']) {
-            'admin' => 'lk_admin.php',
-            'support_specialist' => 'lk_support.php',
-            'client' => 'index.php',
-            default => 'index.php'
+            'admin' => '../lk_admin.php',
+            'support_specialist' => '../lk_support.php',
+            'client' => 'mip.php',
+            default => 'mip.php'
         };
     }
     return 'index.php';
