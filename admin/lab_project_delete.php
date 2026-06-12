@@ -5,7 +5,6 @@ if (!isLoggedIn() || !in_array($_SESSION['role'] ?? '', ['admin', 'editor'])) re
 if (isset($_GET['id'])) {
     $id = (int)$_GET['id'];
     try {
-        // Удаляем изображение с диска
         $stmt = $pdo->prepare("SELECT img_url FROM lab_projects WHERE id = ?");
         $stmt->execute([$id]);
         $p = $stmt->fetch();

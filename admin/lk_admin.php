@@ -3,9 +3,6 @@ $activePage = 'dashboard';
 $pageTitle = 'Главная | Админ-панель';
 require_once 'includes/auth_check.php';
 
-// ============================================
-// 1. СТАТИСТИКА (Счетчики)
-// ============================================
 $stats = [
     'users' => $pdo->query("SELECT COUNT(*) FROM user")->fetchColumn(),
     'requests' => $pdo->query("SELECT COUNT(*) FROM request WHERE status = 'new'")->fetchColumn(),
@@ -13,16 +10,12 @@ $stats = [
     'services' => $pdo->query("SELECT COUNT(*) FROM services WHERE is_active = 1")->fetchColumn(),
 ];
 
-// ============================================
-// 2. ДАННЫЕ ДЛЯ ГРАФИКОВ
-// ============================================
-
-// А) Статусы заявок (для круговой диаграммы)
 $reqStmt = $pdo->query("SELECT status, COUNT(*) as cnt FROM request GROUP BY status");
 $reqData = $reqStmt->fetchAll(PDO::FETCH_KEY_PAIR);
-// 🔹 Убрали жёсткие цвета, используем стандартную палитру
 $statusColors = ['#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff', '#ff6384', '#c9cbcf'];
-$reqLabels = []; $reqValues = []; $reqBgColors = [];
+$reqLabels = [];
+$reqValues = [];
+$reqBgColors = [];
 $colorIdx = 0;
 foreach ($reqData as $status => $count) {
     $reqLabels[] = ['new' => 'Новые', 'processed' => 'В работе', 'closed' => 'Закрыты', 'cancelled' => 'Отменены'][$status] ?? $status;
@@ -31,14 +24,15 @@ foreach ($reqData as $status => $count) {
     $colorIdx++;
 }
 
-// Б) Посещения (линейный график за 7 дней)
 $visitsTableExists = false;
 try {
     $check = $pdo->query("SHOW TABLES LIKE 'visits'")->fetch();
     if ($check) $visitsTableExists = true;
-} catch (Exception $e) { /* игнорируем */ }
+} catch (Exception $e) {
+}
 
-$visitsDates = []; $visitsCounts = [];
+$visitsDates = [];
+$visitsCounts = [];
 if ($visitsTableExists) {
     try {
         $stmt = $pdo->query("SELECT DATE(created_at) as d, COUNT(*) as c FROM visits WHERE created_at >= NOW() - INTERVAL 7 DAY GROUP BY d ORDER BY d ASC");
@@ -47,10 +41,10 @@ if ($visitsTableExists) {
             $visitsDates[] = date('d.m', strtotime($date));
             $visitsCounts[] = (int)$count;
         }
-    } catch (Exception $e) { /* Если ошибка в таблице */ }
+    } catch (Exception $e) {
+    }
 }
 
-// В) Заявки по дням (столбчатая диаграмма за 30 дней)
 $orderChartData = $pdo->query("
     SELECT DATE(datetime) as d, 
            COUNT(*) as total,
@@ -65,16 +59,12 @@ $orderDates = array_column($orderChartData, 'd');
 $orderProducts = array_column($orderChartData, 'products');
 $orderServices = array_column($orderChartData, 'services');
 
-// ============================================
-// 3. СКРИПТЫ (Chart.js)
-// ============================================
 $pageScript = '
 const chartScript = document.createElement("script");
 chartScript.src = "https://cdn.jsdelivr.net/npm/chart.js";
 document.head.appendChild(chartScript);
 
 chartScript.onload = function() {
-    // 1. График статусов заявок (Doughnut)
     new Chart(document.getElementById("requestsChart"), {
         type: "doughnut",
         data: {
@@ -99,7 +89,6 @@ chartScript.onload = function() {
         }
     });
 
-    // 2. График посещений (Line)
     if(document.getElementById("visitsChart")) {
         new Chart(document.getElementById("visitsChart"), {
             type: "line",
@@ -124,7 +113,6 @@ chartScript.onload = function() {
         });
     }
 
-    // 3. График заказов (Bar)
     new Chart(document.getElementById("ordersChart"), {
         type: "bar",
         data: {
@@ -166,9 +154,7 @@ require_once 'includes/navbar.php';
 require_once 'includes/sidebar.php';
 ?>
 
-<!-- 🔹 Дополнительные стили для нейтрального дизайна -->
 <style>
-    /* Нейтральные карточки статистики */
     .small-box {
         background: #fff !important;
         color: #333 !important;
@@ -187,7 +173,7 @@ require_once 'includes/sidebar.php';
     .small-box h3 {
         font-size: 2rem;
         font-weight: 700;
-        color: #1a1982; /* Акцентный цвет для цифр */
+        color: #1a1982;
         margin: 0 0 5px 0;
     }
     .small-box p {
@@ -208,7 +194,6 @@ require_once 'includes/sidebar.php';
         color: #1a1982 !important;
     }
     
-    /* Карточки графиков */
     .card {
         border: 1px solid #dee2e6;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
@@ -235,7 +220,6 @@ require_once 'includes/sidebar.php';
     
     <section class="content">
         <div class="container-fluid">
-            <!-- Счетчики (нейтральный дизайн) -->
             <div class="row">
                 <div class="col-lg-3 col-6">
                     <div class="small-box">
@@ -275,7 +259,6 @@ require_once 'includes/sidebar.php';
                 </div>
             </div>
 
-            <!-- Графики: Заявки и Посещения -->
             <div class="row mt-4">
                 <div class="col-md-6">
                     <div class="card">
@@ -307,7 +290,6 @@ require_once 'includes/sidebar.php';
                 </div>
             </div>
             
-            <!-- График заказов -->
             <div class="row mt-4">
                 <div class="col-12">
                     <div class="card">

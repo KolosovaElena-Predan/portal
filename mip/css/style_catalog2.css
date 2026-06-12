@@ -24,79 +24,69 @@ body {
 /* === Основной контейнер === */
 .catalog-content {
     width: 100%;
-    max-width: 1400px;
-    margin: 0px auto 60px;
+    max-width: 1600px;
+    margin: 140px auto 60px;
     padding: 0 20px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
 }
 
 .catalog-title {
     font-family: "Inter-Bold", Helvetica, sans-serif;
-    font-size: 32px;
+    font-size: 36px;
     font-weight: 700;
-    color: var(--primary-dark);
+    color: #000000;
     margin-bottom: 30px;
     text-align: left;
     width: 100%;
-    position: relative;
-    padding-bottom: 15px;
-}
-
-.catalog-title::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 60px;
-    height: 4px;
-    background: var(--primary);
-    border-radius: 2px;
+    max-width: 1115px;
 }
 
 /* === Блок поиска === */
 .search-container {
     width: 100%;
-    max-width: 800px;
-    margin-left: 220px;
-    margin-bottom: 40px;
+    max-width: 1115px;
+    margin-bottom: 30px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 15px;
+    flex-wrap: nowrap;
 }
 
 .search-container .input-field {
     flex: 1;
-    min-width: 250px;
-    height: 56px;
-    font-size: 16px;
+    min-width: 0;
+    height: 60px;
+    font-size: 18px;
     border-radius: 12px;
     border: 2px solid #e0e0e0;
     padding: 0 20px;
     font-family: "Inter-Regular", sans-serif;
     background: var(--white);
     color: var(--text-main);
+    outline: none;
+    box-sizing: border-box;
+    order: 1;
+}
+
+.search-container .input-field:focus {
+    border-color: var(--primary);
 }
 
 .search-container .input-field::placeholder {
     color: #999;
 }
 
-.search-container .input-field:focus {
-    border-color: var(--primary);
-    outline: none;
-}
-
 .btn-search {
-    min-width: 140px;
-    height: 56px;
+    flex-shrink: 0;
+    min-width: 120px;
+    height: 60px;
     background: var(--primary);
     color: white;
     border: none;
     border-radius: 12px;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     cursor: pointer;
     font-family: "Inter-Regular", sans-serif;
@@ -105,23 +95,45 @@ body {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    padding: 0 20px;
+    box-sizing: border-box;
+    order: 2;
 }
 
 .btn-search:active {
-    opacity: 0.9;
+    opacity: 0.85;
 }
 
 .btn-search.btn-reset {
     background: #6c757d;
     min-width: 100px;
+    order: 3;
+}
+
+/* === Счётчик услуг === */
+.services-count {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e0e0e0;
+    width: 100%;
+    max-width: 1115px;
+    text-align: left;
+}
+
+.services-count strong {
+    color: var(--primary);
+    font-weight: 600;
 }
 
 /* === Сетка карточек === */
 .catalog-wrapper {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 32px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 30px;
     width: 100%;
+    max-width: 1115px;
 }
 
 .service-card-link {
@@ -136,29 +148,34 @@ body {
     width: 100%;
     background: var(--white);
     border-radius: 20px;
-    padding: 24px;
-    box-shadow: var(--shadow);
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     border: 1px solid #e0e0e0;
     display: flex;
     flex-direction: column;
     height: 100%;
     box-sizing: border-box;
-    overflow: hidden;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    border-color: var(--primary);
 }
 
 /* === Изображение === */
 .service-image-wrap {
     width: 100%;
-    height: 200px;
-    border-radius: 14px;
+    height: 180px;
+    border-radius: 12px;
     overflow: hidden;
     background: var(--primary-very-light);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     flex-shrink: 0;
-    padding: 12px;
+    padding: 10px;
     box-sizing: border-box;
 }
 
@@ -181,11 +198,11 @@ body {
 .service-name {
     font-family: "Inter-Bold", Helvetica, sans-serif;
     font-weight: 700;
-    color: var(--primary-dark);
-    font-size: 20px;
-    margin: 0 0 12px;
+    color: #000000;
+    font-size: 18px;
+    margin: 0 0 10px;
     line-height: 1.35;
-    min-height: 54px;
+    min-height: 48px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -195,37 +212,34 @@ body {
 .service-desc {
     font-family: "Inter-Light", Helvetica, sans-serif;
     font-weight: 300;
-    color: var(--text-light);
+    color: #555;
     font-size: 14px;
     line-height: 1.5;
-    margin: 0 0 16px;
+    margin: 0 0 12px;
     flex-grow: 1;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    min-height: 65px;
 }
 
 .service-duration {
     font-family: "Inter-Medium", sans-serif;
-    font-size: 13px;
-    color: var(--text-light);
+    font-size: 12px;
+    color: #666;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 14px;
-    padding: 6px 14px;
+    margin-bottom: 12px;
+    padding: 4px 12px;
     background: var(--primary-light);
     border-radius: 20px;
     width: fit-content;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 .service-duration i {
     color: var(--primary);
-    font-size: 12px;
+    font-size: 11px;
 }
 
 /* === Цена === */
@@ -233,47 +247,35 @@ body {
     font-family: "Inter-Bold", Helvetica, sans-serif;
     font-weight: 700;
     color: var(--primary);
-    font-size: 24px;
-    margin: 0 0 18px;
-    padding-top: 12px;
-    border-top: 2px dashed rgba(0, 181, 176, 0.25);
-    width: 100%;
-    text-align: center;
+    font-size: 22px;
+    margin: 0 0 16px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
 }
 
-/* === КНОПКА ЗАКАЗА (УНИКАЛЬНЫЙ КЛАСС) === */
+/* === КНОПКА ЗАКАЗА === */
 .service-order-btn {
-    /* Полный сброс всех стилей */
     all: initial !important;
-    
-    /* Восстанавливаем только нужное */
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     width: 100% !important;
-    height: 46px !important;
+    height: 44px !important;
     background: var(--primary) !important;
     color: white !important;
     border: none !important;
-    border-radius: 12px !important;
-    font-size: 16px !important;
+    border-radius: 10px !important;
+    font-size: 15px !important;
     font-weight: 600 !important;
-    font-family: "Inter-Regular", sans-serif !important;
+    font-family: "Inter-Medium", sans-serif !important;
     cursor: pointer !important;
     margin-top: auto !important;
     flex-shrink: 0 !important;
     box-sizing: border-box !important;
-    padding: 0 !important;
-    text-decoration: none !important;
-    position: static !important;
-    line-height: normal !important;
-    text-align: center !important;
-    box-shadow: none !important;
-    outline: none !important;
 }
 
 .service-order-btn:active {
-    opacity: 0.9 !important;
+    opacity: 0.85 !important;
 }
 
 .service-order-btn:disabled {
@@ -284,83 +286,397 @@ body {
 /* === Пустой результат === */
 .no-devices {
     font-family: "Inter-Light", sans-serif;
-    font-size: 16px;
-    color: var(--text-light);
+    font-size: 18px;
+    color: #777;
     text-align: center;
     margin: 40px 0;
-    padding: 60px 40px;
-    background: var(--primary-very-light);
-    border-radius: 20px;
+    padding: 40px;
+    background: #f9f9fd;
+    border-radius: 12px;
     width: 100%;
-    border: 1px dashed rgba(0, 181, 176, 0.3);
+    max-width: 1115px;
 }
 
-/* === АДАПТИВНОСТЬ === */
-@media (max-width: 1024px) {
+/* ========================================
+   АДАПТИВНОСТЬ
+   ======================================== */
+
+/* Ноутбуки (1200px - 901px) */
+@media (max-width: 1200px) {
+    .catalog-content {
+        margin: 130px 20px 50px;
+    }
+    
+    .catalog-title {
+        font-size: 32px;
+        max-width: 100%;
+    }
+    
+    .search-container {
+        max-width: 100%;
+    }
+    
+    .services-count {
+        max-width: 100%;
+    }
+    
+    .catalog-wrapper {
+        max-width: 100%;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 25px;
+    }
+    
+    .service-image-wrap {
+        height: 170px;
+    }
+}
+
+/* Планшеты (900px - 769px) */
+@media (max-width: 900px) {
+    .catalog-content {
+        margin: 120px 15px 40px;
+        padding: 0 15px;
+    }
+    
+    .catalog-title {
+        font-size: 28px;
+    }
+    
+    .search-container {
+        gap: 12px;
+    }
+    
+    .search-container .input-field {
+        height: 50px;
+        font-size: 16px;
+        padding: 0 16px;
+        border-radius: 10px;
+    }
+    
+    .btn-search {
+        min-width: 100px;
+        height: 50px;
+        font-size: 16px;
+        border-radius: 10px;
+        padding: 0 16px;
+    }
+    
+    .services-count {
+        font-size: 14px;
+    }
+    
     .catalog-wrapper {
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 28px;
+        gap: 25px;
     }
-    .catalog-title { font-size: 28px; }
-    .service-image-wrap { height: 180px; }
+    
+    .service-image-wrap {
+        height: 160px;
+    }
+    
+    .service-name {
+        font-size: 17px;
+        min-height: 44px;
+    }
+    
+    .service-price {
+        font-size: 20px;
+    }
+    
+    .service-order-btn {
+        height: 42px !important;
+        font-size: 14px !important;
+    }
 }
 
+/* Малые планшеты (768px - 577px) */
 @media (max-width: 768px) {
-    .catalog-content { margin: 32px auto 50px; padding: 0 16px; }
-    .catalog-title { font-size: 26px; }
+    .catalog-content {
+        margin: 110px 12px 35px;
+        padding: 0 12px;
+    }
     
+    .catalog-title {
+        font-size: 26px;
+        margin-bottom: 20px;
+    }
+    
+    .search-container {
+        gap: 10px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+    
+    .search-container .input-field {
+        height: 46px;
+        font-size: 15px;
+        padding: 0 14px;
+        border-radius: 10px;
+        order: 1;
+        width: 100%;
+        flex: auto;
+        min-width: calc(100% - 200px);
+    }
+    
+    .btn-search {
+        min-width: 90px;
+        height: 46px;
+        font-size: 15px;
+        border-radius: 10px;
+        padding: 0 12px;
+        order: 2;
+    }
+    
+    .btn-search.btn-reset {
+        order: 3;
+    }
+    
+    .services-count {
+        font-size: 13px;
+        margin-bottom: 15px;
+    }
+    
+    .catalog-wrapper {
+        gap: 20px;
+    }
+    
+    .service-card {
+        padding: 16px;
+        border-radius: 16px;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .service-image-wrap {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 0;
+        flex-shrink: 0;
+        padding: 8px;
+    }
+    
+    .service-content {
+        flex: 1;
+        align-items: flex-start;
+    }
+    
+    .service-name {
+        font-size: 16px;
+        min-height: auto;
+        text-align: left;
+        margin: 0 0 6px;
+    }
+    
+    .service-desc {
+        font-size: 13px;
+        text-align: left;
+        margin: 0 0 8px;
+    }
+    
+    .service-duration {
+        margin-left: 0;
+        margin-right: auto;
+        font-size: 11px;
+        padding: 3px 10px;
+        margin-bottom: 8px;
+    }
+    
+    .service-price {
+        font-size: 18px;
+        text-align: left;
+        padding-top: 8px;
+        margin: 0 0 12px;
+    }
+    
+    .service-order-btn {
+        width: 100px !important;
+        height: 36px !important;
+        font-size: 13px !important;
+        align-self: flex-start !important;
+        border-radius: 8px !important;
+    }
+}
+
+/* Большие телефоны (576px - 481px) */
+@media (max-width: 576px) {
+    .catalog-content {
+        margin: 105px 10px 30px;
+        padding: 0 10px;
+    }
+    
+    .catalog-title {
+        font-size: 24px;
+    }
+    
+    .search-container {
+        gap: 8px;
+    }
+    
+    .search-container .input-field {
+        height: 42px;
+        font-size: 14px;
+        padding: 0 12px;
+        border-radius: 8px;
+        min-width: calc(100% - 170px);
+    }
+    
+    .btn-search {
+        min-width: 80px;
+        height: 42px;
+        font-size: 14px;
+        border-radius: 8px;
+        padding: 0 10px;
+    }
+    
+    .service-card {
+        padding: 14px;
+        gap: 12px;
+    }
+    
+    .service-image-wrap {
+        width: 85px;
+        height: 85px;
+    }
+    
+    .service-name {
+        font-size: 15px;
+    }
+    
+    .service-desc {
+        font-size: 12px;
+    }
+    
+    .service-price {
+        font-size: 17px;
+    }
+    
+    .service-order-btn {
+        width: 90px !important;
+        height: 34px !important;
+        font-size: 12px !important;
+    }
+}
+
+/* Маленькие телефоны (480px и меньше) */
+@media (max-width: 480px) {
+    .catalog-content {
+        margin: 100px 10px 30px;
+        padding: 0 10px;
+    }
+    
+    .catalog-title {
+        font-size: 22px;
+        margin-bottom: 18px;
+    }
+    
+    /* Поиск становится вертикальным */
     .search-container {
         flex-direction: column;
         align-items: stretch;
-        max-width: 100%;
-        margin-left: 0;
+        gap: 10px;
     }
     
-    .search-container .input-field,
-    .btn-search { width: 100%; max-width: none; }
-    
-    .catalog-wrapper {
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 24px;
+    .search-container .input-field {
+        width: 100%;
+        min-width: 100%;
+        height: 44px;
+        font-size: 14px;
+        border-radius: 10px;
+        order: 1;
     }
     
-    .service-card { padding: 20px; border-radius: 16px; }
-    .service-image-wrap { height: 170px; margin-bottom: 16px; }
-    .service-name { font-size: 18px; min-height: 50px; }
-    .service-desc { font-size: 13px; min-height: 60px; }
-    .service-price { font-size: 22px; }
-    .service-order-btn { height: 44px; font-size: 15px; }
-}
-
-@media (max-width: 480px) {
-    .catalog-content { margin: 24px auto 40px; padding: 0 12px; }
-    .catalog-title { font-size: 24px; padding-bottom: 12px; }
-    .catalog-title::after { width: 50px; }
-    .search-container { margin-bottom: 32px; }
-    .search-container .input-field,
-    .btn-search { height: 52px; font-size: 15px; }
+    .btn-search {
+        width: 100%;
+        min-width: auto;
+        height: 44px;
+        font-size: 14px;
+        border-radius: 10px;
+        padding: 0 12px;
+        order: 2;
+    }
     
-    .catalog-wrapper { grid-template-columns: 1fr; gap: 24px; }
-    .service-card { padding: 20px 16px; }
-    .service-image-wrap { height: 160px; }
-    .service-name { font-size: 17px; min-height: auto; }
-    .service-desc { font-size: 13px; -webkit-line-clamp: 2; min-height: auto; }
-    .service-price { font-size: 20px; }
-    .service-order-btn { height: 42px; font-size: 14px; }
+    .btn-search.btn-reset {
+        width: 100%;
+        min-width: auto;
+        order: 3;
+    }
+    
+    .service-card {
+        padding: 12px;
+        gap: 10px;
+    }
+    
+    .service-image-wrap {
+        width: 75px;
+        height: 75px;
+    }
+    
+    .service-name {
+        font-size: 14px;
+    }
+    
+    .service-desc {
+        font-size: 12px;
+    }
+    
+    .service-price {
+        font-size: 16px;
+    }
+    
+    .service-order-btn {
+        width: 85px !important;
+        height: 32px !important;
+        font-size: 11px !important;
+    }
+    
+    .no-devices {
+        font-size: 14px;
+        padding: 30px 20px;
+    }
 }
 
-/* === Глобальный сброс === */
-.service-card,
-.service-order-btn,
-.btn-search,
-.input-field {
-    box-shadow: none !important;
-    outline: none !important;
-    transition: none !important;
-    transform: none !important;
-}
-
-.service-card {
-    box-shadow: var(--shadow) !important;
-    border: 1px solid #e0e0e0 !important;
+/* Очень маленькие экраны (360px и меньше) */
+@media (max-width: 360px) {
+    .catalog-title {
+        font-size: 20px;
+    }
+    
+    .search-container .input-field {
+        height: 40px;
+        font-size: 13px;
+    }
+    
+    .btn-search {
+        height: 40px;
+        font-size: 13px;
+    }
+    
+    .service-card {
+        padding: 10px;
+        gap: 8px;
+    }
+    
+    .service-image-wrap {
+        width: 65px;
+        height: 65px;
+    }
+    
+    .service-name {
+        font-size: 13px;
+    }
+    
+    .service-desc {
+        font-size: 11px;
+    }
+    
+    .service-price {
+        font-size: 15px;
+    }
+    
+    .service-order-btn {
+        width: 80px !important;
+        height: 30px !important;
+        font-size: 11px !important;
+    }
 }

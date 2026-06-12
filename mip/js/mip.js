@@ -339,3 +339,172 @@ document.addEventListener('DOMContentLoaded', function() {
     
     observer.observe(document.body, { childList: true, subtree: true });
 });
+
+
+// ========== СЛАЙДЕР С АДАПТИВНОСТЬЮ ==========
+document.addEventListener('DOMContentLoaded', function() {
+    const slider = document.getElementById('productsSlider');
+    const slides = document.querySelectorAll('.slider-slide');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const dotsContainer = document.getElementById('sliderDots');
+    
+    let currentIndex = 0;
+    let autoSlideInterval;
+    let isPlaying = true;
+    
+    if (!slides.length) return;
+    
+    // Функция обновления активного слайда
+    function updateSlider(index) {
+        slides.forEach((slide, i) => {
+            slide.classList.remove('active');
+            if (i === index) {
+                slide.classList.add('active');
+            }
+        });
+        
+        // Обновляем активную точку
+        const dots = document.querySelectorAll('.slider-dot');
+        dots.forEach((dot, i) => {
+            dot.classList.remove('active');
+            if (i === index) {
+                dot.classList.add('active');
+            }
+        });
+        
+        currentIndex = index;
+    }
+    
+    // Следующий слайд
+    function nextSlide() {
+        currentIndex = (currentIndex + 1) % slides.length;
+        updateSlider(currentIndex);
+    }
+    
+    // Предыдущий слайд
+    function prevSlide() {
+        currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+        updateSlider(currentIndex);
+    }
+    
+    // Создание точек навигации
+    function createDots() {
+        if (!dotsContainer) return;
+        dotsContainer.innerHTML = '';
+        slides.forEach((_, index) => {
+            const dot = document.createElement('div');
+            dot.classList.add('slider-dot');
+            if (index === currentIndex) dot.classList.add('active');
+            dot.addEventListener('click', () => {
+                updateSlider(index);
+                resetAutoSlide();
+            });
+            dotsContainer.appendChild(dot);
+        });
+    }
+    
+    // Автоматическое переключение
+    function startAutoSlide() {
+        if (autoSlideInterval) clearInterval(autoSlideInterval);
+        if (!isPlaying) return;
+        autoSlideInterval = setInterval(() => {
+            nextSlide();
+        }, 5000);
+    }
+    
+    function stopAutoSlide() {
+        if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
+            autoSlideInterval = null;
+        }
+    }
+    
+    function resetAutoSlide() {
+        stopAutoSlide();
+        startAutoSlide();
+    }
+    
+    // Обработчики кнопок
+    if (prevBtn) {
+        prevBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            prevSlide();
+            resetAutoSlide();
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            nextSlide();
+            resetAutoSlide();
+        });
+    }
+    
+    // Пауза при наведении на слайдер
+    const sliderWrapper = document.querySelector('.slider-wrapper');
+    if (sliderWrapper) {
+        sliderWrapper.addEventListener('mouseenter', () => {
+            stopAutoSlide();
+        });
+        sliderWrapper.addEventListener('mouseleave', () => {
+            startAutoSlide();
+        });
+        
+        // Для touch-устройств
+        sliderWrapper.addEventListener('touchstart', () => {
+            stopAutoSlide();
+        });
+        sliderWrapper.addEventListener('touchend', () => {
+            startAutoSlide();
+        });
+    }
+    
+    // Свайпы для мобильных устройств
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    if (sliderWrapper) {
+        sliderWrapper.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+        
+        sliderWrapper.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diff = touchEndX - touchStartX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) {
+                    prevSlide(); // свайп вправо - предыдущий
+                } else {
+                    nextSlide(); // свайп влево - следующий
+                }
+                resetAutoSlide();
+            }
+        });
+    }
+    
+    // Клавиатура для десктопа
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') {
+            prevSlide();
+            resetAutoSlide();
+        } else if (e.key === 'ArrowRight') {
+            nextSlide();
+            resetAutoSlide();
+        }
+    });
+    
+    // Инициализация
+    createDots();
+    startAutoSlide();
+    
+    // Перезапуск слайдера при изменении видимости страницы
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoSlide();
+        } else {
+            startAutoSlide();
+        }
+    });
+});

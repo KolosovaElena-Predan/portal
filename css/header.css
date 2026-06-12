@@ -3,40 +3,33 @@
    ========================================== */
 
 :root {
-    /* === Размеры === */
     --top-bar-height: 80px;
-    --bottom-bar-height: 55px;
-    --logo-height: 52px;
-    --font-title: 17px;
-    --font-menu: 19px;
+    --bottom-bar-height: 56px;
+    --logo-height: 44px;
+    --font-logo: 17px;
+    --font-menu: 18px;
     --font-btn: 16px;
-    --font-badge: 12px;
-    --icon-size: 24px;
+    --font-badge: 11px;
+    --icon-size: 20px;
     --container-max: 1400px;
     --container-pad: 0 35px;
 
-    /* === Цвета верхней панели (Светло-серая) === */
     --top-bg: #f5f5f7;
     --top-border: #e0e0e3;
-    --active-bg: #e8e8ec; /* Чуть темнее серый для выделения */
+    --active-bg: #e8e8ec;
 
-    /* === Цвета нижней панели === */
-    --bottom-bg-lab: #1a1982; /* Тёмно-синий */
-    --bottom-bg-mip: #00b5b0; /* Бирюзовый */
+    --bottom-bg-lab: #1a1982;
+    --bottom-bg-mip: #00b5b0;
 
-    /* === Текст и элементы === */
     --text-dark: #1f2937;
     --text-muted: #6b7280;
     --badge-bg: #ef4444;
     --white: #ffffff;
 }
 
-/* Тема МИП */
 body.theme-mip { --bottom-bg: var(--bottom-bg-mip); }
-/* Тема Лаборатории (по умолчанию) */
 body.theme-lab { --bottom-bg: var(--bottom-bg-lab); }
 
-/* Сброс и базовые стили */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { 
     font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif; 
@@ -45,15 +38,25 @@ body {
 }
 a { text-decoration: none; color: inherit; transition: color 0.2s; }
 
-/* Отступ под фиксированную шапку */
-.content-spacer { height: 135px; } /* 80px + 55px */
+/* ================= ОТСТУП ПОСЛЕ ШАПКИ ================= */
+.content-spacer {
+    height: 136px;
+}
+
+@media (max-width: 900px) {
+    .content-spacer {
+        height: 56px !important;
+    }
+}
 
 /* ================= ВЕРХНЯЯ ПАНЕЛЬ ================= */
 .top-bar {
     background: var(--top-bg);
     height: var(--top-bar-height);
     position: fixed;
-    top: 0; left: 0; right: 0;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 1002;
     border-bottom: 1px solid var(--top-border);
 }
@@ -68,7 +71,6 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
     height: 100%;
 }
 
-/* Логотипы */
 .logos-group {
     display: flex;
     align-items: center;
@@ -80,10 +82,9 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 28px;
-    height: 100%; /* 🔹 СТРОГО во всю высоту верхней панели */
+    padding: 0 24px;
+    height: 100%;
     transition: background 0.2s;
-    border-right: 1px solid transparent;
 }
 
 .org-logo img {
@@ -94,58 +95,108 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
 }
 
 .org-logo span {
-    font-size: var(--font-title);
+    font-size: var(--font-logo);
     color: var(--text-dark);
-    font-weight: 500;
+    font-weight: 600;
     opacity: 0.7;
     transition: opacity 0.2s;
+    white-space: nowrap;
 }
 
-/* 🔹 АКТИВНЫЙ ЛОГОТИП: выделение во всю высоту, без скруглений */
 .org-logo.active {
     background: var(--active-bg);
-    border-right-color: var(--top-border);
 }
+
 .org-logo.active img,
-.org-logo.active span { opacity: 1; font-weight: 600; }
-.org-logo.active span { color: var(--text-dark); }
+.org-logo.active span {
+    opacity: 1;
+    font-weight: 700;
+}
 
-.divider { width: 1px; height: 40px; background: var(--top-border); }
+.org-logo.active span {
+    color: var(--text-dark);
+}
 
-/* Поиск и Авторизация */
-.top-actions { display: flex; align-items: center; gap: 30px; }
+.divider {
+    width: 1px;
+    height: 36px;
+    background: var(--top-border);
+}
 
-.search-box { position: relative; }
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+/* Поиск */
+.search-box {
+    position: relative;
+}
+
 .search-box input {
-    padding: 11px 42px 11px 20px;
+    padding: 10px 40px 10px 18px;
     border: 1px solid var(--top-border);
     border-radius: 24px;
     font-size: 15px;
     width: 250px;
+    height: 40px;
     background: var(--white);
     transition: all 0.3s;
 }
+
 .search-box input:focus {
     outline: none;
     border-color: var(--bottom-bg);
-    width: 290px;
+    width: 280px;
     box-shadow: 0 0 0 3px rgba(26, 25, 130, 0.08);
 }
+
 .search-box button {
-    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: var(--text-muted); 
-    cursor: pointer; font-size: 16px;
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.auth-info { display: flex; align-items: center; gap: 14px; }
-.user-name { font-size: 14px; color: var(--text-muted); font-weight: 500; }
-.btn-login {
-    display: flex; align-items: center; gap: 8px;
-    font-size: var(--font-btn); font-weight: 600;
-    color: var(--bottom-bg); padding: 9px 18px;
-    border-radius: 6px; transition: background 0.2s;
+/* Кнопка входа - НА СИНЕМ ФОНЕ */
+.auth-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
-.btn-login:hover { background: #ececf0; }
+
+.btn-login {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--font-btn);
+    font-weight: 600;
+    color: var(--white);
+    background: var(--bottom-bg);
+    padding: 8px 18px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    height: 40px;
+}
+
+.btn-login i {
+    font-size: 16px;
+}
+
+.btn-login:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
 
 /* ================= НИЖНЯЯ ПАНЕЛЬ ================= */
 .bottom-bar {
@@ -153,152 +204,521 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
     height: var(--bottom-bar-height);
     position: fixed;
     top: var(--top-bar-height);
-    left: 0; right: 0;
+    left: 0;
+    right: 0;
     z-index: 1001;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .bottom-bar-content {
     display: flex;
-    justify-content: center; /* 🔹 Меню строго по центру */
+    justify-content: center;
     align-items: center;
     max-width: var(--container-max);
     margin: 0 auto;
     padding: var(--container-pad);
     height: 100%;
-    position: relative; /* Для позиционирования иконок справа */
+    position: relative;
 }
 
-/* Навигация */
+/* Десктопная навигация */
 .main-nav {
     display: flex;
-    gap: 40px;
+    gap: 35px;
     align-items: center;
 }
 
 .nav-link {
-    color: rgba(255,255,255,0.92);
+    color: rgba(255, 255, 255, 0.92);
     font-size: var(--font-menu);
     font-weight: 500;
     padding: 16px 0;
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 5px;
     transition: color 0.3s;
 }
-.nav-link:hover { color: var(--white); }
-.nav-link::after {
-    content: ''; position: absolute; bottom: 8px; left: 0;
-    width: 0; height: 2px; background: var(--white);
-    transition: width 0.3s;
-}
-.nav-link:hover::after { width: 100%; }
 
-/* Стрелка выпадающего меню */
-.dropdown-arrow { font-size: 12px; transition: transform 0.3s; }
-.nav-item.dropdown:hover .dropdown-arrow { transform: rotate(180deg); }
-
-/* Выпадающее меню */
-.nav-item.dropdown { position: relative; height: 100%; display: flex; align-items: center; }
-.dropdown-menu {
-    position: absolute; top: 100%; left: 0;
-    background: var(--white); min-width: 280px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    border-radius: 0 0 8px 8px; padding: 12px 0;
-    opacity: 0; visibility: hidden; transform: translateY(8px);
-    transition: all 0.25s ease; z-index: 1005;
-    border: 1px solid var(--top-border);
+.nav-link:hover {
+    color: var(--white);
 }
-.nav-item.dropdown:hover .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
-.dropdown-menu a {
-    display: block; padding: 14px 26px; color: var(--text-dark);
-    font-size: 16px; transition: background 0.2s, padding-left 0.2s;
-}
-.dropdown-menu a:hover { background: #f9fafb; color: var(--bottom-bg); padding-left: 32px; }
 
-/* 🔹 Иконки справа (Корзина, Уведомления) */
+/* Действия справа */
 .bottom-actions {
     position: absolute;
     right: 35px;
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 12px;
 }
 
-.icon-btn {
-    position: relative; color: var(--white);
-    font-size: var(--icon-size); padding: 8px;
-    border-radius: 6px; transition: background 0.2s;
-    display: flex; align-items: center;
+/* Уведомления */
+.notifications-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
 }
-.icon-btn:hover { background: rgba(255,255,255,0.15); }
 
+.notifications-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    position: relative;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.notifications-btn i {
+    font-size: var(--icon-size);
+    color: white;
+}
+
+.notifications-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.notifications-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #ff4757;
+    color: white;
+    font-size: 10px;
+    border-radius: 50%;
+    min-width: 17px;
+    height: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+}
+
+/* Корзина */
 .cart-btn {
-    position: relative; display: flex; align-items: center; gap: 8px;
-    color: var(--white); font-size: var(--font-menu); font-weight: 500;
-    padding: 8px 14px; border-radius: 6px; transition: background 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0;
+    border-radius: 8px;
+    transition: background 0.2s;
+    background: transparent;
+    width: 40px;
+    height: 40px;
 }
-.cart-btn:hover { background: rgba(255,255,255,0.15); }
-.cart-btn i { font-size: var(--icon-size); }
-.cart-label { white-space: nowrap; }
 
-/* Бейдж (счётчик) */
+.cart-btn i {
+    font-size: var(--icon-size);
+    color: white;
+}
+
+.cart-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.cart-label {
+    display: none;
+}
+
 .badge {
-    position: absolute; top: 0px; right: 0px;
-    min-width: 19px; height: 19px; background: var(--badge-bg);
-    color: var(--white); font-size: var(--font-badge); font-weight: 700;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    padding: 0 4px; border: 2px solid var(--bottom-bg); line-height: 1;
-}
-.badge:empty { display: none; }
-
-/* Пульсация уведомлений */
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-    70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-.icon-btn.has-notification { animation: pulse 2s infinite; }
-.icon-btn.has-notification i { color: #fca5a5; }
-
-/* ================= АДАПТИВНОСТЬ ================= */
-@media (max-width: 1100px) {
-    :root {
-        --font-menu: 17px; --font-title: 15px;
-        --logo-height: 46px; --container-pad: 0 25px;
-    }
-    .search-box input { width: 190px; }
-    .search-box input:focus { width: 220px; }
-    .org-logo span { display: none; } /* Скрыть текст лого на планшетах */
-    .divider { display: none; }
-    .org-logo { padding: 0 20px; }
-    .bottom-actions { right: 25px; }
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 17px;
+    height: 17px;
+    background: var(--badge-bg);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    border: 2px solid var(--bottom-bg);
+    line-height: 1;
 }
 
-@media (max-width: 900px) {
-    .main-nav { display: none; } /* Для мобильных нужно добавить JS-бургер */
-    .top-bar-content { justify-content: center; }
-    .top-actions { position: absolute; right: 20px; }
-    .bottom-actions { right: 20px; }
+/* ===== Мобильная строка поиска ===== */
+.search-box-mobile {
+    display: none;
+    flex: 1;
+    position: relative;
 }
 
-@media (max-width: 600px) {
-    :root {
-        --top-bar-height: 70px;
-        --bottom-bar-height: 50px;
-        --logo-height: 40px;
-    }
-    .content-spacer { height: 120px; }
-    .search-box input { width: 140px; padding: 9px 38px 9px 15px; }
-    .btn-login span { display: none; }
-    .cart-label { display: none; }
-    .cart-btn { padding: 8px; }
-    .bottom-actions { right: 15px; gap: 16px; }
+.search-box-mobile input {
+    width: 100%;
+    padding: 8px 38px 8px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 24px;
+    font-size: 14px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    transition: all 0.3s;
 }
 
+.search-box-mobile input::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
 
-/* Стили для модального окна поиска */
+.search-box-mobile input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.search-box-mobile button {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-box-mobile button i {
+    font-size: 15px;
+}
+
+.search-box-mobile button:hover {
+    color: white;
+}
+
+/* ================= МОБИЛЬНОЕ МЕНЮ (БУРГЕР) ================= */
+.burger-menu-button {
+    display: none;
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.burger-menu-button i {
+    font-size: var(--icon-size);
+    color: white;
+}
+
+.burger-menu-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.mobile-menu-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 3000;
+}
+
+.mobile-menu-overlay.active {
+    display: block;
+}
+
+.mobile-menu-panel {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    width: 280px;
+    height: 100%;
+    background: white;
+    z-index: 3001;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-menu-panel.active {
+    left: 0;
+}
+
+.mobile-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-bottom: none;
+}
+
+.mobile-menu-header span {
+    font-size: 15px;
+    font-weight: 600;
+    color: #00302e;
+}
+
+.mobile-menu-close-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.mobile-menu-close-btn i {
+    font-size: 16px;
+}
+
+.mobile-menu-links {
+    padding: 0;
+}
+
+.mobile-menu-group {
+    border-bottom: none;
+}
+
+.mobile-menu-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    border-bottom: none;
+}
+
+.mobile-menu-group-title {
+    flex: 1;
+    padding: 8px 12px;
+    color: #00302e;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.mobile-menu-group-title:hover {
+    background: #eef2f5;
+    color: #00a896;
+}
+
+.mobile-menu-group-toggle {
+    background: transparent;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #00a896;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    width: 36px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-menu-group-toggle i {
+    font-size: 10px;
+}
+
+.mobile-menu-submenu {
+    display: none;
+    background: #ffffff;
+    border-top: none;
+    padding: 4px 0;
+}
+
+.mobile-menu-submenu.open {
+    display: block;
+}
+
+.mobile-menu-submenu a {
+    display: block;
+    padding: 6px 12px 6px 24px;
+    color: #4a5568;
+    text-decoration: none;
+    font-size: 12px;
+    transition: background 0.2s, color 0.2s;
+    border-left: 2px solid transparent;
+}
+
+.mobile-menu-submenu a:hover,
+.mobile-menu-submenu a.active {
+    background: #f0f9f7;
+    color: #00a896;
+    border-left-color: #00a896;
+}
+
+.mobile-menu-user-section {
+    padding: 16px;
+    background: #fff;
+    margin-top: auto;
+    border-top: none;
+}
+
+.mobile-menu-user-section a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--bottom-bg);
+    color: white !important;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.mobile-menu-user-section a:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.mobile-menu-user-section a i {
+    width: auto;
+    color: white !important;
+    font-size: 14px;
+}
+
+/* Выпадающее меню уведомлений */
+.notifications-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 42px;
+    width: 340px;
+    max-height: 460px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    overflow: hidden;
+    flex-direction: column;
+}
+
+.notifications-dropdown.show {
+    display: flex;
+}
+
+.notifications-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e8e5;
+    font-weight: 600;
+    background: white;
+    color: #00302e;
+    font-size: 14px;
+}
+
+.mark-read-btn {
+    background: none;
+    border: none;
+    color: #00a896;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.notifications-list-dropdown {
+    overflow-y: auto;
+    max-height: 380px;
+}
+
+.notification-item-dropdown {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f6f4;
+    cursor: pointer;
+}
+
+.notification-item-dropdown.unread {
+    background: #f0f9f7;
+    border-left: 3px solid #00a896;
+}
+
+.notification-icon {
+    width: 32px;
+    height: 32px;
+    background: #e0f7f4;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #00a896;
+    flex-shrink: 0;
+}
+
+.notification-icon i {
+    font-size: 14px;
+}
+
+.notification-content-dropdown {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-title-dropdown {
+    font-weight: 600;
+    font-size: 13px;
+    color: #00302e;
+}
+
+.notification-message-dropdown {
+    font-size: 12px;
+    color: #4a6a65;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.notification-time-dropdown {
+    font-size: 10px;
+    color: #8aa9a3;
+    margin-top: 4px;
+}
+
+.notification-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #8aa9a3;
+    font-size: 13px;
+}
+
+.notifications-footer {
+    padding: 10px 16px;
+    border-top: 1px solid #e0e8e5;
+    text-align: center;
+    background: white;
+}
+
+.notifications-footer a {
+    color: #00a896;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+/* ================= МОДАЛЬНОЕ ОКНО ПОИСКА ================= */
 .search-modal-overlay {
     display: none;
     position: fixed;
@@ -310,53 +730,76 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
     z-index: 2000;
     justify-content: center;
     align-items: flex-start;
-    padding-top: 100px;
+    padding-top: 80px;
 }
+
 .search-modal-overlay.active {
     display: flex;
 }
+
 .search-modal {
     width: 90%;
-    max-width: 800px;
+    max-width: 750px;
     background: white;
     border-radius: 20px;
     overflow: hidden;
 }
+
 .search-modal-header {
-    padding: 20px 24px;
+    padding: 16px 20px;
     background: #f0f6f4;
     display: flex;
-    gap: 15px;
+    gap: 12px;
 }
+
 .search-modal-header input {
     flex: 1;
-    padding: 14px 18px;
+    padding: 12px 16px;
     border: 2px solid #e0e8e5;
     border-radius: 12px;
-    font-size: 16px;
-    outline: none;
+    font-size: 15px;
+    min-width: 0;
+    height: 44px;
 }
+
 .search-modal-header input:focus {
     border-color: #00a896;
+    outline: none;
 }
+
 .search-modal-header button {
     background: #00a896;
     border: none;
-    padding: 14px 24px;
+    padding: 0 20px;
     border-radius: 12px;
     color: white;
     cursor: pointer;
-    font-size: 16px;
+    white-space: nowrap;
+    font-size: 14px;
+    height: 44px;
 }
+
 .search-modal-header .close-btn {
     background: #e0e8e5;
     color: #4a6a65;
 }
+
 .search-modal-body {
-    padding: 20px;
-    max-height: 500px;
+    padding: 16px;
+    max-height: 460px;
     overflow-y: auto;
 }
+
+.search-loading {
+    text-align: center;
+    padding: 40px;
+    color: #00a896;
+}
+
+.search-results-section {
+    margin-bottom: 25px;
+}
+
 .search-section-title {
     font-size: 16px;
     font-weight: 600;
@@ -366,6 +809,7 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
     border-bottom: 2px solid #00a896;
     display: inline-block;
 }
+
 .search-result-item {
     display: block;
     padding: 12px 15px;
@@ -374,134 +818,173 @@ a { text-decoration: none; color: inherit; transition: color 0.2s; }
     text-decoration: none;
     background: #fafafc;
 }
+
 .search-result-item:hover {
     background: #e6f4f2;
+    transform: translateX(5px);
 }
+
 .search-result-type {
     font-size: 11px;
     color: #00a896;
     margin-bottom: 4px;
 }
+
 .search-result-title {
     font-weight: 600;
     color: #00302e;
 }
+
 .search-result-desc {
     font-size: 13px;
     color: #4a6a65;
 }
+
 .search-result-price {
     font-weight: bold;
     color: #00a896;
     margin-top: 5px;
 }
+
 .search-empty {
     text-align: center;
     padding: 40px;
     color: #8aa9a3;
 }
 
+/* ================= АДАПТИВНОСТЬ ================= */
+@media (max-width: 1100px) {
+    :root {
+        --font-menu: 17px;
+        --font-logo: 15px;
+        --logo-height: 38px;
+        --container-pad: 0 20px;
+    }
+    .search-box input {
+        width: 200px;
+    }
+    .search-box input:focus {
+        width: 220px;
+    }
+    .org-logo span {
+        display: none;
+    }
+    .divider {
+        display: none;
+    }
+    .org-logo {
+        padding: 0 16px;
+    }
+    .bottom-actions {
+        right: 20px;
+    }
+    .main-nav {
+        gap: 25px;
+    }
+}
 
-/* Стили для страницы всех уведомлений */
-.notifications-page {
-    max-width: 750px;
-    margin: 120px auto 60px;
-    padding: 0 20px;
+@media (max-width: 900px) {
+    .top-bar {
+        display: none !important;
+    }
+    .bottom-bar {
+        top: 0 !important;
+    }
+    .main-nav {
+        display: none !important;
+    }
+    .burger-menu-button {
+        display: flex !important;
+    }
+    .search-box-mobile {
+        display: flex !important;
+        margin: 0 12px !important;
+    }
+    .bottom-bar-content {
+        justify-content: space-between !important;
+        width: 100%;
+        gap: 8px;
+    }
+    .bottom-actions {
+        position: static !important;
+        right: auto !important;
+    }
 }
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    flex-wrap: wrap;
-    gap: 15px;
+
+@media (max-width: 600px) {
+    .bottom-bar {
+        padding: 0 12px !important;
+    }
+    .search-box-mobile {
+        margin: 0 8px !important;
+    }
+    .search-box-mobile input {
+        font-size: 13px !important;
+        height: 36px !important;
+    }
+    .search-box-mobile button {
+        font-size: 13px !important;
+    }
+    .bottom-actions {
+        gap: 4px !important;
+    }
+    .notifications-btn {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    .notifications-btn i {
+        font-size: 18px !important;
+    }
+    .cart-btn {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    .cart-btn i {
+        font-size: 18px !important;
+    }
+    .burger-menu-button {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    .burger-menu-button i {
+        font-size: 18px !important;
+    }
+    .badge {
+        font-size: 9px !important;
+        min-width: 16px !important;
+        height: 16px !important;
+        top: 0px !important;
+        right: 0px !important;
+    }
+    .notifications-badge {
+        font-size: 9px !important;
+        min-width: 16px !important;
+        height: 16px !important;
+        top: 0px !important;
+        right: 0px !important;
+    }
+    .notifications-dropdown {
+        position: fixed !important;
+        top: 56px !important;
+        right: 5px !important;
+        left: 5px !important;
+        width: auto !important;
+        max-height: 70vh !important;
+    }
 }
-.page-header h1 {
-    font-size: 28px;
-    font-weight: 700;
-    color: #00302e;
-}
-.mark-all-link {
-    background: #e0f7f4;
-    color: #00a896;
-    border: none;
-    padding: 8px 18px;
-    border-radius: 30px;
-    font-size: 13px;
-    cursor: pointer;
-}
-.back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 25px;
-    color: #00a896;
-    text-decoration: none;
-    font-size: 14px;
-}
-.back-link:hover {
-    color: #006e6a;
-}
-.notifications-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.notification-item {
-    background: white;
-    border-radius: 14px;
-    padding: 18px 22px;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 168, 150, 0.05);
-    border: 1px solid #e0e8e5;
-}
-.notification-item.unread {
-    background: #f0f9f7;
-    border-left: 4px solid #00a896;
-}
-.notification-item.read {
-    opacity: 0.85;
-}
-.notification-item:hover {
-    transform: translateX(5px);
-    box-shadow: 0 6px 14px rgba(0, 168, 150, 0.12);
-    border-color: #00a896;
-}
-.notification-title {
-    font-weight: 700;
-    font-size: 16px;
-    margin-bottom: 8px;
-    color: #00302e;
-}
-.notification-message {
-    font-size: 14px;
-    color: #4a6a65;
-    margin-bottom: 10px;
-    line-height: 1.5;
-    white-space: pre-line;
-}
-.notification-link {
-    font-size: 13px;
-    color: #00a896;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-weight: 500;
-}
-.notification-time {
-    font-size: 11px;
-    color: #8aa9a3;
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.empty {
-    text-align: center;
-    padding: 70px 20px;
-    background: white;
-    border-radius: 20px;
-    color: #8aa9a3;
-    border: 1px solid #e0e8e5;
+
+@media (max-width: 380px) {
+    .mobile-menu-group-title {
+        font-size: 13px;
+        padding: 6px 10px;
+    }
+    .mobile-menu-group-toggle {
+        padding: 6px 10px;
+        width: 34px;
+        height: 30px;
+    }
+    .mobile-menu-submenu a {
+        padding: 5px 10px 5px 20px;
+        font-size: 12px;
+    }
 }

@@ -3,15 +3,11 @@ $activePage = 'lab_services';
 $pageTitle = 'Добавление услуги';
 $summernote = true;
 
-// ✅ 1. Подключаем авторизацию и БД (обязательно первым!)
 require_once 'includes/auth_check.php';
 
 $error = '';
 $success = '';
 
-// ============================================
-// Обработка сохранения
-// ============================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');

@@ -1,7 +1,6 @@
 <?php
-// footer.php — Единый подвал
 
-// Проверяем контекст (на случай если забыли передать в include)
+
 if (!isset($context)) {
     $context = 'lab'; 
 }
@@ -13,9 +12,10 @@ $mip_path = $BASE . '/mip';
 
 <footer class="portal-footer theme-<?= $context ?>">
     <link rel="stylesheet" href="../css/footer.css">
+	<link rel="stylesheet" href="css/footer.css">
     <div class="footer-container">
         
-        <!-- КОЛОНКА 1: Лого и Контакты -->
+        <!-- Лого и Контакты -->
         <div class="footer-col">
             <div class="footer-logo-area">
                 <?php if ($context === 'lab'): ?>
@@ -30,40 +30,39 @@ $mip_path = $BASE . '/mip';
             <div class="footer-contacts">
                 <div class="contact-item">
                     <i class="fas fa-map-marker-alt"></i>
-                    <span>г. Чита, ул. Александрово-Заводская, 30</span>
+                    <span>г. Чита, ул. Баргузинская, 49</span>
                 </div>
                 <div class="contact-item">
                     <i class="fas fa-phone-alt"></i>
-                    <a href="tel:+73022222222">+7 (3022) 22-22-22</a>
+                    <a href="tel:+73022222222">+7 (924) 371-62-05</a>
                 </div>
-                <div class="contact-item">
+                <!--<div class="contact-item">
                     <i class="fas fa-envelope"></i>
                     <a href="mailto:info@zabgu.ru">
                         <?= $context === 'lab' ? 'lab@zabgu.ru' : 'mip@zabgu.ru' ?>
                     </a>
-                </div>
+                </div>-->
             </div>
         </div>
 
-        <!-- КОЛОНКА 2: Навигация (Меняется от контекста) -->
+        <!-- Навигация -->
         <div class="footer-col">
             <h4 class="footer-heading">Навигация</h4>
             <ul class="footer-links">
                 <?php if ($context === 'lab'): ?>
                     <li><a href="<?= $lab_path ?>/news.php">Новости лаборатории</a></li>
                     <li><a href="<?= $lab_path ?>/projects.php">Наши проекты</a></li>
-                    <li><a href="<?= $lab_path ?>/services.php">Услуги и сотрудничество</a></li>
                     <li><a href="<?= $lab_path ?>/about.php#team">Наша команда</a></li>
                 <?php else: ?>
                     <li><a href="<?= $mip_path ?>/catalog.php">Каталог продукции</a></li>
                     <li><a href="<?= $mip_path ?>/services_catalog.php">Услуги</a></li>
-                    <li><a href="<?= $mip_path ?>/question.php">Техническая поддержка</a></li>
-                    <li><a href="<?= $mip_path ?>/partners.php">Партнёрам</a></li>
+                    <li><a href="<?= $mip_path ?>/question.php">Задать вопрос</a></li>
+					
                 <?php endif; ?>
             </ul>
         </div>
 
-        <!-- КОЛОНКА 3: Дополнительно -->
+        <!-- Дополнительно -->
         <div class="footer-col">
             <h4 class="footer-heading">Ресурсы</h4>
             <ul class="footer-links">
@@ -78,9 +77,9 @@ $mip_path = $BASE . '/mip';
             </ul>
             
             <!-- Кнопка "Наверх" -->
-            <a href="#" class="btn-back-to-top" title="Наверх">
+            <!-- <a href="#" class="btn-back-to-top" title="Наверх">
                 <i class="fas fa-arrow-up"></i>
-            </a>
+            </a>-->
         </div>
 
     </div>

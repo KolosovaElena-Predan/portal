@@ -50,8 +50,8 @@ $status_classes = [
         
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f6f6f6;
-            color: #161551;
+            background: #f5f7fa;
+            color: #1a2a4f;
             line-height: 1.6;
         }
         
@@ -69,7 +69,7 @@ $status_classes = [
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            color: #1a1982;
+            color: #2563eb;
             text-decoration: none;
             margin-bottom: 30px;
             font-weight: 500;
@@ -78,13 +78,13 @@ $status_classes = [
         
         .back-link:hover {
             gap: 12px;
-            color: #4a49d9;
+            color: #1d4ed8;
         }
         
         .project-title {
             font-size: 40px;
             font-weight: 700;
-            color: #000000;
+            color: #1e293b;
             margin-bottom: 20px;
         }
         
@@ -94,60 +94,61 @@ $status_classes = [
             flex-wrap: wrap;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 1px solid #e7e8f3;
+            border-bottom: 1px solid #e2e8f0;
         }
         
         .meta-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #666;
+            color: #64748b;
             font-size: 14px;
         }
         
         .status-badge {
             display: inline-block;
             padding: 6px 16px;
-            border-radius: 20px;
+            border-radius: 6px;
             font-size: 13px;
             font-weight: 600;
         }
         
         .status-active {
-            background: #e3f2fd;
-            color: #1976d2;
+            background: #dbeafe;
+            color: #1e40af;
         }
         
         .status-completed {
-            background: #e8f5e9;
-            color: #388e3c;
+            background: #dcfce7;
+            color: #166534;
         }
         
         .status-planned {
-            background: #fff3e0;
-            color: #f57c00;
+            background: #fef3c7;
+            color: #92400e;
         }
         
         .project-image {
             width: 100%;
             max-height: 500px;
             object-fit: cover;
-            border-radius: 20px;
+            border-radius: 16px;
             margin-bottom: 40px;
-            box-shadow: 0 4px 20px rgba(26, 25, 130, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
         
         .project-content {
             background: white;
-            border-radius: 20px;
+            border-radius: 16px;
             padding: 40px;
-            box-shadow: 0 4px 20px rgba(26, 25, 130, 0.08);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
         
         .project-content h2 {
             font-size: 24px;
-            color: #000000;
+            color: #1e293b;
             margin: 30px 0 15px 0;
+            font-weight: 600;
         }
         
         .project-content h2:first-of-type {
@@ -155,21 +156,26 @@ $status_classes = [
         }
         
         .project-content p {
-            color: #444;
+            color: #475569;
             margin-bottom: 20px;
             line-height: 1.8;
         }
         
         .budget-info {
-            background: #f9f9fb;
+            background: #f0f4ff;
             padding: 20px;
             border-radius: 12px;
             margin-top: 30px;
-            border-left: 4px solid #1a1982;
+            border-left: 4px solid #2563eb;
         }
         
         .budget-info p {
             margin: 0;
+            color: #1e293b;
+        }
+        
+        .budget-info strong {
+            color: #1d4ed8;
         }
         
         @media (max-width: 768px) {
@@ -201,11 +207,11 @@ $status_classes = [
             
             <div class="project-meta">
                 <div class="meta-item">
-                    📅 Начало: <?= date('d.m.Y', strtotime($project['start_date'])) ?>
+                    Начало: <?= date('d.m.Y', strtotime($project['start_date'])) ?>
                 </div>
                 <?php if ($project['end_date']): ?>
                 <div class="meta-item">
-                    🏁 Окончание: <?= date('d.m.Y', strtotime($project['end_date'])) ?>
+                    Окончание: <?= date('d.m.Y', strtotime($project['end_date'])) ?>
                 </div>
                 <?php endif; ?>
                 <div class="meta-item">
@@ -224,11 +230,11 @@ $status_classes = [
             <h2>Описание проекта</h2>
             <p><?= nl2br(htmlspecialchars($project['full_description'] ?? $project['short_description'] ?? '')) ?></p>
             
-            <?php if ($project['budget']): ?>
+            <!--<?php if ($project['budget']): ?>
             <div class="budget-info">
-                <p><strong>💰 Бюджет проекта:</strong> <?= number_format($project['budget'], 0, ',', ' ') ?> ₽</p>
+                <p><strong>Бюджет проекта:</strong> <?= number_format($project['budget'], 0, ',', ' ') ?> ₽</p>
             </div>
-            <?php endif; ?>
+            <?php endif; ?>-->
         </div>
     </div>
     

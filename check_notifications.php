@@ -11,7 +11,6 @@ if (!isset($_SESSION['user_id'])) {
 $count = getUnreadCount($pdo, $_SESSION['user_id']);
 $notifications = getUnreadNotifications($pdo, $_SESSION['user_id']);
 
-// Генерируем HTML для обновления списка
 ob_start();
 foreach ($notifications as $notif): ?>
     <div class="notification-item unread" data-id="<?= $notif['id'] ?>">

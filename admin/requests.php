@@ -19,6 +19,16 @@ require_once 'includes/navbar.php';
 require_once 'includes/sidebar.php';
 ?>
 
+<style>
+    .badge-q { background: #17a2b8; color: white; }
+    .badge-r { background: #ffc107; color: #212529; }
+    .badge-s { background: #28a745; color: white; }
+    .badge-new { background: #dc3545; color: white; }
+    .badge-processed { background: #fd7e14; color: white; }
+    .badge-closed { background: #28a745; color: white; }
+    .badge-cancelled { background: #6c757d; color: white; }
+</style>
+
 <div class="content-wrapper">
     <div class="content-header">
         <div class="container-fluid">
@@ -29,6 +39,7 @@ require_once 'includes/sidebar.php';
                     <a href="?status=new" class="btn btn-sm btn-<?= $statusFilter === 'new' ? 'primary' : 'outline-secondary' ?>">Новые</a>
                     <a href="?status=processed" class="btn btn-sm btn-<?= $statusFilter === 'processed' ? 'primary' : 'outline-secondary' ?>">В работе</a>
                     <a href="?status=closed" class="btn btn-sm btn-<?= $statusFilter === 'closed' ? 'primary' : 'outline-secondary' ?>">Закрытые</a>
+                    <a href="?status=cancelled" class="btn btn-sm btn-<?= $statusFilter === 'cancelled' ? 'primary' : 'outline-secondary' ?>">Отклонённые</a>
                 </div>
             </div>
         </div>
@@ -41,16 +52,49 @@ require_once 'includes/sidebar.php';
                 <div class="card-body">
                     <table id="requestsTable" class="table table-bordered table-striped">
                         <thead>
-                            <tr><th>ID</th><th>Пользователь</th><th>Тип</th><th>Сообщение</th><th>Статус</th><th>Дата</th><th>Действия</th></tr>
+                            <tr>
+                                <th>ID</th>
+                                <th>Пользователь</th>
+                                <th>Тип</th>
+                                <th>Статус</th>
+                                <th>Товар/Услуга</th>
+                                <th>Кол-во</th>
+                                <th>Сумма</th>
+                                <th>Дата</th>
+                                <th>Действия</th>
+                            </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($requests as $r): ?>
+                            <?php foreach ($requests as $r): 
+                                $decoded = json_decode($r['message'], true);
+                                $isJson = (json_last_error() === JSON_ERROR_NONE && is_array($decoded));
+                                
+                                $productName = '';
+                                $quantity = '';
+                                $totalPrice = '';
+                                
+                                if ($r['type'] === 'r' && $isJson) {
+                                    $productName = $decoded['product_name'] ?? $r['product_name'] ?? '';
+                                    $quantity = $decoded['quantity'] ?? '';
+                                    $totalPrice = isset($decoded['total_price']) ? number_format($decoded['total_price'], 0, '', ' ') . ' ₽' : (isset($decoded['line_total']) ? number_format($decoded['line_total'], 0, '', ' ') . ' ₽' : '');
+                                } elseif ($r['type'] === 's' && $isJson) {
+                                    $productName = $decoded['service_name'] ?? '';
+                                    $quantity = '1';
+                                } elseif ($r['type'] === 'q') {
+                                    $productName = $r['product_name'] ?? '';
+                                }
+                            ?>
                             <tr>
                                 <td><?= $r['id'] ?></td>
-                                <td><strong><?= e($r['user_name'] ?? '—') ?></strong><br><small class="text-muted"><?= e($r['user_email'] ?? '') ?></small></td>
-                                <td><span class="badge badge-type-<?= $r['type'] ?>"><?= ['q'=>'Вопрос','r'=>'Заказ','s'=>'Услуга'][$r['type']] ?? $r['type'] ?></span></td>
-                                <td class="message-preview"><?= e(mb_strimwidth($r['message'], 0, 50, '...')) ?></td>
-                                <td><span class="badge badge-<?= ['new'=>'danger','processed'=>'warning','closed'=>'success'][$r['status']] ?? 'info' ?>"><?= e($r['status']) ?></span></td>
+                                <td>
+                                    <strong><?= e($r['user_name'] ?? 'Гость') ?></strong><br>
+                                    <small class="text-muted"><?= e($r['user_email'] ?? '') ?></small>
+                                </td>
+                                <td><span class="badge badge-<?= $r['type'] ?>"><?= ['q'=>'Вопрос','r'=>'Заказ','s'=>'Услуга'][$r['type']] ?? $r['type'] ?></span></td>
+                                <td><span class="badge badge-<?= $r['status'] ?>"><?= ['new'=>'Новая','processed'=>'В работе','closed'=>'Закрыта','cancelled'=>'Отклонена'][$r['status']] ?? $r['status'] ?></span></td>
+                                <td><?= e(mb_strimwidth($productName, 0, 40, '...')) ?></td>
+                                <td class="text-center"><?= $quantity ?></td>
+                                <td class="text-right"><?= $totalPrice ?></td>
                                 <td><?= date('d.m.Y H:i', strtotime($r['datetime'])) ?></td>
                                 <td>
                                     <a href="request_edit.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>

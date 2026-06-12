@@ -74,7 +74,6 @@ try {
                             <div class="news-item-content">
                                 <div class="news-item-header">
                                     <div class="news-date">
-                                        <i class="far fa-calendar-alt"></i>
                                         <?= date('d.m.Y', strtotime($item['datetime'])) ?>
                                     </div>
                                     <h2 class="news-title">

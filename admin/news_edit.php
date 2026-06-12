@@ -7,13 +7,12 @@ require_once 'includes/auth_check.php';
 $id = (int)($_GET['id'] ?? 0);
 $error = '';
 $success = '';
-// 🔹 Общая папка изображений
+
 $uploadBaseDir = __DIR__ . '/../img/news/';
 if (!is_dir($uploadBaseDir)) mkdir($uploadBaseDir, 0777, true);
 
-// ============================================
 // 1. Удаление существующего изображения
-// ============================================
+
 if (isset($_GET['delete_image']) && isset($_GET['image_id'])) {
     $imageId = (int)$_GET['image_id'];
     try {
@@ -30,9 +29,9 @@ if (isset($_GET['delete_image']) && isset($_GET['image_id'])) {
     header("Location: news_edit.php?id=$id"); exit;
 }
 
-// ============================================
-// 2. AJAX: Загрузка временных изображений
-// ============================================
+
+// 2. Загрузка временных изображений
+
 if (isset($_POST['ajax_upload']) && isset($_FILES['images'])) {
     header('Content-Type: application/json');
     $response = ['success' => false, 'images' => []];
@@ -57,9 +56,9 @@ if (isset($_POST['ajax_upload']) && isset($_FILES['images'])) {
     echo json_encode($response); exit;
 }
 
-// ============================================
-// 3. AJAX: Удаление временного изображения
-// ============================================
+
+// 3.  Удаление временного изображения
+
 if (isset($_POST['ajax_remove'])) {
     header('Content-Type: application/json');
     $tid = $_POST['temp_id'] ?? '';
@@ -78,9 +77,9 @@ if (isset($_POST['ajax_remove'])) {
     echo json_encode(['success' => $found]); exit;
 }
 
-// ============================================
+
 // 4. Получаем новость и её изображения
-// ============================================
+
 try {
     $stmt = $pdo->prepare("SELECT * FROM news WHERE id = ?");
     $stmt->execute([$id]);
@@ -91,13 +90,13 @@ try {
     $existingImages = $stmt->fetchAll();
 } catch (PDOException $e) { die("Ошибка загрузки: " . $e->getMessage()); }
 
-// ============================================
+
 // 5. Обработка сохранения
-// ============================================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_POST['open_preview']))) {
     $title = trim($_POST['title'] ?? '');
     $content = trim($_POST['content'] ?? '');
-    $section = $_POST['section'] ?? 'lab'; // 👈 Получаем раздел
+    $section = $_POST['section'] ?? 'lab'; 
     
     if (preg_match('#^<p>(.*?)</p>$#s', $content, $m)) $content = trim($m[1]);
     
@@ -109,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_P
     } else {
         try {
             $pdo->beginTransaction();
-            // 👈 UPDATE с полем section
+           
             $pdo->prepare("UPDATE news SET title=?, content=?, section=? WHERE id=?")
                 ->execute([$title, $content, $section, $id]);
             
@@ -138,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_P
             $pdo->commit();
             $success = 'Новость обновлена!';
             if ($openPreview) {
-                // 👈 Динамический редирект
+           
                 header('Location: ../' . $section . '/news_view.php?id=' . $id);
                 exit;
             }
@@ -154,7 +153,7 @@ $currentMain = $_POST['main_image_id'] ?? '';
 if (!$currentMain) {
     foreach ($existingImages as $img) { if ($img['is_main']) { $currentMain = 'db_' . $img['id']; break; } }
 }
-$section = $_POST['section'] ?? $news['section'] ?? 'lab'; // 👈 Для формы
+$section = $_POST['section'] ?? $news['section'] ?? 'lab';
 
 $pageScript = '$(".summernote").summernote({ height: 400, lang: "ru-RU" });';
 require_once 'includes/header.php'; require_once 'includes/navbar.php'; require_once 'includes/sidebar.php';
@@ -173,7 +172,7 @@ require_once 'includes/header.php'; require_once 'includes/navbar.php'; require_
                     <input type="text" name="title" class="form-control" value="<?= e($news['title']) ?>" required>
                 </div>
                 
-                <!-- 👈 Выбор раздела -->
+                <!-- Выбор раздела -->
                 <div class="form-group">
                     <label>Раздел *</label>
                     <select name="section" class="form-control" required>
@@ -198,7 +197,7 @@ require_once 'includes/header.php'; require_once 'includes/navbar.php'; require_
                                 <div class="card-body p-2">
                                     <div class="custom-control custom-radio mb-2">
                                         <input type="radio" name="main_image_radio" class="custom-control-input main-radio" value="db_<?= $img['id'] ?>" id="main_db_<?= $img['id'] ?>" <?= $img['is_main'] ? 'checked' : '' ?>>
-                                        <label class="custom-control-label" for="main_db_<?= $img['id'] ?>">📌 Главное</label>
+                                        <label class="custom-control-label" for="main_db_<?= $img['id'] ?>"> Главное</label>
                                     </div>
                                     <a href="?id=<?= $id ?>&delete_image=1&image_id=<?= $img['id'] ?>" class="btn btn-sm btn-danger btn-block" onclick="return confirm('Удалить изображение?')"><i class="fas fa-trash"></i> Удалить</a>
                                 </div>
@@ -219,7 +218,7 @@ require_once 'includes/header.php'; require_once 'includes/navbar.php'; require_
                                     <div class="card-body p-2">
                                         <div class="custom-control custom-radio mb-2">
                                             <input type="radio" name="main_image_radio" class="custom-control-input main-radio" value="<?= e($img['temp_id']) ?>" id="main_<?= e($img['temp_id']) ?>" <?= (substr($currentMain, 0, 5) === 'temp_' && $currentMain === $img['temp_id']) ? 'checked' : '' ?>>
-                                            <label class="custom-control-label" for="main_<?= e($img['temp_id']) ?>">📌 Главное</label>
+                                            <label class="custom-control-label" for="main_<?= e($img['temp_id']) ?>"> Главное</label>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-danger btn-block remove-image" data-temp-id="<?= e($img['temp_id']) ?>"><i class="fas fa-trash"></i> Удалить</button>
                                     </div>
@@ -272,7 +271,7 @@ if (imageInput) {
                         });
                         imageCount.textContent = document.querySelectorAll('#imagesContainer .image-card').length;
                     }
-                }).catch(err => { uploadProgress.style.display='none'; imageInput.disabled=false; alert('❌ Ошибка: '+err); });
+                }).catch(err => { uploadProgress.style.display='none'; imageInput.disabled=false; alert(' Ошибка: '+err); });
         }
     });
 }

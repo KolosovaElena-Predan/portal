@@ -518,7 +518,6 @@ body {
                 </div>
                 <?php endforeach; ?>
             <?php else: ?>
-                <div class="direction-item"><div class="direction-name">Возобновляемая энергетика</div><p class="direction-desc">Исследования в области солнечной, ветровой и альтернативной энергетики. Разработка эффективных систем генерации и хранения энергии.</p></div>
                 <div class="direction-item"><div class="direction-name">Энергоэффективность</div><p class="direction-desc">Технологии снижения потребления энергоресурсов в промышленности и ЖКХ. Энергетический аудит и оптимизация процессов.</p></div>
                 <div class="direction-item"><div class="direction-name">Интеллектуальные системы</div><p class="direction-desc">Разработка интеллектуальных систем управления энергосетями. Мониторинг, аналитика и автоматизация энергетических процессов.</p></div>
             <?php endif; ?>
@@ -599,7 +598,7 @@ body {
     </section>
     
     <!-- НОВОСТИ -->
-<section class="section" style="background: #f9f9fb; border-radius: 20px;">
+<!--<section class="section" style="background: #f9f9fb; border-radius: 20px;">
     <h2 class="section-title">ПОСЛЕДНИЕ НОВОСТИ</h2>
     <?php
     // Получаем новости только для лаборатории (section = 'lab')
@@ -645,7 +644,7 @@ body {
         </div>
         <div class="view-all"><a href="news.php" class="view-all-link">Все новости →</a></div>
     <?php endif; ?>
-</section>
+</section>-->
     
     <?php
 if (!isset($context)) {

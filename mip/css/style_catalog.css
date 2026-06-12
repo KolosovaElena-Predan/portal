@@ -1,52 +1,41 @@
 /* ========================================
-style_catalog.css — Каталог оборудования (Бирюзовая тема)
+style_catalog.css — Каталог оборудования
+БИРЮЗОВАЯ ЦВЕТОВАЯ ГАММА
 ======================================== */
 
-:root {
-    /* === Цветовая палитра (Бирюзовая) === */
-    --primary: #00b5b0;           /* Яркий бирюзовый */
-    --primary-dark: #00302e;      /* Тёмно-бирюзовый */
-    --primary-light: #e0f7f6;     /* Светло-бирюзовый фон */
-    --primary-very-light: #f0fbfb;/* Очень светлый фон */
-    --text-main: #2c3e50;         /* Основной текст */
-    --text-light: #546e7a;        /* Второстепенный текст */
-    --white: #ffffff;
-    --shadow: 0 4px 12px rgba(0, 181, 176, 0.12);
-    --radius: 12px;
-}
-
 body {
-    font-family: "Inter-Regular", sans-serif;
-    background-color: var(--white);
-    color: var(--text-main);
-    overflow-x: hidden;
+  font-family: "Inter-Regular", sans-serif;
+  background-color: #fafafc;
+  color: #000;
+  overflow-x: hidden;
 }
 
 /* === Основной контейнер === */
 .catalog-content {
     width: 100%;
     max-width: 1600px;
-    margin: 0px auto 60px;
+    margin: 140px auto 60px;
     padding: 0 20px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
 }
 
 .catalog-title {
     font-family: "Inter-Bold", Helvetica, sans-serif;
-    font-size: 32px;
+    font-size: 36px;
     font-weight: 700;
-    color: var(--primary-dark); /* 🔹 Тёмно-бирюзовый заголовок */
+    color: #000000;
     margin-bottom: 30px;
     text-align: left;
     width: 100%;
+    max-width: 1115px;
 }
 
 /* === Блок фильтров и поиска === */
 .catalog-filters {
     width: 100%;
-    margin-left: 220px;
+    max-width: 1115px;
     margin-bottom: 30px;
     display: flex;
     flex-direction: column;
@@ -59,13 +48,12 @@ body {
     align-items: center;
     gap: 15px;
     justify-content: flex-start;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .search-container .input-field {
     flex: 1;
-    max-width: 950px;
-    min-width: 300px;
+    min-width: 200px;
     height: 60px;
     font-size: 18px;
     border-radius: 12px;
@@ -77,14 +65,14 @@ body {
 }
 
 .search-container .input-field:focus {
-    border-color: var(--primary); /* 🔹 Бирюзовая обводка */
-    box-shadow: 0 0 0 4px rgba(0, 181, 176, 0.1);
+    border-color: #00a896;
+    box-shadow: 0 0 0 4px rgba(0, 168, 150, 0.1);
 }
 
 .btn-search {
     min-width: 150px;
     height: 60px;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); /* 🔹 Бирюзовый градиент */
+    background: linear-gradient(135deg, #00a896 0%, #008a7a 100%);
     color: white;
     border: none;
     border-radius: 12px;
@@ -102,31 +90,20 @@ body {
 
 .btn-search:hover {
     transform: translateY(-1px);
-    background: linear-gradient(135deg, var(--primary-dark) 0%, #005954 100%);
+    background: linear-gradient(135deg, #008a7a 0%, #007a6a 100%);
 }
 
 .btn-reset {
-    height: 60px;
-    padding: 0 20px;
-    background: #f0f0f0;
-    color: #666;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    cursor: pointer;
-    font-family: "Inter-Regular", sans-serif;
-    white-space: nowrap;
-    transition: all 0.3s;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #6c757d !important;
+    width: 100px !important;
 }
 
 .btn-reset:hover {
-    background: #e0e0e0;
-    color: #333;
+    background: #5a6268 !important;
+    transform: translateY(-1px);
 }
 
 /* === Фильтр по категориям === */
@@ -140,8 +117,8 @@ body {
 
 .filter-label {
     font-family: "Inter-Medium", sans-serif;
-    font-size: 24px;
-    color: var(--text-main);
+    font-size: 20px;
+    color: #000;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -156,51 +133,51 @@ body {
 
 .category-btn {
     padding: 10px 20px;
-    background: var(--primary-light); /* 🔹 Светло-бирюзовый фон */
-    color: var(--primary-dark);       /* 🔹 Тёмно-бирюзовый текст */
-    border: 2px solid var(--primary-light);
+    background: #f7f7fd;
+    color: #00a896;
+    border: 2px solid #e7e8f3;
     border-radius: 25px;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 500;
     text-decoration: none;
     transition: all 0.3s;
     font-family: "Inter-Medium", sans-serif;
+    white-space: nowrap;
 }
 
 .category-btn:hover {
-    background: var(--white);
-    border-color: var(--primary);
-    color: var(--primary);
+    background: #e7e8f3;
+    border-color: #00a896;
 }
 
 .category-btn.active {
-    background: var(--primary);       /* 🔹 Яркий бирюзовый */
+    background: #00a896;
     color: white;
-    border-color: var(--primary);
+    border-color: #00a896;
 }
 
 /* === Счётчик товаров === */
 .products-count {
-    font-size: 20px;
-    color: var(--text-light);
+    font-size: 16px;
+    color: #666;
     margin-bottom: 20px;
-    margin-left: 225px;
     padding: 10px 0;
     border-bottom: 1px solid #e0e0e0;
-    width: 75%;
+    width: 100%;
+    max-width: 1115px;
     text-align: left;
 }
 
 .products-count strong {
-    color: var(--primary); /* 🔹 Бирюзовый акцент */
-    font-weight: 300;
+    color: #00a896;
+    font-weight: 600;
 }
 
 /* === Сетка карточек === */
 .catalog-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     gap: 40px;
     width: 100%;
 }
@@ -213,58 +190,55 @@ body {
     display: block;
 }
 
-/* 🔹 УМЕНЬШЕННАЯ КАРТОЧКА */
 .device-card {
     position: relative;
     width: 100%;
-    height: 320px; /* 🔹 Было 380px → стало 320px */
-    background-color: var(--white);
-    border-radius: 24px; /* 🔹 Чуть меньше скругление */
-    padding: 20px 25px;  /* 🔹 Чуть меньше отступы */
-    box-shadow: var(--shadow);
+    height: 380px;
+    background-color: #fffdfd;
+    border-radius: 30px;
+    padding: 25px 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     border: 1px solid #e0e0e0;
 }
 
 .device-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 181, 176, 0.2);
-    border-color: var(--primary);
+    box-shadow: 0 8px 20px rgba(0, 168, 150, 0.15);
+    border-color: #00a896;
 }
 
-/* 🔹 УМЕНЬШЕННОЕ ИЗОБРАЖЕНИЕ */
 .device-image {
     position: absolute;
-    width: 240px;  /* 🔹 Было 284px → стало 240px */
-    height: 180px; /* 🔹 Было 217px → стало 180px */
-    top: 50px;     /* 🔹 Подкорректировано положение */
-    left: 55px;
+    width: 284px;
+    height: 217px;
+    top: 56px;
+    left: 65px;
     object-fit: cover;
-    border-radius: 10px;
+    border-radius: 12px;
 }
 
-/* 🔹 Текст: уменьшен шрифт и скорректированы позиции */
 .device-name {
     position: absolute;
-    top: 40px;
-    left: 330px;   /* 🔹 Сдвинуто левее из-за уменьшенной картинки */
+    top: 45px;
+    left: 394px;
     font-family: "Inter-Bold", Helvetica, sans-serif;
     font-weight: 700;
-    color: var(--primary-dark); /* 🔹 Тёмно-бирюзовый */
-    font-size: 24px;            /* 🔹 Было 24px */
+    color: #000000;
+    font-size: 24px;
     margin: 0;
     padding: 0;
 }
 
 .device-desc {
     position: absolute;
-    top: 70px;
-    left: 330px;
-    width: 400px;  /* 🔹 Чуть уже */
+    top: 80px;
+    left: 394px;
+    width: 428px;
     font-family: "Inter-Light", Helvetica, sans-serif;
     font-weight: 300;
-    color: var(--text-light);   /* 🔹 Серо-бирюзовый текст */
-    font-size: 20px;            /* 🔹 Было 20px */
+    color: #000000;
+    font-size: 20px;
     line-height: 1.5;
     margin: 0;
     padding: 0;
@@ -273,37 +247,36 @@ body {
 .device-stock {
     position: absolute;
     top: 50px;
-    left: 800px;   /* 🔹 Скорректировано */
+    left: 898px;
     font-family: "Inter-Medium", Helvetica, sans-serif;
     font-weight: 500;
-    color: #008240; /* Зелёный (сток) оставляем */
+    color: #008240;
     font-size: 24px;
     margin: 0;
 }
 
 .device-price {
     position: absolute;
-    top: 90px;     /* 🔹 Скорректировано */
-    left: 800px;
+    top: 95px;
+    left: 870px;
     font-family: "Inter-Medium", Helvetica, sans-serif;
     font-weight: 500;
-    color: var(--primary); /* 🔹 Яркий бирюзовый */
-    font-size: 32px;       /* 🔹 Было 32px */
+    color: #00a896;
+    font-size: 32px;
     margin: 0;
 }
 
-/* 🔹 Кнопка "Заказать" — бирюзовая, без границ */
 .btn-order {
     position: absolute;
-    top: 145px;    /* 🔹 Скорректировано */
-    left: 800px;
-    width: 140px;  /* 🔹 Чуть уже */
-    height: 42px;
-    background-color: var(--primary);
+    top: 150px;
+    left: 870px;
+    width: 150px;
+    height: 45px;
+    background-color: #00a896;
     color: white;
     border: none;
     border-radius: 10px;
-    font-size: 18px;       /* 🔹 Было 20px */
+    font-size: 20px;
     cursor: pointer;
     font-family: "Inter-Regular", sans-serif;
     text-decoration: none;
@@ -313,27 +286,30 @@ body {
     text-align: center;
     padding: 0;
     line-height: 1;
-    box-shadow: none;      /* 🔹 Без тени */
 }
 
 .btn-order:hover {
-    background-color: var(--primary-dark);
+    background-color: #008a7a;
 }
 
 .no-devices {
     font-family: "Inter-Light", sans-serif;
     font-size: 20px;
-    color: var(--text-light);
+    color: #777;
     text-align: center;
     margin: 40px 0;
     padding: 40px;
-    background: var(--primary-very-light); /* 🔹 Светло-бирюзовый фон */
+    background: #f9f9fd;
     border-radius: 12px;
     width: 100%;
     max-width: 1115px;
 }
 
-/* === АДАПТИВНОСТЬ === */
+/* ========================================
+   АДАПТИВНОСТЬ
+   ======================================== */
+
+/* Ноутбуки и планшеты (1200px - 1025px) */
 @media (max-width: 1200px) {
     .catalog-content {
         margin: 140px 20px 60px;
@@ -341,55 +317,110 @@ body {
     
     .catalog-title {
         font-size: 32px;
+        max-width: 900px;
+    }
+    
+    .catalog-filters {
+        max-width: 900px;
+    }
+    
+    .products-count {
+        max-width: 900px;
+    }
+    
+    .device-card-link {
+        max-width: 900px;
     }
     
     .device-card {
         max-width: 900px;
+        height: auto;
+        min-height: 320px;
     }
     
     .device-image {
         left: 40px;
-        width: 220px;
-        height: 165px;
+        width: 250px;
+        height: 190px;
+        top: 50px;
     }
     
-    .device-name,
+    .device-name {
+        left: 320px;
+        top: 50px;
+        font-size: 22px;
+    }
+    
     .device-desc {
-        left: 290px;
+        left: 320px;
+        top: 85px;
+        width: 350px;
+        font-size: 18px;
     }
     
-    .device-stock,
-    .device-price,
+    .device-price {
+        left: 720px;
+        top: 100px;
+        font-size: 28px;
+    }
+    
     .btn-order {
-        left: calc(100% - 210px);
+        left: 720px;
+        top: 155px;
+        width: 140px;
+        height: 42px;
+        font-size: 18px;
     }
 }
 
+/* Планшеты (900px - 769px) */
 @media (max-width: 900px) {
+    .catalog-content {
+        margin: 130px 15px 50px;
+        padding: 0 15px;
+    }
+    
     .catalog-title {
         font-size: 28px;
         text-align: left;
+        max-width: 100%;
     }
     
-    .catalog-title::after {
-        margin: 10px 0 0;
+    .catalog-filters {
+        max-width: 100%;
     }
     
+    /* Строка поиска - горизонтальное расположение */
     .search-container {
-        flex-direction: column;
-        align-items: flex-start;
-        justify-content: flex-start;
+        flex-wrap: nowrap;
+        gap: 12px;
     }
     
     .search-container .input-field {
-        max-width: 100%;
-        width: 100%;
+        flex: 1;
+        min-width: 0;
+        width: auto;
+        height: 50px;
+        font-size: 16px;
     }
     
-    .btn-search,
+    .btn-search {
+        flex-shrink: 0;
+        min-width: 120px;
+        width: auto;
+        height: 50px;
+        font-size: 16px;
+    }
+    
     .btn-reset {
+        flex-shrink: 0;
+        width: 90px !important;
+        min-width: auto;
+    }
+    
+    .filter-label {
+        font-size: 18px;
         width: 100%;
-        max-width: 400px;
     }
     
     .category-filter {
@@ -398,103 +429,339 @@ body {
     
     .category-buttons {
         justify-content: flex-start;
-    }
-    
-    .products-count {
-        text-align: left;
-    }
-    
-    .catalog-wrapper {
-        align-items: flex-start;
-    }
-    
-    .device-card {
-        height: auto;
-        padding: 30px 20px 50px;
-    }
-    
-    .device-image,
-    .device-name,
-    .device-desc,
-    .device-stock,
-    .device-price,
-    .btn-order {
-        position: static;
-        left: auto;
-        top: auto;
-        margin: 10px 0;
-    }
-    
-    .device-image {
-        width: 280px;
-        height: 210px;
-        margin: 0 0 15px;
-    }
-    
-    .device-desc {
-        width: 100%;
-        max-width: 500px;
-    }
-    
-    .btn-order {
-        width: 130px;
-        height: 42px;
-        font-size: 17px;
-    }
-}
-
-@media (max-width: 480px) {
-    .catalog-content {
-        margin: 120px 15px 50px;
-        padding: 0 15px;
-    }
-    
-    .catalog-title {
-        font-size: 26px;
-    }
-    
-    .search-container .input-field,
-    .btn-search {
-        height: 50px;
-        font-size: 16px;
-    }
-    
-    .device-card {
-        padding: 20px 15px;
-        border-radius: 20px;
-    }
-    
-    .device-image {
-        width: 100%;
-        max-width: 250px;
-        height: 190px;
-    }
-    
-    .device-name {
-        font-size: 20px;
-    }
-    
-    .device-desc {
-        font-size: 16px;
-    }
-    
-    .device-price {
-        font-size: 24px;
-    }
-    
-    .btn-order {
-        width: 120px;
-        height: 40px;
-        font-size: 16px;
-    }
-    
-    .category-buttons {
-        width: 100%;
         overflow-x: auto;
         padding-bottom: 10px;
+        flex-wrap: nowrap;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
     }
     
     .category-btn {
         white-space: nowrap;
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+    
+    .products-count {
+        text-align: left;
+        font-size: 14px;
+        max-width: 100%;
+    }
+    
+    .catalog-wrapper {
+        align-items: center;
+        gap: 30px;
+    }
+    
+    .device-card-link {
+        max-width: 100%;
+    }
+    
+    .device-card {
+        height: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        min-height: auto;
+    }
+    
+    .device-image {
+        position: static;
+        width: 200px;
+        height: 160px;
+        margin: 0 0 15px 0;
+    }
+    
+    .device-name {
+        position: static;
+        font-size: 20px;
+        margin: 10px 0;
+        text-align: left;
+    }
+    
+    .device-desc {
+        position: static;
+        width: 100%;
+        font-size: 16px;
+        text-align: left;
+        margin: 10px 0;
+    }
+    
+    .device-price {
+        position: static;
+        font-size: 26px;
+        margin: 10px 0;
+        text-align: left;
+    }
+    
+    .btn-order {
+        position: static;
+        width: 140px;
+        height: 42px;
+        font-size: 18px;
+        margin: 15px 0 0;
+    }
+    
+    .no-devices {
+        max-width: 100%;
+        font-size: 18px;
+        padding: 30px;
+    }
+}
+
+/* Мобильные телефоны (768px - 481px) */
+@media (max-width: 768px) {
+    .catalog-content {
+        margin: 120px 12px 40px;
+        padding: 0 12px;
+    }
+    
+    .catalog-title {
+        font-size: 26px;
+        margin-bottom: 20px;
+        text-align: left;
+    }
+    
+    /* Строка поиска - поле + кнопка справа */
+    .search-container {
+        flex-wrap: nowrap;
+        gap: 10px;
+    }
+    
+    .search-container .input-field {
+        flex: 1;
+        min-width: 0;
+        height: 48px;
+        font-size: 15px;
+        padding: 0 15px;
+    }
+    
+    .btn-search {
+        flex-shrink: 0;
+        min-width: 110px;
+        height: 48px;
+        font-size: 15px;
+        padding: 0 15px;
+    }
+    
+    .btn-reset {
+        flex-shrink: 0;
+        width: 85px !important;
+        min-width: auto;
+        height: 48px;
+        font-size: 14px;
+    }
+    
+    .filter-label {
+        font-size: 16px;
+    }
+    
+    .category-btn {
+        font-size: 13px;
+        padding: 6px 14px;
+    }
+    
+    .products-count {
+        text-align: left;
+        font-size: 13px;
+    }
+    
+    .device-card {
+        border-radius: 20px;
+        padding: 18px;
+    }
+    
+    .device-image {
+        width: 180px;
+        height: 140px;
+    }
+    
+    .device-name {
+        font-size: 18px;
+        text-align: left;
+    }
+    
+    .device-desc {
+        font-size: 15px;
+        text-align: left;
+    }
+    
+    .device-price {
+        font-size: 24px;
+        text-align: left;
+    }
+    
+    .btn-order {
+        width: 130px;
+        height: 40px;
+        font-size: 16px;
+    }
+    
+    .no-devices {
+        font-size: 16px;
+        padding: 25px;
+        text-align: center;
+    }
+}
+
+/* Маленькие мобильные (480px и меньше) */
+@media (max-width: 480px) {
+    .catalog-content {
+        margin: 110px 10px 30px;
+        padding: 0 10px;
+    }
+    
+    .catalog-title {
+        font-size: 24px;
+        margin-bottom: 15px;
+        text-align: left;
+    }
+    
+    /* Строка поиска - поле + кнопка справа */
+    .search-container {
+        gap: 8px;
+    }
+    
+    .search-container .input-field {
+        height: 44px;
+        font-size: 14px;
+        border-radius: 10px;
+        padding: 0 12px;
+    }
+    
+    .btn-search {
+        min-width: 100px;
+        height: 44px;
+        font-size: 14px;
+        border-radius: 10px;
+        padding: 0 12px;
+    }
+    
+    .btn-reset {
+        width: 75px !important;
+        height: 44px;
+        font-size: 13px;
+    }
+    
+    .category-filter {
+        gap: 10px;
+    }
+    
+    .filter-label {
+        font-size: 14px;
+    }
+    
+    .category-btn {
+        font-size: 12px;
+        padding: 5px 12px;
+        border-radius: 20px;
+    }
+    
+    .products-count {
+        font-size: 12px;
+        margin-bottom: 15px;
+        text-align: left;
+    }
+    
+    .catalog-wrapper {
+        gap: 20px;
+    }
+    
+    .device-card {
+        border-radius: 16px;
+        padding: 15px;
+    }
+    
+    .device-image {
+        width: 150px;
+        height: 120px;
+    }
+    
+    .device-name {
+        font-size: 17px;
+        text-align: left;
+    }
+    
+    .device-desc {
+        font-size: 14px;
+        text-align: left;
+    }
+    
+    .device-price {
+        font-size: 22px;
+        text-align: left;
+    }
+    
+    .btn-order {
+        width: 120px;
+        height: 38px;
+        font-size: 15px;
+        border-radius: 8px;
+    }
+    
+    .no-devices {
+        font-size: 14px;
+        padding: 20px;
+        text-align: center;
+    }
+}
+
+/* Очень маленькие экраны (380px и меньше) */
+@media (max-width: 380px) {
+    .catalog-title {
+        font-size: 22px;
+    }
+    
+    .search-container {
+        gap: 6px;
+    }
+    
+    .search-container .input-field {
+        height: 40px;
+        font-size: 13px;
+        padding: 0 10px;
+    }
+    
+    .btn-search {
+        min-width: 85px;
+        height: 40px;
+        font-size: 12px;
+        padding: 0 8px;
+    }
+    
+    .btn-reset {
+        width: 65px !important;
+        height: 40px;
+        font-size: 11px;
+    }
+    
+    .device-image {
+        width: 130px;
+        height: 110px;
+    }
+    
+    .device-name {
+        font-size: 16px;
+    }
+    
+    .device-desc {
+        font-size: 13px;
+    }
+    
+    .device-price {
+        font-size: 20px;
+    }
+    
+    .btn-order {
+        width: 110px;
+        height: 36px;
+        font-size: 14px;
+    }
+    
+    .category-btn {
+        font-size: 11px;
+        padding: 4px 10px;
     }
 }

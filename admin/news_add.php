@@ -8,7 +8,6 @@ $error = '';
 $success = '';
 $newsId = null;
 
-// 🔹 Изменено: общая папка изображений для lab и mip
 $uploadBaseDir = __DIR__ . '/../img/news/';
 if (!is_dir($uploadBaseDir)) {
     if (!mkdir($uploadBaseDir, 0777, true)) {
@@ -16,9 +15,9 @@ if (!is_dir($uploadBaseDir)) {
     }
 }
 
-// ============================================
-// AJAX: Загрузка изображений
-// ============================================
+
+//Загрузка изображений
+
 if (isset($_POST['ajax_upload']) && isset($_FILES['images'])) {
     header('Content-Type: application/json');
     $response = ['success' => false, 'message' => '', 'images' => []];
@@ -41,10 +40,10 @@ if (isset($_POST['ajax_upload']) && isset($_FILES['images'])) {
                     $_SESSION['temp_news_images'][] = ['temp_id' => $tid, 'file_name' => $fname, 'image_url' => $dbPath];
                     $response['images'][] = ['temp_id' => $tid, 'image_url' => $dbPath];
                 } else {
-                    $response['message'] .= "❌ Ошибка перемещения файла. Проверьте права папки: $uploadBaseDir\n";
+                    $response['message'] .= "Ошибка перемещения файла. Проверьте права папки: $uploadBaseDir\n";
                 }
             } else {
-                $response['message'] .= "❌ Файл не прошел проверку (тип/размер).\n";
+                $response['message'] .= "Файл не прошел проверку (тип/размер).\n";
             }
         }
     }
@@ -53,9 +52,9 @@ if (isset($_POST['ajax_upload']) && isset($_FILES['images'])) {
     exit;
 }
 
-// ============================================
-// AJAX: Удаление временного изображения
-// ============================================
+
+// Удаление временного изображения
+
 if (isset($_POST['ajax_remove'])) {
     header('Content-Type: application/json');
     $tempId = $_POST['temp_id'] ?? '';
@@ -76,15 +75,15 @@ if (isset($_POST['ajax_remove'])) {
     exit;
 }
 
-// ============================================
+
 // Обработка сохранения
-// ============================================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_POST['open_preview']))) {
     $title = trim($_POST['title'] ?? '');
     $content = trim($_POST['content'] ?? '');
-    $section = $_POST['section'] ?? 'lab'; // 👈 Получаем раздел
+    $section = $_POST['section'] ?? 'lab'; // Получаем раздел
     
-    // Убираем лишнюю обёртку <p>
+    
     if (preg_match('#^<p>(.*?)</p>$#s', $content, $m)) $content = trim($m[1]);
     
     $mainImageTempId = $_POST['main_image_temp_id'] ?? null;
@@ -95,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_P
     } else {
         try {
             $pdo->beginTransaction();
-            // 👈 INSERT с полем section
+            
             $stmt = $pdo->prepare("INSERT INTO news (title, content, section, datetime) VALUES (?, ?, ?, NOW())");
             $stmt->execute([$title, $content, $section]);
             $newsId = $pdo->lastInsertId();
@@ -112,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_P
             $success = 'Новость добавлена! ID: ' . $newsId;
             
             if ($openPreview && $newsId) {
-                // 👈 Динамический редирект на нужный сайт
+                
                 header('Location: ../' . $section . '/news_view.php?id=' . $newsId);
                 exit;
             }
@@ -126,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['save']) || isset($_P
 
 $tempImages = $_SESSION['temp_news_images'] ?? [];
 $mainImageTempId = $_POST['main_image_temp_id'] ?? ($tempImages[0]['temp_id'] ?? null);
-$section = $_POST['section'] ?? 'lab'; // 👈 Для сохранения выбора в форме
+$section = $_POST['section'] ?? 'lab'; 
 $formData = ['title' => $_POST['title'] ?? '', 'content' => $_POST['content'] ?? ''];
 $pageScript = '$(".summernote").summernote({ height: 400, lang: "ru-RU" });';
 
@@ -150,7 +149,7 @@ require_once 'includes/sidebar.php';
                     <input type="text" name="title" class="form-control" value="<?= e($formData['title']) ?>" required>
                 </div>
                 
-                <!-- 👈 Выбор раздела -->
+                <!-- Выбор раздела -->
                 <div class="form-group">
                     <label>Раздел *</label>
                     <select name="section" class="form-control" required>
@@ -176,7 +175,7 @@ require_once 'includes/sidebar.php';
                                         <div class="card-body p-2">
                                             <div class="custom-control custom-radio mb-2">
                                                 <input type="radio" name="main_image_radio" class="custom-control-input main-radio" value="<?= e($img['temp_id']) ?>" id="main_<?= e($img['temp_id']) ?>" <?= ($img['temp_id'] === ($mainImageTempId ?? '')) ? 'checked' : '' ?>>
-                                                <label class="custom-control-label" for="main_<?= e($img['temp_id']) ?>">📌 Главное</label>
+                                                <label class="custom-control-label" for="main_<?= e($img['temp_id']) ?>"> Главное</label>
                                             </div>
                                             <button type="button" class="btn btn-sm btn-danger btn-block remove-image" data-temp-id="<?= e($img['temp_id']) ?>"><i class="fas fa-trash"></i> Удалить</button>
                                         </div>
@@ -232,7 +231,7 @@ if (imageInput) {
 <div class="card"><img src="../${img.image_url}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="">
 <div class="card-body p-2"><div class="custom-control custom-radio mb-2">
 <input type="radio" name="main_image_radio" class="custom-control-input main-radio" value="${img.temp_id}" id="main_${img.temp_id}" ${document.querySelectorAll('.image-card').length === 0 ? 'checked' : ''}>
-<label class="custom-control-label" for="main_${img.temp_id}">📌 Главное</label></div>
+<label class="custom-control-label" for="main_${img.temp_id}"> Главное</label></div>
 <button type="button" class="btn btn-sm btn-danger btn-block remove-image" data-temp-id="${img.temp_id}"><i class="fas fa-trash"></i> Удалить</button></div></div></div>`;
                             imagesContainer.insertAdjacentHTML('beforeend', html);
                         });
@@ -244,7 +243,7 @@ if (imageInput) {
                     } else if (data.message) { alert(data.message); }
                 })
                 .catch(err => {
-                    uploadProgress.style.display = 'none'; imageInput.disabled = false; alert('❌ Ошибка сети: ' + err);
+                    uploadProgress.style.display = 'none'; imageInput.disabled = false; alert(' Ошибка сети: ' + err);
                 });
         }
     });

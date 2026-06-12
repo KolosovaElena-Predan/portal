@@ -893,7 +893,6 @@ a {
     color: #003330; /* Тёмно-бирюзовый */
     margin-bottom: 40px;
     text-align: left;
-    margin-left: 225px;
 }
 
 /* === Блок поиска === */
@@ -946,7 +945,6 @@ a {
     align-items: center;
     gap: 40px;
     width: 70%;
-    margin-left: 220px;
 }
 .device-card {
     position: relative;

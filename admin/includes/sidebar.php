@@ -7,7 +7,7 @@ $activePage = $activePage ?? '';
 ?>
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <a href="lk_admin.php" class="brand-link">
-        <span class="brand-text font-weight-light">Админка МИП</span>
+        <span class="brand-text font-weight-light">Админ-панель</span>
     </a>
     
     <div class="sidebar">
@@ -95,7 +95,7 @@ $activePage = $activePage ?? '';
 				<li class="nav-item">
 					<a href="analytics.php" class="nav-link <?= $activePage === 'analytics' ? 'active' : '' ?>">
 						
-						<p>Аналитика</p>
+						<p>Статистика</p>
 					</a>
 				</li>
 

@@ -10,7 +10,7 @@ $results = [];
 
 if (strlen($query) >= 2) {
     
-    // ========== ПОИСК В МИП ==========
+    // Поиск в МИП
     try {
         // Товары
         $stmt = $pdo->prepare("
@@ -54,7 +54,7 @@ if (strlen($query) >= 2) {
         error_log("MIP search error: " . $e->getMessage());
     }
     
-    // ========== ПОИСК В ЛАБОРАТОРИИ ==========
+    // Поиск в лаборатории
     try {
         // Проекты лаборатории
         $stmt = $pdo->prepare("

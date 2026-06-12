@@ -22,13 +22,12 @@ if ($token) {
         // Подтверждаем email
         $userRepo->verifyUser($user->id);
         
-        // АВТОМАТИЧЕСКИ ВХОДИМ
         $auth->login($user);
         
         $message = "Email успешно подтверждён! Выполняется автоматический вход...";
         $success = true;
         
-        // Перенаправляем в личный кабинет через 2 секунды
+        // Перенаправляем в личный кабинет 
         $redirectUrl = $user->getDashboardUrl();
         
     } elseif ($user && $user->isVerified() === true) {

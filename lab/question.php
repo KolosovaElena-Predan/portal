@@ -383,17 +383,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="contact-icon"><i class="fas fa-phone"></i></div>
                             <div class="contact-text">
                                 <strong>Телефон</strong>
-                                <a href="tel:+73022123456">+7 (3022) xx-xx-xx</a>
+                                <a href="tel:+73022123456">+7 (924) 371-62-05</a>
                             </div>
                         </div>
                         
-                        <div class="contact-item">
+                        <!--<div class="contact-item">
                             <div class="contact-icon"><i class="fas fa-envelope"></i></div>
                             <div class="contact-text">
                                 <strong>Email</strong>
                                 <a href="mailto:support@pet-lab.ru">support@pet-lab.ru</a>
                             </div>
-                        </div>
+                        </div>-->
                     </div>
                     
                     <!-- ПРАВАЯ КОЛОНКА: Форма -->

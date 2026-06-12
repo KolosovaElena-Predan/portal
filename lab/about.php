@@ -359,7 +359,7 @@ try {
             </section>
             
             <!-- Оборудование: компактный список -->
-			<section class="section-equipment-full" id="equipment">
+			<!--<section class="section-equipment-full" id="equipment">
 				<div class="section-inner">
 					<h2 class="section-title">ИСПОЛЬЗУЕМОЕ ОБОРУДОВАНИЕ</h2>
 					<div class="equipment-list">
@@ -383,7 +383,7 @@ try {
 						<?php endif; ?>
 					</div>
 				</div>
-			</section>
+			</section>-->
             
             <!-- Команда: 3 карточки в ряд -->
             <section class="section" id="team">
