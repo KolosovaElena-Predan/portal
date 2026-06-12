@@ -5,7 +5,7 @@
  * 
  * Доступ:
  * - Только для администратора
- * - URL: http://localhost/portal/mip/test_email.php
+ * - URL: http://localhost/mip/test_email.php
  */
 
 session_start();
@@ -311,7 +311,7 @@ if (!$isAdmin) {
 function showTemplate(type) {
     const previewDiv = document.getElementById('templatePreview');
     const contentDiv = document.getElementById('templateContent');
-    const siteUrl = window.location.origin + '/portal/mip';
+    const siteUrl = window.location.origin + '/mip';
     
     if (type === 'product') {
         contentDiv.innerHTML = `<?php 

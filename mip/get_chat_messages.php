@@ -57,9 +57,9 @@ try {
         if ($row['file_id']) {
             // Убеждаемся, что URL правильный
             $fileUrl = $row['file_url'];
-            // Если URL не начинается с /portal, добавляем
-            if (strpos($fileUrl, '/portal/') !== 0 && strpos($fileUrl, 'uploads/') === 0) {
-                $fileUrl = '/portal/' . $fileUrl;
+            // Если URL не начинается с , добавляем
+            if (strpos($fileUrl, '/') !== 0 && strpos($fileUrl, 'uploads/') === 0) {
+                $fileUrl = '/' . $fileUrl;
             }
             $messages[$msgId]['files'][] = [
                 'id' => $row['file_id'],

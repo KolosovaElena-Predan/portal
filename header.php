@@ -48,7 +48,7 @@ if ($context === 'mip') {
         case 'admin': $lk_link = '/admin/lk_admin.php'; break;
         case 'support_specialist': $lk_link = '/lk_support.php'; break;
         case 'client': $lk_link = '/lab/lk_lab.php'; break;
-        default: $lk_link = '/portal/lab/main_lab.php';
+        default: $lk_link = '/lab/main_lab.php';
     }
 }
 ?>
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var link = this.dataset.link;
             if (notifId && !this.classList.contains('read')) {
                 var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/portal/mark_notification_read.php', false);
+                xhr.open('POST', '/mark_notification_read.php', false);
                 xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                 xhr.send('id=' + notifId);
                 this.classList.add('read');
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (markAllBtn) {
         markAllBtn.onclick = function(e) {
             e.stopPropagation();
-            fetch('/portal/mark_all_notifications_read.php', { method: 'POST' })
+            fetch('/mark_all_notifications_read.php', { method: 'POST' })
                 .then(function() { location.reload(); })
                 .catch(function() { console.error('Ошибка отметки всех прочитанными'); });
         };
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <?php if ($is_logged && $context === 'mip' && $user_role === 'client'): ?>
     setInterval(function() {
-        fetch('/portal/check_notifications.php')
+        fetch('/check_notifications.php')
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.count > 0) {
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         searchResults.innerHTML = '<div class="search-loading"><i class="fas fa-spinner fa-pulse"></i> Поиск...</div>';
-        fetch('/portal/search_global.php?q=' + encodeURIComponent(query))
+        fetch('/search_global.php?q=' + encodeURIComponent(query))
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.count === 0) {

@@ -4,7 +4,7 @@ require_once '../config.php';
 
 // Проверка авторизации
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /portal/authorization.php');
+    header('Location: /authorization.php');
     exit;
 }
 
@@ -21,7 +21,7 @@ try {
     
     if (!$user) {
         session_destroy();
-        header('Location: /portal/authorization.php');
+        header('Location: /authorization.php');
         exit;
     }
     
@@ -314,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
             </form>
             
-            <form method="POST" action="/portal/logout.php" style="margin-top: 15px;">
+            <form method="POST" action="/logout.php" style="margin-top: 15px;">
                 <button type="submit" class="btn-logout">
                     Выйти
                 </button>

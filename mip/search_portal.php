@@ -209,7 +209,7 @@ $totalResults = count($products) + count($services) + count($news);
             <div class="search-empty">
                 <i class="fas fa-exclamation-triangle"></i>
                 <p>Ничего не найдено по запросу "<?= htmlspecialchars($query) ?>"</p>
-                <a href="/portal/lab/search_portal.php?q=<?= urlencode($query) ?>" class="search-other">
+                <a href="/lab/search_portal.php?q=<?= urlencode($query) ?>" class="search-other">
                     <i class="fas fa-flask"></i> Искать в разделе Лаборатория
                 </a>
             </div>

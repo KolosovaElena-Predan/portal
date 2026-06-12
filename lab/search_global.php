@@ -20,8 +20,8 @@ if (strlen($query) >= 2) {
     ");
     $stmt->execute(["%$query%", "%$query%"]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $row['url'] = '/portal/mip/product.php?id=' . $row['id'];
-        $row['section_url'] = '/portal/mip/';
+        $row['url'] = '/mip/product.php?id=' . $row['id'];
+        $row['section_url'] = '/mip/';
         $results[] = $row;
     }
     
@@ -34,8 +34,8 @@ if (strlen($query) >= 2) {
     ");
     $stmt->execute(["%$query%", "%$query%"]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $row['url'] = '/portal/mip/services_catalog.php?id=' . $row['id'];
-        $row['section_url'] = '/portal/mip/';
+        $row['url'] = '/mip/services_catalog.php?id=' . $row['id'];
+        $row['section_url'] = '/mip/';
         $results[] = $row;
     }
     
@@ -49,8 +49,8 @@ if (strlen($query) >= 2) {
     $stmt->execute(["%$query%", "%$query%"]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $row['name'] = $row['title'];
-        $row['url'] = '/portal/mip/news_view.php?id=' . $row['id'];
-        $row['section_url'] = '/portal/mip/';
+        $row['url'] = '/mip/news_view.php?id=' . $row['id'];
+        $row['section_url'] = '/mip/';
         $results[] = $row;
     }
     
@@ -64,8 +64,8 @@ if (strlen($query) >= 2) {
     ");
     $stmt->execute(["%$query%", "%$query%"]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $row['url'] = '/portal/lab/projects.php?id=' . $row['id'];
-        $row['section_url'] = '/portal/lab/';
+        $row['url'] = '/lab/projects.php?id=' . $row['id'];
+        $row['section_url'] = '/lab/';
         $results[] = $row;
     }
     
@@ -78,8 +78,8 @@ if (strlen($query) >= 2) {
     ");
     $stmt->execute(["%$query%", "%$query%"]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $row['url'] = '/portal/lab/services.php?id=' . $row['id'];
-        $row['section_url'] = '/portal/lab/';
+        $row['url'] = '/lab/services.php?id=' . $row['id'];
+        $row['section_url'] = '/lab/';
         $results[] = $row;
     }
     

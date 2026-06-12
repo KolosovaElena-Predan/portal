@@ -204,7 +204,7 @@ $totalResults = count($projects) + count($services) + count($news);
             <div class="search-empty">
                 <i class="fas fa-exclamation-triangle"></i>
                 <p>Ничего не найдено по запросу "<?= htmlspecialchars($query) ?>"</p>
-                <a href="/portal/mip/search_portal.php?q=<?= urlencode($query) ?>" class="search-other">
+                <a href="/mip/search_portal.php?q=<?= urlencode($query) ?>" class="search-other">
                     <i class="fas fa-building"></i> Искать в разделе МИП
                 </a>
             </div>

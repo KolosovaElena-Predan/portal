@@ -142,7 +142,7 @@ function getOrderStatusEmailTemplate($orderId, $statusText, $statusComment = nul
             <p class="status">' . htmlspecialchars($statusText) . '</p>
             ' . ($statusComment ? '<div class="comment">' . nl2br(htmlspecialchars($statusComment)) . '</div>' : '') . '
             <p style="text-align: center;">
-                <a href="https://' . $_SERVER['HTTP_HOST'] . '/portal/mip/lk_user.php" class="btn">Перейти в личный кабинет</a>
+                <a href="https://' . $_SERVER['HTTP_HOST'] . '/mip/lk_user.php" class="btn">Перейти в личный кабинет</a>
             </p>
             <div class="footer">
                 Это автоматическое уведомление. Пожалуйста, не отвечайте на него.
@@ -178,7 +178,7 @@ function getNewMessageEmailTemplate($requestId, $message, $senderName) {
             <p><strong>' . htmlspecialchars($senderName) . '</strong> оставил(а) сообщение по заявке №' . $requestId . ':</p>
             <div class="message">' . nl2br(htmlspecialchars($message)) . '</div>
             <p style="text-align: center;">
-                <a href="https://' . $_SERVER['HTTP_HOST'] . '/portal/mip/lk_user.php" class="btn">Ответить в чате</a>
+                <a href="https://' . $_SERVER['HTTP_HOST'] . '/mip/lk_user.php" class="btn">Ответить в чате</a>
             </p>
             <div class="footer">
                 Это автоматическое уведомление. Пожалуйста, не отвечайте на него.

@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $requestData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
-                    addNotification($pdo, $requestData['user_id'], 'status_change', $title, $message, '/portal/mip/lk_user.php#request-' . $requestId . '-status');
+                    addNotification($pdo, $requestData['user_id'], 'status_change', $title, $message, '/mip/lk_user.php#request-' . $requestId . '-status');
                     
                     $userStmt = $pdo->prepare("SELECT email, name FROM user WHERE id = ?");
                     $userStmt->execute([$requestData['user_id']]);
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </p>
                         " . ($comment ? "<p><strong>Комментарий специалиста:</strong><br>" . nl2br(htmlspecialchars($comment)) . "</p>" : "") . "
                             <p style='margin-top: 24px;'>
-                                <a href='https://" . $_SERVER['HTTP_HOST'] . "/portal/mip/lk_user.php#request-{$requestId}-status' 
+                                <a href='https://" . $_SERVER['HTTP_HOST'] . "/mip/lk_user.php#request-{$requestId}-status' 
                                    style='background: #1a1982; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>
                                     Перейти к заявке
                                 </a>
@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $requestData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
-                    addNotification($pdo, $requestData['user_id'], 'new_message', 'Новое сообщение в чате', "Специалист поддержки ответил на ваше обращение #{$requestId}", '/portal/mip/lk_user.php#request-' . $requestId . '-chat');
+                    addNotification($pdo, $requestData['user_id'], 'new_message', 'Новое сообщение в чате', "Специалист поддержки ответил на ваше обращение #{$requestId}", '/mip/lk_user.php#request-' . $requestId . '-chat');
                     
                     $userStmt = $pdo->prepare("SELECT email, name FROM user WHERE id = ?");
                     $userStmt->execute([$requestData['user_id']]);
@@ -158,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             <h2 style='color: #1a1982;'>Здравствуйте, " . htmlspecialchars($userInfo['name']) . "!</h2>
                             <p>В вашей заявке <strong>#{$requestId}</strong> появилось новое сообщение от специалиста поддержки.</p>
                             <p style='margin-top: 24px;'>
-                                <a href='https://" . $_SERVER['HTTP_HOST'] . "/portal/mip/lk_user.php#request-{$requestId}-chat' 
+                                <a href='https://" . $_SERVER['HTTP_HOST'] . "/mip/lk_user.php#request-{$requestId}-chat' 
                                    style='background: #28a745; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>
                                     Открыть чат
                                 </a>
@@ -199,8 +199,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
             }
             
-            $uploadDir = $_SERVER['DOCUMENT_ROOT'] . '/portal/uploads/chat/';
-            $webPath = '/portal/uploads/chat/';
+            $uploadDir = $_SERVER['DOCUMENT_ROOT'] . '/uploads/chat/';
+            $webPath = '/uploads/chat/';
             
             if (!file_exists($uploadDir)) {
                 mkdir($uploadDir, 0777, true);
@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $requestData = $stmtReq->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
-                    addNotification($pdo, $requestData['user_id'], 'new_message', 'Новое сообщение в чате', "Специалист поддержки отправил файл в заявке #{$requestId}", '/portal/mip/lk_user.php#request-' . $requestId . '-chat');
+                    addNotification($pdo, $requestData['user_id'], 'new_message', 'Новое сообщение в чате', "Специалист поддержки отправил файл в заявке #{$requestId}", '/mip/lk_user.php#request-' . $requestId . '-chat');
                 }
                 
                 echo json_encode(['success' => true, 'message_id' => $messageId]);

@@ -76,8 +76,8 @@ if (!in_array($file['type'], $allowedTypes)) {
 }
 
 // Определяем правильные пути
-$uploadDir = $_SERVER['DOCUMENT_ROOT'] . '/portal/uploads/chat/';
-$webPath = '/portal/uploads/chat/';
+$uploadDir = $_SERVER['DOCUMENT_ROOT'] . '/uploads/chat/';
+$webPath = '/uploads/chat/';
 
 if (!file_exists($uploadDir)) {
     if (!mkdir($uploadDir, 0777, true)) {

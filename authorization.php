@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     // Формируем ссылку для подтверждения
                     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
                     $host = $_SERVER['HTTP_HOST'];
-                    $verifyLink = "{$protocol}://{$host}/portal/verify_email.php?token={$token}";
+                    $verifyLink = "{$protocol}://{$host}/verify_email.php?token={$token}";
 
                     $subject = "Подтверждение регистрации на сайте МИП «НПЦ ПИТиА»";
                     $message = "

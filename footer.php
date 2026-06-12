@@ -5,7 +5,7 @@ if (!isset($context)) {
     $context = 'lab'; 
 }
 
-$BASE = '/portal';
+$BASE = '';
 $lab_path = $BASE . '/lab';
 $mip_path = $BASE . '/mip';
 ?>

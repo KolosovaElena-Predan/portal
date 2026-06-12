@@ -70,7 +70,7 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock, $oldStock) {
         
         if (empty($waitingRequests)) return 0;
         
-        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/portal/mip';
+        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/mip';
         $productUrl = $siteUrl . '/product.php?id=' . $productId;
         $notifiedCount = 0;
         

@@ -21,7 +21,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/mip/product.php?id=' . $row['id'];
+            $row['url'] = '/mip/product.php?id=' . $row['id'];
             $results[] = $row;
         }
         
@@ -34,7 +34,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/mip/service_view.php?id=' . $row['id'];
+            $row['url'] = '/mip/service_view.php?id=' . $row['id'];
             $results[] = $row;
         }
         
@@ -47,7 +47,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/mip/news_view.php?id=' . $row['id'];
+            $row['url'] = '/mip/news_view.php?id=' . $row['id'];
             $results[] = $row;
         }
     } catch (Exception $e) {
@@ -65,7 +65,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/lab/project_detail.php?id=' . $row['id'];
+            $row['url'] = '/lab/project_detail.php?id=' . $row['id'];
             $results[] = $row;
         }
         
@@ -78,7 +78,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/lab/news_view.php?id=' . $row['id'];
+            $row['url'] = '/lab/news_view.php?id=' . $row['id'];
             $results[] = $row;
         }
         
@@ -91,7 +91,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/lab/about.php#directions';
+            $row['url'] = '/lab/about.php#directions';
             $results[] = $row;
         }
         
@@ -104,7 +104,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/lab/education.php?id=' . $row['id'];
+            $row['url'] = '/lab/education.php?id=' . $row['id'];
             $results[] = $row;
         }
         
@@ -117,7 +117,7 @@ if (strlen($query) >= 2) {
         ");
         $stmt->execute(["%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/portal/lab/equipment.php?id=' . $row['id'];
+            $row['url'] = '/lab/equipment.php?id=' . $row['id'];
             $results[] = $row;
         }
         

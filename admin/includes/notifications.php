@@ -36,7 +36,7 @@ function addNotificationWithEmail($pdo, $userId, $type, $title, $message, $link 
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($user && !empty($user['email'])) {
-            $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/portal/mip';
+            $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/mip';
             
             switch ($type) {
                 case 'stock_available':
@@ -84,7 +84,7 @@ function notifyWaitingUsersProductAvailable($pdo, $productId, $productName, $new
     if (empty($waitingRequests)) return 0;
 
     $notifiedCount = 0;
-    $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/portal/mip';
+    $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/mip';
     $productUrl = $siteUrl . '/product.php?id=' . $productId;
     
     foreach ($waitingRequests as $req) {

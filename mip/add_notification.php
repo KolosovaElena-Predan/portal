@@ -54,7 +54,7 @@ try {
         }
         
         // ✅ Ссылка с якорем на статус
-        $link = "/portal/mip/lk_user.php#request-{$requestId}-status";
+        $link = "/mip/lk_user.php#request-{$requestId}-status";
         
         addNotification($pdo, $request['user_id'], 'status_change', $title, $message, $link);
         echo json_encode(['success' => true, 'type' => 'status_change']);
@@ -78,7 +78,7 @@ try {
             $title = "Новое сообщение в чате";
             $message = "Пользователь оставил сообщение в заявке #{$requestId}";
             // ✅ Ссылка с якорем на чат
-            $link = "/portal/mip/lk_support.php#request-{$requestId}-chat";
+            $link = "/mip/lk_support.php#request-{$requestId}-chat";
             
             addNotification($pdo, $support['id'], 'new_message', $title, $message, $link);
             echo json_encode(['success' => true, 'type' => 'new_message']);
