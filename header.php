@@ -5,7 +5,7 @@ if (!isset($context)) {
     $context = 'lab'; 
 }
 
-$BASE = '/portal';
+$BASE = '';
 $lab_path = $BASE . '/lab';
 $mip_path = $BASE . '/mip';
 
@@ -38,16 +38,16 @@ $theme_class = ($context === 'mip') ? 'theme-mip' : 'theme-lab';
 $lk_link = '#';
 if ($context === 'mip') {
     switch ($user_role) {
-        case 'admin': $lk_link = '/portal/admin/lk_admin.php'; break;
-        case 'support_specialist': $lk_link = '/portal/lk_support.php'; break;
-        case 'client': $lk_link = '/portal/mip/lk_user.php'; break;
-        default: $lk_link = '/portal/mip/mip.php';
+        case 'admin': $lk_link = '/admin/lk_admin.php'; break;
+        case 'support_specialist': $lk_link = '/lk_support.php'; break;
+        case 'client': $lk_link = '/mip/lk_user.php'; break;
+        default: $lk_link = '/mip/mip.php';
     }
 } else {
     switch ($user_role) {
-        case 'admin': $lk_link = '/portal/admin/lk_admin.php'; break;
-        case 'support_specialist': $lk_link = '/portal/lk_support.php'; break;
-        case 'client': $lk_link = '/portal/lab/lk_lab.php'; break;
+        case 'admin': $lk_link = '/admin/lk_admin.php'; break;
+        case 'support_specialist': $lk_link = '/lk_support.php'; break;
+        case 'client': $lk_link = '/lab/lk_lab.php'; break;
         default: $lk_link = '/portal/lab/main_lab.php';
     }
 }
