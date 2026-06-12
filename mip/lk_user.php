@@ -11,7 +11,7 @@ $auth = new Auth($userRepo);
 $user = $auth->getCurrentUser();
 
 if (!($user instanceof ClientUser)) {
-    header('Location: authorization.php');
+    header('Location: ../authorization.php');
     exit;
 }
 
