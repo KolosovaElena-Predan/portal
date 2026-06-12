@@ -4,9 +4,9 @@ session_start();
 session_destroy();
 
 
-$referer = $_SERVER['HTTP_REFERER'] ?? 'index.php';
+$referer = $_SERVER['HTTP_REFERER'] ?? 'mip.php';
 if (strpos($referer, $_SERVER['HTTP_HOST']) === false) {
-    $referer = 'index.php';
+    $referer = 'mip.php';
 }
 header('Location: ' . $referer);
 exit;
