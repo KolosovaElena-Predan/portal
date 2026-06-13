@@ -27,8 +27,8 @@ class Auth
     public function login(User $user): void
     {
         if (session_status() === PHP_SESSION_NONE) {
-			session_start();
-		}
+            session_start();
+        }
         $_SESSION['user_id'] = $user->id;
         $_SESSION['role'] = $user->role;
         $_SESSION['name'] = $user->name;
@@ -63,5 +63,46 @@ class Auth
 
         header("Location: " . $user->getDashboardUrl());
         exit;
+    }
+
+    // ========== ДОБАВИТЬ ЭТИ МЕТОДЫ ==========
+
+    /**
+     * Создание токена для восстановления пароля
+     */
+    public function createPasswordResetToken(string $email): ?string
+    {
+        $user = $this->userRepository->getUserByEmail($email);
+        if (!$user) {
+            return null;
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+        
+        $this->userRepository->setResetToken($user['id'], $token, $expires);
+        
+        return $token;
+    }
+
+    /**
+     * Проверка токена восстановления
+     */
+    public function validateResetToken(string $token): ?array
+    {
+        return $this->userRepository->findByResetToken($token);
+    }
+
+    /**
+     * Сброс пароля по токену
+     */
+    public function resetPassword(string $token, string $newPassword): bool
+    {
+        $user = $this->userRepository->findByResetToken($token);
+        if (!$user) {
+            return false;
+        }
+        
+        return $this->userRepository->updatePassword($user['id'], $newPassword);
     }
 }
