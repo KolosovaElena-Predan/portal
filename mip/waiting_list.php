@@ -2,28 +2,37 @@
 session_start();
 require_once 'config.php';
 
+// Отключаем вывод ошибок в HTML, чтобы не ломать JSON
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
 if (!isset($_SESSION['user_id'])) {
-    header('Location: authorization.php');
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Не авторизован']);
     exit;
 }
 
 // Функция для получения остатка товара с учётом комплектации
 function getProductStock($pdo, $productId, $configurationId = null) {
-    if ($configurationId) {
-        $stmt = $pdo->prepare("SELECT characteristics FROM product_configurations WHERE id = ? AND product_id = ?");
-        $stmt->execute([$configurationId, $productId]);
-        $config = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($config && !empty($config['characteristics'])) {
-            $chars = json_decode($config['characteristics'], true);
-            if (isset($chars['stock'])) {
-                return (int)$chars['stock'];
+    try {
+        if ($configurationId) {
+            $stmt = $pdo->prepare("SELECT characteristics FROM product_configurations WHERE id = ? AND product_id = ?");
+            $stmt->execute([$configurationId, $productId]);
+            $config = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($config && !empty($config['characteristics'])) {
+                $chars = json_decode($config['characteristics'], true);
+                if (isset($chars['stock'])) {
+                    return (int)$chars['stock'];
+                }
             }
         }
+        $stmt = $pdo->prepare("SELECT stock FROM products WHERE id = ?");
+        $stmt->execute([$productId]);
+        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $product ? (int)$product['stock'] : 0;
+    } catch (Exception $e) {
+        return 0;
     }
-    $stmt = $pdo->prepare("SELECT stock FROM products WHERE id = ?");
-    $stmt->execute([$productId]);
-    $product = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $product ? (int)$product['stock'] : 0;
 }
 
 // Получаем товары из листа ожидания (тип 'wl')
@@ -49,15 +58,19 @@ if (isset($_GET['remove']) && is_numeric($_GET['remove'])) {
 // Обработка удаления нескольких заявок
 if (isset($_POST['action']) && $_POST['action'] === 'remove_multiple') {
     header('Content-Type: application/json');
-    $ids = json_decode($_POST['ids'] ?? '[]', true);
-    if (!empty($ids)) {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $pdo->prepare("DELETE FROM request WHERE id IN ($placeholders) AND user_id = ? AND type = 'wl'");
-        $params = array_merge($ids, [$_SESSION['user_id']]);
-        $stmt->execute($params);
-        echo json_encode(['success' => true]);
-    } else {
-        echo json_encode(['success' => false]);
+    try {
+        $ids = json_decode($_POST['ids'] ?? '[]', true);
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $pdo->prepare("DELETE FROM request WHERE id IN ($placeholders) AND user_id = ? AND type = 'wl'");
+            $params = array_merge($ids, [$_SESSION['user_id']]);
+            $stmt->execute($params);
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     exit;
 }
@@ -65,23 +78,27 @@ if (isset($_POST['action']) && $_POST['action'] === 'remove_multiple') {
 // Обработка обновления количества
 if (isset($_POST['action']) && $_POST['action'] === 'update_quantity') {
     header('Content-Type: application/json');
-    $requestId = (int)$_POST['request_id'];
-    $newQuantity = max(1, (int)$_POST['quantity']);
-    
-    $stmt = $pdo->prepare("SELECT message FROM request WHERE id = ? AND user_id = ? AND type = 'wl'");
-    $stmt->execute([$requestId, $_SESSION['user_id']]);
-    $request = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($request) {
-        $messageData = json_decode($request['message'], true);
-        $messageData['quantity'] = $newQuantity;
-        $newMessage = json_encode($messageData, JSON_UNESCAPED_UNICODE);
+    try {
+        $requestId = (int)$_POST['request_id'];
+        $newQuantity = max(1, (int)$_POST['quantity']);
         
-        $stmt = $pdo->prepare("UPDATE request SET message = ?, requested_quantity = ? WHERE id = ?");
-        $stmt->execute([$newMessage, $newQuantity, $requestId]);
-        echo json_encode(['success' => true, 'new_quantity' => $newQuantity]);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Запись не найдена']);
+        $stmt = $pdo->prepare("SELECT message FROM request WHERE id = ? AND user_id = ? AND type = 'wl'");
+        $stmt->execute([$requestId, $_SESSION['user_id']]);
+        $request = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($request) {
+            $messageData = json_decode($request['message'], true);
+            $messageData['quantity'] = $newQuantity;
+            $newMessage = json_encode($messageData, JSON_UNESCAPED_UNICODE);
+            
+            $stmt = $pdo->prepare("UPDATE request SET message = ?, requested_quantity = ? WHERE id = ?");
+            $stmt->execute([$newMessage, $newQuantity, $requestId]);
+            echo json_encode(['success' => true, 'new_quantity' => $newQuantity]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Запись не найдена']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     exit;
 }
@@ -89,17 +106,27 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_quantity') {
 // Обработка добавления в корзину из листа ожидания
 if (isset($_POST['action']) && $_POST['action'] === 'add_to_cart') {
     header('Content-Type: application/json');
-    $requestId = (int)$_POST['request_id'];
-    
-    $stmt = $pdo->prepare("SELECT * FROM request WHERE id = ? AND user_id = ? AND type = 'wl'");
-    $stmt->execute([$requestId, $_SESSION['user_id']]);
-    $request = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($request) {
+    try {
+        $requestId = (int)$_POST['request_id'];
+        
+        $stmt = $pdo->prepare("SELECT * FROM request WHERE id = ? AND user_id = ? AND type = 'wl'");
+        $stmt->execute([$requestId, $_SESSION['user_id']]);
+        $request = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$request) {
+            echo json_encode(['success' => false, 'error' => 'Запись не найдена']);
+            exit;
+        }
+        
         $messageData = json_decode($request['message'], true);
+        if (!$messageData) {
+            echo json_encode(['success' => false, 'error' => 'Некорректные данные заявки']);
+            exit;
+        }
+        
         $productId = $request['product_id'];
         $configurationId = $messageData['configuration']['id'] ?? null;
-        $requestedQuantity = (int)$messageData['quantity'];
+        $requestedQuantity = (int)($messageData['quantity'] ?? 1);
         
         $currentStock = getProductStock($pdo, $productId, $configurationId);
         
@@ -157,16 +184,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_to_cart') {
             $newMessage = json_encode($messageData, JSON_UNESCAPED_UNICODE);
             $stmt = $pdo->prepare("UPDATE request SET message = ?, requested_quantity = ? WHERE id = ?");
             $stmt->execute([$newMessage, $remainingQuantity, $requestId]);
+            echo json_encode(['success' => true]);
         } else {
             $stmt = $pdo->prepare("DELETE FROM request WHERE id = ? AND user_id = ? AND type = 'wl'");
             $stmt->execute([$requestId, $_SESSION['user_id']]);
+            echo json_encode(['success' => true, 'redirect' => 'cart.php']);
         }
-        
-        session_write_close();
-        
-        echo json_encode(['success' => true, 'redirect' => 'cart.php']);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Запись не найдена']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Ошибка сервера: ' . $e->getMessage()]);
     }
     exit;
 }
@@ -205,7 +230,7 @@ function parseWaitingItemData($message) {
     ];
 }
 
-// Группируем товары (только общие данные, без списка заявок)
+// Группируем товары
 $groupedItems = [];
 
 foreach ($waitingItems as $item) {
@@ -228,7 +253,7 @@ foreach ($waitingItems as $item) {
             'lead_time' => $itemData['lead_time'],
             'total_quantity' => 0,
             'current_stock' => $currentStock,
-            'request_ids' => [], // храним ID заявок для удаления
+            'request_ids' => [],
             'first_date' => $item['datetime']
         ];
     }
@@ -739,7 +764,7 @@ uasort($groupedItems, function($a, $b) {
                         </a>
                         
                         <?php if ($canOrder): ?>
-                            <button class="btn-add-to-cart" onclick="addToCart('<?= $requestIds ?>', <?= $availableToOrder ?>, '<?= htmlspecialchars($group['product_name']) ?>')">
+                            <button class="btn-add-to-cart" onclick="addToCart(event, '<?= $requestIds ?>', <?= $availableToOrder ?>, '<?= htmlspecialchars($group['product_name']) ?>')">
                                 Заказать (<?= $availableToOrder ?> шт.)
                             </button>
                         <?php else: ?>
@@ -798,7 +823,6 @@ async function saveQuantity(requestIds, totalQuantity) {
     btn.disabled = true;
     btn.innerHTML = 'Сохранение...';
     
-    // Разбиваем ID заявок и обновляем каждую
     const ids = requestIds.split(',');
     let success = true;
     
@@ -810,11 +834,21 @@ async function saveQuantity(requestIds, totalQuantity) {
         
         try {
             const res = await fetch('waiting_list.php', { method: 'POST', body: formData });
-            const data = await res.json();
+            const text = await res.text();
+            console.log('Response for update:', text);
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error('JSON parse error:', text);
+                success = false;
+                continue;
+            }
             if (!data.success) {
                 success = false;
             }
         } catch (err) {
+            console.error('Fetch error:', err);
             success = false;
         }
     }
@@ -832,7 +866,7 @@ async function saveQuantity(requestIds, totalQuantity) {
     btn.innerHTML = originalText;
 }
 
-async function addToCart(requestIds, quantity, productName) {
+async function addToCart(event, requestIds, quantity, productName) {
     if (!confirm(`Добавить товар "${productName}" (${quantity} шт.) в корзину?`)) {
         return;
     }
@@ -843,7 +877,7 @@ async function addToCart(requestIds, quantity, productName) {
     btn.innerHTML = 'Добавление...';
     
     const ids = requestIds.split(',');
-    let success = true;
+    let shouldRedirect = false;
     
     for (const id of ids) {
         const formData = new FormData();
@@ -853,24 +887,43 @@ async function addToCart(requestIds, quantity, productName) {
         
         try {
             const res = await fetch('waiting_list.php', { method: 'POST', body: formData });
-            const data = await res.json();
+            const text = await res.text();
+            console.log('Response for add to cart:', text);
+            
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error('JSON parse error:', e, 'Response:', text);
+                alert('Сервер вернул некорректный ответ. Откройте консоль (F12) для деталей.');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                return;
+            }
+            
             if (data.success) {
                 if (data.redirect) {
-                    window.location.href = data.redirect;
-                    return;
+                    shouldRedirect = true;
+                    break;
                 }
             } else {
-                success = false;
+                alert('Ошибка: ' + (data.error || 'Не удалось добавить товар'));
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                return;
             }
         } catch (err) {
-            success = false;
+            console.error('Fetch error:', err);
+            alert('Ошибка соединения с сервером: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
         }
     }
     
-    if (success) {
+    if (shouldRedirect) {
         window.location.href = 'cart.php';
     } else {
-        alert('Ошибка при добавлении в корзину');
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
@@ -883,14 +936,21 @@ function confirmRemoveAll(requestIds, productName) {
         formData.append('action', 'remove_multiple');
         formData.append('ids', JSON.stringify(ids));
         fetch('waiting_list.php', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) location.reload();
-                else alert('Ошибка при удалении');
+            .then(res => res.text())
+            .then(text => {
+                console.log('Remove response:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) location.reload();
+                    else alert('Ошибка при удалении');
+                } catch (e) {
+                    console.error('JSON parse error:', text);
+                    alert('Ошибка сервера');
+                }
             })
             .catch(err => {
                 console.error(err);
-                alert('Ошибка');
+                alert('Ошибка соединения');
             });
     }
 }

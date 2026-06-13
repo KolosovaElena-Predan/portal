@@ -25,7 +25,67 @@ if (!isset($_SESSION['selected_items'])) $_SESSION['selected_items'] = [];
 if (!isset($_SESSION['selected_services'])) $_SESSION['selected_services'] = [];
 if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
 
-// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+// --- ПОЛУЧЕНИЕ АДРЕСА ПОЛЬЗОВАТЕЛЯ ИЗ БД ---
+function getUserAddress($pdo, $userId) {
+    $stmt = $pdo->prepare("SELECT address FROM user WHERE id = ?");
+    $stmt->execute([$userId]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($result && !empty($result['address'])) {
+        $address = json_decode($result['address'], true);
+        if (is_array($address)) {
+            return $address;
+        }
+    }
+    return ['city' => '', 'street' => '', 'house' => ''];
+}
+
+// Получаем адрес пользователя для автозаполнения
+$userAddress = getUserAddress($pdo, $_SESSION['user_id']);
+$userAddressJson = json_encode($userAddress);
+
+// --- ФУНКЦИИ ВАЛИДАЦИИ АДРЕСА ---
+function validateAddressField($value, $fieldName, $required = true) {
+    $value = trim($value);
+    if ($required && empty($value)) {
+        return ['valid' => false, 'error' => "Поле '$fieldName' обязательно для заполнения"];
+    }
+    if (!empty($value) && $fieldName === 'Город' && !preg_match('/^[а-яА-ЯёЁa-zA-Z\s\-]+$/u', $value)) {
+        return ['valid' => false, 'error' => 'Город должен содержать только буквы, пробелы и дефисы'];
+    }
+    if (!empty($value) && $fieldName === 'Город' && mb_strlen($value) < 2) {
+        return ['valid' => false, 'error' => 'Город должен содержать минимум 2 символа'];
+    }
+    if (!empty($value) && $fieldName === 'Улица' && mb_strlen($value) < 2) {
+        return ['valid' => false, 'error' => 'Улица должна содержать минимум 2 символа'];
+    }
+    if ($fieldName === 'Индекс' && !empty($value) && !preg_match('/^\d{6}$/', $value)) {
+        return ['valid' => false, 'error' => 'Индекс должен состоять из 6 цифр'];
+    }
+    return ['valid' => true, 'error' => null];
+}
+
+function validateAddress($zip, $city, $street, $house, $deliveryMethod) {
+    $errors = [];
+    
+    if ($deliveryMethod === 'post') {
+        $zipValidation = validateAddressField($zip, 'Индекс', true);
+        if (!$zipValidation['valid']) $errors[] = $zipValidation['error'];
+    }
+    
+    $cityValidation = validateAddressField($city, 'Город', true);
+    if (!$cityValidation['valid']) $errors[] = $cityValidation['error'];
+    
+    $streetValidation = validateAddressField($street, 'Улица', true);
+    if (!$streetValidation['valid']) $errors[] = $streetValidation['error'];
+    
+    // Проверка дома/квартиры (не строгая, просто наличие)
+    $house = trim($house);
+    if (empty($house)) {
+        $errors[] = "Поле 'Дом/Квартира' обязательно для заполнения";
+    }
+    
+    return $errors;
+}
 
 function getProductStock($pdo, $productId, $configurationId = null) {
     if ($configurationId) {
@@ -154,7 +214,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_to_waiting_list') {
         
         unset($_SESSION['cart'][$configKey]);
         unset($_SESSION['selected_items'][$configKey]);
-        session_write_close();
         
         echo json_encode(['success' => true, 'message' => "Товар в количестве {$requestedQuantity} шт. добавлен в лист ожидания"]);
     } catch (Exception $e) {
@@ -168,7 +227,15 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_qty') {
     $quantity = max(1, (int)($_POST['quantity'] ?? 1));
     if (isset($_SESSION['cart'][$configKey])) {
         $_SESSION['cart'][$configKey]['quantity'] = $quantity;
-        session_write_close();
+        
+        // Обновляем стоимость услуг, привязанных к этому товару
+        foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
+            if ($service['product_id'] == $_SESSION['cart'][$configKey]['product_id']) {
+                $_SESSION['selected_services'][$serviceKey]['quantity'] = $quantity;
+                $_SESSION['selected_services'][$serviceKey]['total_price'] = (float)$service['price'] * $quantity;
+            }
+        }
+        
         echo json_encode(['success' => true]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Товар не найден']);
@@ -275,8 +342,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_select') {
     
     $servicesTotal = 0;
     if (!empty($_SESSION['selected_services'])) {
-        foreach ($_SESSION['selected_services'] as $service) {
-            if ($service['selected']) $servicesTotal += (float)$service['price'];
+        foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
+            if ($service['selected']) {
+                $servicesTotal += $service['total_price'] ?? (float)$service['price'];
+            }
         }
     }
 
@@ -293,11 +362,27 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_service') {
     if ($isSelected) {
         $service = getServiceDetails($pdo, $serviceId);
         if ($service) {
+            // Находим количество товара, к которому привязывается услуга
+            $productQuantity = 1;
+            foreach ($_SESSION['cart'] as $item) {
+                if ($item['product_id'] == $productId && isset($_SESSION['selected_items'][$item['config_key']])) {
+                    $productQuantity = (int)$item['quantity'];
+                    break;
+                }
+            }
+            
             $_SESSION['selected_services'][$serviceKey] = [
-                'id' => $service['id'], 'name' => $service['name'], 'price' => (float)$service['price'],
-                'duration' => $service['duration'], 'short_description' => $service['short_description'],
-                'full_description' => $service['full_description'], 'img_url' => $service['img_url'],
-                'product_id' => $productId, 'selected' => true
+                'id' => $service['id'], 
+                'name' => $service['name'], 
+                'price' => (float)$service['price'],
+                'quantity' => $productQuantity,
+                'total_price' => (float)$service['price'] * $productQuantity,
+                'duration' => $service['duration'], 
+                'short_description' => $service['short_description'],
+                'full_description' => $service['full_description'], 
+                'img_url' => $service['img_url'],
+                'product_id' => $productId, 
+                'selected' => true
             ];
         }
     } else {
@@ -323,7 +408,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_service') {
     $servicesTotal = 0;
     if (!empty($_SESSION['selected_services'])) {
         foreach ($_SESSION['selected_services'] as $sKey => $service) {
-            if ($service['selected']) $servicesTotal += (float)$service['price'];
+            if ($service['selected']) {
+                $servicesTotal += $service['total_price'] ?? (float)$service['price'];
+            }
         }
     }
 
@@ -352,12 +439,29 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_service_details' && !empt
 if (isset($_GET['action']) && $_GET['action'] === 'remove' && !empty($_GET['key'])) {
     unset($_SESSION['cart'][$_GET['key']]);
     unset($_SESSION['selected_items'][$_GET['key']]);
+    
+    // Удаляем услуги, привязанные к этому товару
+    $productIdToRemove = null;
+    foreach ($_SESSION['cart'] as $item) {
+        if ($item['config_key'] == $_GET['key']) {
+            $productIdToRemove = $item['product_id'];
+            break;
+        }
+    }
+    if ($productIdToRemove) {
+        foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
+            if ($service['product_id'] == $productIdToRemove) {
+                unset($_SESSION['selected_services'][$serviceKey]);
+            }
+        }
+    }
+    
     header('Location: cart.php');
     exit;
 }
 
 // ============================================
-// ОФОРМЛЕНИЕ ЗАКАЗА С СПИСАНИЕМ СО СКЛАДА
+// ОФОРМЛЕНИЕ ЗАКАЗА
 // ============================================
 
 if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
@@ -367,15 +471,36 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
     $street = trim($_POST['street'] ?? '');
     $house = trim($_POST['house'] ?? '');
 
+    // ВАЛИДАЦИЯ АДРЕСА
+    if ($deliveryMethod !== 'pickup') {
+        $errors = validateAddress($zip, $city, $street, $house, $deliveryMethod);
+        if (!empty($errors)) {
+            echo json_encode(['success' => false, 'error' => implode("\n", $errors)]);
+            exit;
+        }
+    }
+
+    // Формирование полного адреса
     $fullAddress = '';
-    if ($zip) $fullAddress .= "Индекс: $zip, ";
-    if ($city) $fullAddress .= "г. $city, ";
-    if ($street) $fullAddress .= "ул. $street, ";
-    if ($house) $fullAddress .= "д. $house";
-    $fullAddress = rtrim($fullAddress, ', ');
+    $addressParts = [];
+
+    if ($deliveryMethod === 'post' && $zip) {
+        $addressParts[] = "Индекс: $zip";
+    }
+    if ($city) {
+        $addressParts[] = "г. $city";
+    }
+    if ($street) {
+        $addressParts[] = "ул. $street";
+    }
+    if ($house) {
+        $addressParts[] = $house;
+    }
+
+    $fullAddress = implode(', ', $addressParts);
 
     if ($deliveryMethod !== 'pickup' && empty($fullAddress)) {
-        echo json_encode(['error' => 'Пожалуйста, заполните все поля адреса доставки']);
+        echo json_encode(['success' => false, 'error' => 'Пожалуйста, заполните все поля адреса доставки']);
         exit;
     }
 
@@ -388,20 +513,19 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
     $hasSelectedServices = !empty($_SESSION['selected_services']);
 
     if (!$hasSelected && !$hasSelectedServices) {
-        echo json_encode(['error' => 'Выберите хотя бы один товар или услугу для оформления']);
+        echo json_encode(['success' => false, 'error' => 'Выберите хотя бы один товар или услугу для оформления']);
         exit;
     }
 
     try {
         $pdo->beginTransaction();
 
-        // Массивы для хранения ключей, которые нужно удалить после успешного оформления
         $processedCartKeys = [];
         $processedServiceKeys = [];
 
+        // Обработка товаров
         if (!empty($_SESSION['cart'])) {
             foreach ($_SESSION['cart'] as $configKey => $item) {
-                // Обрабатываем только выбранные товары
                 if (!isset($_SESSION['selected_items'][$configKey])) continue;
 
                 $configurationId = $item['configuration_id'] ?? null;
@@ -430,7 +554,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                     }
                 }
 
-                // Списание товара со склада
                 if (!$isMadeToOrderFlag && $availableToBuy > 0) {
                     $newStock = $currentStock - $availableToBuy;
                     updateProductStock($pdo, $item['product_id'], $configurationId, $newStock);
@@ -481,25 +604,33 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                     $stmt->execute([$_SESSION['user_id'], $item['product_id'], $message, $status, $requestedQuantity, $requestedQuantity]);
                 }
                 
-                // Запоминаем ключ обработанного товара для последующего удаления
                 $processedCartKeys[] = $configKey;
             }
         }
 
+        // Обработка услуг
         if (!empty($_SESSION['selected_services'])) {
             foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
                 if ($service['selected']) {
+                    $serviceQuantity = $service['quantity'] ?? 1;
+                    $serviceTotalPrice = $service['total_price'] ?? ((float)$service['price'] * $serviceQuantity);
+                    
                     $messageData = [
-                        'type' => 'service', 'service_id' => $service['id'], 'service_name' => $service['name'],
-                        'price' => $service['price'], 'product_id' => $service['product_id'],
-                        'delivery_method' => $deliveryMethod, 'ordered_at' => date('Y-m-d H:i:s')
+                        'type' => 'service', 
+                        'service_id' => $service['id'], 
+                        'service_name' => $service['name'],
+                        'price' => (float)$service['price'],
+                        'quantity' => $serviceQuantity,
+                        'total_price' => $serviceTotalPrice,
+                        'product_id' => $service['product_id'],
+                        'delivery_method' => $deliveryMethod, 
+                        'ordered_at' => date('Y-m-d H:i:s')
                     ];
                     if ($deliveryMethod !== 'pickup') $messageData['address'] = $fullAddress;
 
                     $pdo->prepare("INSERT INTO request (user_id, message, status, datetime, type) VALUES (?, ?, 'new', NOW(), 's')")
                         ->execute([$_SESSION['user_id'], json_encode($messageData, JSON_UNESCAPED_UNICODE)]);
                     
-                    // Запоминаем ключ обработанной услуги для последующего удаления
                     $processedServiceKeys[] = $serviceKey;
                 }
             }
@@ -507,7 +638,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
 
         $pdo->commit();
         
-        // Удаляем ТОЛЬКО обработанные (выбранные) товары и услуги
         foreach ($processedCartKeys as $key) {
             unset($_SESSION['cart'][$key]);
             unset($_SESSION['selected_items'][$key]);
@@ -516,9 +646,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
         foreach ($processedServiceKeys as $key) {
             unset($_SESSION['selected_services'][$key]);
         }
-        
-        // Невыбранные товары остаются в корзине!
-        session_write_close();
 
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
@@ -536,6 +663,7 @@ $cartItems = [];
 $totalQuantity = 0;
 $productsTotal = 0;
 $servicesTotal = 0;
+$selectedServicesCount = 0;
 $stockInfo = [];
 $madeToOrderInfo = [];
 $leadTimeInfo = [];
@@ -604,9 +732,16 @@ if (!empty($_SESSION['cart'])) {
     }
 }
 
+// Подсчет выбранных услуг
 if (!empty($_SESSION['selected_services'])) {
-    foreach ($_SESSION['selected_services'] as $service) {
-        if ($service['selected']) $servicesTotal += (float)$service['price'];
+    foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
+        if ($service['selected']) {
+            $serviceQuantity = $service['quantity'] ?? 1;
+            $serviceTotalPrice = $service['total_price'] ?? ((float)$service['price'] * $serviceQuantity);
+            
+            $servicesTotal += $serviceTotalPrice;
+            $selectedServicesCount++;
+        }
     }
 }
 
@@ -616,7 +751,14 @@ $recommendedServices = [];
 foreach ($cartItems as $item) {
     if (!isset($recommendedServices[$item['product_id']])) {
         $services = getRecommendedServices($pdo, $item['product_id']);
-        if (!empty($services)) $recommendedServices[$item['product_id']] = ['product' => $item, 'services' => $services];
+        if (!empty($services)) {
+            foreach ($services as &$service) {
+                $serviceKey = $item['product_id'] . '_' . $service['id'];
+                $service['is_selected'] = isset($_SESSION['selected_services'][$serviceKey]) && $_SESSION['selected_services'][$serviceKey]['selected'];
+                $service['service_key'] = $serviceKey;
+            }
+            $recommendedServices[$item['product_id']] = ['product' => $item, 'services' => $services];
+        }
     }
 }
 
@@ -633,11 +775,11 @@ $waitingListCount = $stmt->fetchColumn();
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="css/style_header_footer.css" />
 <link rel="stylesheet" href="css/style_main.css" />
 <link rel="stylesheet" href="css/header_mip.css" />
 <style>
-/* ОСНОВНЫЕ СТИЛИ КОРЗИНЫ - БИРЮЗОВАЯ ГАММА */
 * {
     font-family: 'Inter', sans-serif;
 }
@@ -1043,6 +1185,14 @@ $waitingListCount = $stmt->fetchColumn();
     color: #4a6a65;
 }
 
+.service-recommend-quantity {
+    font-size: 13px;
+    color: #4a6a65;
+    background: #f0f6f4;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
 .service-actions {
     display: flex;
     align-items: center;
@@ -1098,6 +1248,11 @@ $waitingListCount = $stmt->fetchColumn();
 .summary-value {
     font-weight: 600;
     color: #00302e;
+}
+
+.services-summary-row {
+    border-top: 1px dashed #e0e8e5;
+    margin-top: 5px;
 }
 
 .total-row {
@@ -1218,6 +1373,18 @@ $waitingListCount = $stmt->fetchColumn();
 .input-field:focus {
     border-color: #00a896;
     outline: none;
+}
+
+.input-field.error {
+    border-color: #dc3545;
+    background-color: #fff5f5;
+}
+
+.error-message {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 4px;
+    display: none;
 }
 
 .checkout-btn {
@@ -1431,7 +1598,7 @@ $waitingListCount = $stmt->fetchColumn();
     <div class="cart-layout">
         <div class="cart-items">
             <?php foreach ($cartItems as $item): ?>
-            <div class="cart-item <?= $item['selected'] ? 'selected' : '' ?>" data-config-key="<?= htmlspecialchars($item['config_key']) ?>" data-price="<?= $item['price'] ?>">
+            <div class="cart-item <?= $item['selected'] ? 'selected' : '' ?>" data-config-key="<?= htmlspecialchars($item['config_key']) ?>" data-price="<?= $item['price'] ?>" data-product-id="<?= $item['product_id'] ?>">
                 
                 <div class="cart-item-top">
                     <div class="select-checkbox">
@@ -1506,19 +1673,17 @@ $waitingListCount = $stmt->fetchColumn();
                     <div class="recommended-services">
                         <h4>Рекомендуем добавить к этому товару:</h4>
                         <div class="services-list" data-product-id="<?= $item['product_id'] ?>">
-                            <?php foreach ($recommendedServices[$item['product_id']]['services'] as $service):
-                                $serviceKey = $item['product_id'] . '_' . $service['id'];
-                                $isServiceSelected = isset($_SESSION['selected_services'][$serviceKey]) && $_SESSION['selected_services'][$serviceKey]['selected'];
-                            ?>
-                            <div class="service-recommend-item">
+                            <?php foreach ($recommendedServices[$item['product_id']]['services'] as $service): ?>
+                            <div class="service-recommend-item" data-service-id="<?= $service['id'] ?>">
                                 <div class="service-recommend-info">
                                     <span class="service-recommend-name"><?= htmlspecialchars($service['name']) ?></span>
                                     <span class="service-recommend-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</span>
                                     <?php if (!empty($service['duration'])): ?><span class="service-recommend-duration"><?= htmlspecialchars($service['duration']) ?></span><?php endif; ?>
+                                    <span class="service-recommend-quantity">× <?= $item['quantity'] ?> шт. = <?= number_format($service['price'] * $item['quantity'], 2, ',', ' ') ?> ₽</span>
                                 </div>
                                 <div class="service-actions">
                                     <button class="btn-service-detail" onclick="showServiceDetails(<?= $service['id'] ?>)">Подробнее</button>
-                                    <input type="checkbox" class="service-select-checkbox" data-product-id="<?= $item['product_id'] ?>" data-service-id="<?= $service['id'] ?>" <?= $isServiceSelected ? 'checked' : '' ?>>
+                                    <input type="checkbox" class="service-select-checkbox" data-product-id="<?= $item['product_id'] ?>" data-service-id="<?= $service['id'] ?>" <?= $service['is_selected'] ? 'checked' : '' ?>>
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -1534,7 +1699,13 @@ $waitingListCount = $stmt->fetchColumn();
             <h2 class="summary-title">Оформление заказа</h2>
             <div class="summary-row"><span class="summary-label">Выбрано товаров:</span><span class="summary-value" id="selected-count"><?= count(array_filter($cartItems, function($item) { return $item['selected']; })) ?></span></div>
             <div class="summary-row"><span class="summary-label">Заказано единиц:</span><span class="summary-value" id="total-quantity"><?= $totalQuantity ?></span></div>
-            <div class="summary-row"><span class="summary-label">К оплате:</span><span class="summary-value" id="products-total"><?= number_format($productsTotal, 2, ',', ' ') ?> ₽</span></div>
+            
+            <div class="summary-row services-summary-row" id="services-summary-row" <?= $selectedServicesCount > 0 ? '' : 'style="display:none;"' ?>>
+                <span class="summary-label">Выбрано услуг: <span id="selected-services-count"><?= $selectedServicesCount ?></span></span>
+                <span class="summary-value" id="services-total"><?= number_format($servicesTotal, 2, ',', ' ') ?> ₽</span>
+            </div>
+            
+            <div class="summary-row"><span class="summary-label">К оплате (товары):</span><span class="summary-value" id="products-total"><?= number_format($productsTotal, 2, ',', ' ') ?> ₽</span></div>
             <div class="total-row">Итого к оплате: <span id="total-display"><?= number_format($selectedTotal, 2, ',', ' ') ?> ₽</span></div>
             
             <div class="delivery-methods">
@@ -1548,7 +1719,7 @@ $waitingListCount = $stmt->fetchColumn();
                 <div class="delivery-panel active" data-panel="pickup">
                     <div class="pickup-info">
                         <div class="pickup-details">
-                            <p><strong>Адрес пункта выдачи:</strong><br>г. Москва, ул. Примерная, д. 10, офис 5</p>
+                            <p><strong>Адрес пункта выдачи:</strong><br>г. Чита, ул. Баргузинская, 49</p>
                             <p><strong>График работы:</strong><br>Пн-Пт: 09:00 - 18:00<br>Сб-Вс: 10:00 - 16:00</p>
                             <p>Заказ будет ждать вас в течение 3-х рабочих дней.</p>
                         </div>
@@ -1557,19 +1728,48 @@ $waitingListCount = $stmt->fetchColumn();
                 
                 <div class="delivery-panel" data-panel="city">
                     <div class="address-fields">
-                        <div class="input-group"><label>Индекс</label><input type="text" id="addr-zip-city" class="input-field" placeholder="123456"></div>
-                        <div class="input-group"><label>Город</label><input type="text" id="addr-city" class="input-field" placeholder="Москва"></div>
-                        <div class="input-group full-width"><label>Улица</label><input type="text" id="addr-street" class="input-field" placeholder="Ленина"></div>
-                        <div class="input-group full-width"><label>Дом / Квартира</label><input type="text" id="addr-house" class="input-field" placeholder="д. 10, кв. 5"></div>
+                        <div class="input-group full-width">
+                            <label>Город <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-city" class="input-field" placeholder="Чита" value="<?= htmlspecialchars($userAddress['city'] ?? '') ?>">
+                            <div class="error-message" id="error-city"></div>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>Улица <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-street" class="input-field" placeholder="Ленина" value="<?= htmlspecialchars($userAddress['street'] ?? '') ?>">
+                            <div class="error-message" id="error-street"></div>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>Дом/Квартира <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-house" class="input-field" placeholder="д. 15, кв. 5" value="<?= htmlspecialchars($userAddress['house'] ?? '') ?>">
+                            <div class="error-message" id="error-house"></div>
+                            <small style="font-size: 11px; color: #4a6a65;">Пример: 15, 15а, 15/2, 15 кв.5</small>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="delivery-panel" data-panel="post">
                     <div class="address-fields">
-                        <div class="input-group full-width"><label>Индекс отделения</label><input type="text" id="addr-zip" class="input-field" placeholder="123456"></div>
-                        <div class="input-group full-width"><label>Город назначения</label><input type="text" id="addr-city-post" class="input-field" placeholder="Москва"></div>
-                        <div class="input-group full-width"><label>Улица</label><input type="text" id="addr-street-post" class="input-field" placeholder="Ленина"></div>
-                        <div class="input-group full-width"><label>Дом / Квартира</label><input type="text" id="addr-house-post" class="input-field" placeholder="д. 10, кв. 5"></div>
+                        <div class="input-group full-width">
+                            <label>Индекс <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-zip" class="input-field" placeholder="672000">
+                            <div class="error-message" id="error-zip"></div>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>Город <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-city-post" class="input-field" placeholder="Чита">
+                            <div class="error-message" id="error-city-post"></div>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>Улица <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-street-post" class="input-field" placeholder="Ленина">
+                            <div class="error-message" id="error-street-post"></div>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>Дом/Квартира <span style="color:#dc3545;">*</span></label>
+                            <input type="text" id="addr-house-post" class="input-field" placeholder="д. 15, кв. 5">
+                            <div class="error-message" id="error-house-post"></div>
+                            <small style="font-size: 11px; color: #4a6a65;">Пример: 15, 15а, 15/2, 15 кв.5</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1594,7 +1794,30 @@ $waitingListCount = $stmt->fetchColumn();
 <script>
 const prices = <?= json_encode(array_column($cartItems, 'price', 'config_key'), JSON_UNESCAPED_UNICODE) ?>;
 let servicesTotal = <?= $servicesTotal ?>;
+let selectedServicesCount = <?= $selectedServicesCount ?>;
 let currentDeliveryMethod = 'pickup';
+const userAddress = <?= $userAddressJson ?>;
+
+function autoFillAddressFromProfile() {
+    if (userAddress.city) {
+        const cityField = document.getElementById('addr-city');
+        const cityFieldPost = document.getElementById('addr-city-post');
+        if (cityField) cityField.value = userAddress.city;
+        if (cityFieldPost) cityFieldPost.value = userAddress.city;
+    }
+    if (userAddress.street) {
+        const streetField = document.getElementById('addr-street');
+        const streetFieldPost = document.getElementById('addr-street-post');
+        if (streetField) streetField.value = userAddress.street;
+        if (streetFieldPost) streetFieldPost.value = userAddress.street;
+    }
+    if (userAddress.house) {
+        const houseField = document.getElementById('addr-house');
+        const houseFieldPost = document.getElementById('addr-house-post');
+        if (houseField) houseField.value = userAddress.house;
+        if (houseFieldPost) houseFieldPost.value = userAddress.house;
+    }
+}
 
 function formatPrice(amount) {
     return amount.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽';
@@ -1633,11 +1856,120 @@ function recalculateTotals() {
     });
     
     const totalAmount = productsTotal + servicesTotal;
-    const el = (id) => document.getElementById(id);
-    if (el('selected-count')) el('selected-count').textContent = selectedCount;
-    if (el('total-quantity')) el('total-quantity').textContent = totalQty;
-    if (el('products-total')) el('products-total').textContent = formatPrice(productsTotal);
-    if (el('total-display')) el('total-display').textContent = formatPrice(totalAmount);
+    const selectedCountSpan = document.getElementById('selected-count');
+    const totalQtySpan = document.getElementById('total-quantity');
+    const productsTotalSpan = document.getElementById('products-total');
+    const totalDisplaySpan = document.getElementById('total-display');
+    const servicesTotalSpan = document.getElementById('services-total');
+    const servicesCountSpan = document.getElementById('selected-services-count');
+    const servicesRow = document.getElementById('services-summary-row');
+    
+    if (selectedCountSpan) selectedCountSpan.textContent = selectedCount;
+    if (totalQtySpan) totalQtySpan.textContent = totalQty;
+    if (productsTotalSpan) productsTotalSpan.textContent = formatPrice(productsTotal);
+    if (totalDisplaySpan) totalDisplaySpan.textContent = formatPrice(totalAmount);
+    
+    if (servicesTotalSpan) servicesTotalSpan.textContent = formatPrice(servicesTotal);
+    if (servicesCountSpan) servicesCountSpan.textContent = selectedServicesCount;
+    if (servicesRow) {
+        if (selectedServicesCount > 0) {
+            servicesRow.style.display = 'flex';
+        } else {
+            servicesRow.style.display = 'none';
+        }
+    }
+}
+
+function clearAddressErrors() {
+    const errorElements = document.querySelectorAll('.error-message');
+    errorElements.forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+    const inputFields = document.querySelectorAll('.input-field');
+    inputFields.forEach(el => el.classList.remove('error'));
+}
+
+function showFieldError(fieldId, message) {
+    const errorDiv = document.getElementById(fieldId);
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+    const inputField = document.querySelector(`#${fieldId.replace('error-', '')}`);
+    if (inputField) inputField.classList.add('error');
+}
+
+function validateAddressFields() {
+    clearAddressErrors();
+    let isValid = true;
+    
+    if (currentDeliveryMethod === 'post') {
+        const zip = document.getElementById('addr-zip')?.value.trim() || '';
+        if (!zip) {
+            showFieldError('error-zip', 'Индекс обязателен для заполнения');
+            isValid = false;
+        } else if (!/^\d{6}$/.test(zip)) {
+            showFieldError('error-zip', 'Индекс должен состоять из 6 цифр');
+            isValid = false;
+        }
+        
+        const city = document.getElementById('addr-city-post')?.value.trim() || '';
+        if (!city) {
+            showFieldError('error-city-post', 'Город обязателен для заполнения');
+            isValid = false;
+        } else if (city.length < 2) {
+            showFieldError('error-city-post', 'Город должен содержать минимум 2 символа');
+            isValid = false;
+        } else if (!/^[а-яА-ЯёЁa-zA-Z\s\-]+$/.test(city)) {
+            showFieldError('error-city-post', 'Город: только буквы, пробелы и дефисы');
+            isValid = false;
+        }
+        
+        const street = document.getElementById('addr-street-post')?.value.trim() || '';
+        if (!street) {
+            showFieldError('error-street-post', 'Улица обязательна для заполнения');
+            isValid = false;
+        } else if (street.length < 2) {
+            showFieldError('error-street-post', 'Улица должна содержать минимум 2 символа');
+            isValid = false;
+        }
+        
+        const house = document.getElementById('addr-house-post')?.value.trim() || '';
+        if (!house) {
+            showFieldError('error-house-post', 'Дом/Квартира обязателен для заполнения');
+            isValid = false;
+        }
+    } else if (currentDeliveryMethod === 'city') {
+        const city = document.getElementById('addr-city')?.value.trim() || '';
+        if (!city) {
+            showFieldError('error-city', 'Город обязателен для заполнения');
+            isValid = false;
+        } else if (city.length < 2) {
+            showFieldError('error-city', 'Город должен содержать минимум 2 символа');
+            isValid = false;
+        } else if (!/^[а-яА-ЯёЁa-zA-Z\s\-]+$/.test(city)) {
+            showFieldError('error-city', 'Город: только буквы, пробелы и дефисы');
+            isValid = false;
+        }
+        
+        const street = document.getElementById('addr-street')?.value.trim() || '';
+        if (!street) {
+            showFieldError('error-street', 'Улица обязательна для заполнения');
+            isValid = false;
+        } else if (street.length < 2) {
+            showFieldError('error-street', 'Улица должна содержать минимум 2 символа');
+            isValid = false;
+        }
+        
+        const house = document.getElementById('addr-house')?.value.trim() || '';
+        if (!house) {
+            showFieldError('error-house', 'Дом/Квартира обязателен для заполнения');
+            isValid = false;
+        }
+    }
+    
+    return isValid;
 }
 
 async function addToWaitingList(configKey, quantity) {
@@ -1697,6 +2029,7 @@ deliveryTabs.forEach(tab => {
     tab.addEventListener('click', () => {
         const method = tab.dataset.method;
         currentDeliveryMethod = method;
+        clearAddressErrors();
         
         deliveryTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
@@ -1712,7 +2045,7 @@ function getAddressValues() {
         return { zip: '', city: '', street: '', house: '' };
     } else if (currentDeliveryMethod === 'city') {
         return {
-            zip: document.getElementById('addr-zip-city')?.value.trim() || '',
+            zip: '',
             city: document.getElementById('addr-city')?.value.trim() || '',
             street: document.getElementById('addr-street')?.value.trim() || '',
             house: document.getElementById('addr-house')?.value.trim() || ''
@@ -1729,7 +2062,9 @@ function getAddressValues() {
 
 async function toggleItemSelect(configKey, isSelected) {
     const formData = new FormData();
-    formData.append('action', 'toggle_select'); formData.append('config_key', configKey); formData.append('selected', isSelected ? 'true' : 'false');
+    formData.append('action', 'toggle_select'); 
+    formData.append('config_key', configKey); 
+    formData.append('selected', isSelected ? 'true' : 'false');
     try {
         const res = await fetch('cart.php', { method: 'POST', body: formData });
         const data = await res.json();
@@ -1744,7 +2079,10 @@ async function toggleItemSelect(configKey, isSelected) {
 
 async function toggleService(serviceId, productId, isSelected) {
     const formData = new FormData();
-    formData.append('action', 'toggle_service'); formData.append('service_id', serviceId); formData.append('product_id', productId); formData.append('selected', isSelected ? 'true' : 'false');
+    formData.append('action', 'toggle_service'); 
+    formData.append('service_id', serviceId); 
+    formData.append('product_id', productId); 
+    formData.append('selected', isSelected ? 'true' : 'false');
     try {
         const res = await fetch('cart.php', { method: 'POST', body: formData });
         const data = await res.json();
@@ -1789,12 +2127,21 @@ document.querySelectorAll('.service-select-checkbox').forEach(cb => { cb.addEven
 
 async function checkout() {
     const method = currentDeliveryMethod;
-    const addr = getAddressValues();
+    
     if (method !== 'pickup') {
-        if (!addr.city || !addr.street || !addr.house) { alert('Пожалуйста, заполните Город, Улицу и Дом'); return; }
-        if (method === 'post' && !addr.zip) { alert('Для Почты России обязательно укажите Индекс'); document.getElementById('addr-zip').focus(); return; }
+        const isValid = validateAddressFields();
+        if (!isValid) {
+            alert('Пожалуйста, исправьте ошибки в адресных полях');
+            return;
+        }
     }
-    if (document.querySelectorAll('.item-select:checked').length === 0 && document.querySelectorAll('.service-select-checkbox:checked').length === 0) { alert('Выберите хотя бы один товар или услугу'); return; }
+    
+    const addr = getAddressValues();
+    
+    if (document.querySelectorAll('.item-select:checked').length === 0 && document.querySelectorAll('.service-select-checkbox:checked').length === 0) { 
+        alert('Выберите хотя бы один товар или услугу'); 
+        return; 
+    }
     
     const btn = document.querySelector('.checkout-btn'), original = btn.textContent;
     btn.disabled = true; btn.textContent = 'Оформление...';
@@ -1802,8 +2149,12 @@ async function checkout() {
     
     try {
         const formData = new FormData();
-        formData.append('action', 'checkout'); formData.append('delivery_method', method);
-        formData.append('zip', addr.zip); formData.append('city', addr.city); formData.append('street', addr.street); formData.append('house', addr.house);
+        formData.append('action', 'checkout'); 
+        formData.append('delivery_method', method);
+        formData.append('zip', addr.zip); 
+        formData.append('city', addr.city); 
+        formData.append('street', addr.street); 
+        formData.append('house', addr.house);
         
         const res = await fetch('cart.php', { method: 'POST', body: formData });
         const data = await res.json();
@@ -1813,7 +2164,10 @@ async function checkout() {
     finally { btn.disabled = false; btn.textContent = original; document.querySelectorAll('.qty-btn, .cart-remove, .item-select, .service-select-checkbox').forEach(el => el.disabled = false); }
 }
 
-document.addEventListener('DOMContentLoaded', recalculateTotals);
+document.addEventListener('DOMContentLoaded', function() {
+    recalculateTotals();
+    autoFillAddressFromProfile();
+});
 window.onclick = function(e) { if (e.target === document.getElementById('serviceDetailModal')) closeServiceDetailModal(); }
 </script>
 </body>

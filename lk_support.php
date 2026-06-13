@@ -2,7 +2,7 @@
 session_start();
 require_once 'config.php';
 require_once 'includes/notifications.php';
-require_once 'includes/smtp_config.php';
+require_once 'includes/email_config.php';
 
 // Устанавливаем контекст для шапки и подвала (раздел МИП)
 $context = 'lab';
@@ -72,45 +72,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $pdo->prepare("INSERT INTO request_status_history (request_id, status, comment, created_by) VALUES (?, ?, ?, ?)")
                     ->execute([$requestId, $newStatus, $comment, $currentUser['id']]);
                 
-                require_once 'includes/notifications.php';
                 $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
                 $title = "Статус заявки #{$requestId} изменён";
-                $message = "Статус вашей заявки изменён на: {$statusLabels[$newStatus]}";
-                if ($comment) $message .= "\nКомментарий: " . $comment;
+                $messageText = "Статус вашей заявки изменён на: {$statusLabels[$newStatus]}";
+                if ($comment) $messageText .= "\nКомментарий: " . $comment;
                 
                 $stmt = $pdo->prepare("SELECT user_id FROM request WHERE id = ?");
                 $stmt->execute([$requestId]);
                 $requestData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
-                    addNotification($pdo, $requestData['user_id'], 'status_change', $title, $message, '/mip/lk_user.php#request-' . $requestId);
+                    // Уведомление в системе
+                    addNotification($pdo, $requestData['user_id'], 'status_change', $title, $messageText, '/mip/lk_user.php#request-' . $requestId);
                     
+                    // Отправка email
                     $userStmt = $pdo->prepare("SELECT email, name FROM user WHERE id = ?");
                     $userStmt->execute([$requestData['user_id']]);
                     $userInfo = $userStmt->fetch(PDO::FETCH_ASSOC);
                     
                     if ($userInfo && !empty($userInfo['email'])) {
                         $emailSubject = "Статус заявки #{$requestId} изменён";
-                        $emailBody = "
-                        <html>
-                        <head><meta charset='utf-8'></head>
-                        <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                            <h2 style='color: #1a1982;'>Здравствуйте, " . htmlspecialchars($userInfo['name']) . "!</h2>
-                            <p>Статус вашей заявки <strong>#{$requestId}</strong> изменён:</p>
-                            <p style='background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #1a1982;'>
-                                <strong>" . ($statusLabels[$newStatus] ?? $newStatus) . "</strong>
-                            </p>
-                        " . ($comment ? "<p><strong>Комментарий специалиста:</strong><br>" . nl2br(htmlspecialchars($comment)) . "</p>" : "") . "
-                            <p style='margin-top: 24px;'>
-                                <a href='https://" . $_SERVER['HTTP_HOST'] . "/mip/lk_user.php#request-{$requestId}' 
-                                   style='background: #1a1982; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>
-                                    Перейти к заявке
-                                </a>
-                            </p>
-                        </body>
-                        </html>";
-                        
-                        @sendMailViaSMTP($userInfo['email'], $userInfo['name'], $emailSubject, $emailBody);
+                        $emailBody = getOrderStatusEmailTemplate($requestId, $statusLabels[$newStatus], $comment);
+                        sendEmailNotification($userInfo['email'], $userInfo['name'], $emailSubject, $emailBody);
                     }
                 }
                 echo json_encode(['success' => true]);
@@ -138,36 +121,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     ->execute([$requestId, $currentUser['id'], $message]);
                 $messageId = $pdo->lastInsertId();
                 
-                require_once 'includes/notifications.php';
                 $stmt = $pdo->prepare("SELECT user_id FROM request WHERE id = ?");
                 $stmt->execute([$requestId]);
                 $requestData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
+                    // Уведомление в системе
                     addNotification($pdo, $requestData['user_id'], 'new_message', 'Новое сообщение в чате', "Специалист поддержки ответил на ваше обращение #{$requestId}", '/mip/lk_user.php#request-' . $requestId);
                     
+                    // Отправка email
                     $userStmt = $pdo->prepare("SELECT email, name FROM user WHERE id = ?");
                     $userStmt->execute([$requestData['user_id']]);
                     $userInfo = $userStmt->fetch(PDO::FETCH_ASSOC);
                     
                     if ($userInfo && !empty($userInfo['email'])) {
                         $emailSubject = "Новое сообщение в заявке #{$requestId}";
-                        $emailBody = "
-                        <html>
-                        <head><meta charset='utf-8'></head>
-                        <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                            <h2 style='color: #1a1982;'>Здравствуйте, " . htmlspecialchars($userInfo['name']) . "!</h2>
-                            <p>В вашей заявке <strong>#{$requestId}</strong> появилось новое сообщение от специалиста поддержки.</p>
-                            <p style='margin-top: 24px;'>
-                                <a href='https://" . $_SERVER['HTTP_HOST'] . "/mip/lk_user.php#request-{$requestId}' 
-                                   style='background: #28a745; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>
-                                    Открыть чат
-                                </a>
-                            </p>
-                        </body>
-                        </html>";
-                        
-                        @sendMailViaSMTP($userInfo['email'], $userInfo['name'], $emailSubject, $emailBody);
+                        $emailBody = getNewMessageEmailTemplate($requestId, $message, $currentUser['name']);
+                        sendEmailNotification($userInfo['email'], $userInfo['name'], $emailSubject, $emailBody);
                     }
                 }
                 echo json_encode(['success' => true, 'message_id' => $messageId]);
@@ -224,7 +194,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt = $pdo->prepare("INSERT INTO chat_files (message_id, file_name, file_url, file_size, uploaded_by) VALUES (?, ?, ?, ?, 'support')");
                 $stmt->execute([$messageId, $safeOriginalName, $dbPath, $file['size']]);
                 
-                require_once 'includes/notifications.php';
                 $stmtReq = $pdo->prepare("SELECT user_id FROM request WHERE id = ?");
                 $stmtReq->execute([$requestId]);
                 $requestData = $stmtReq->fetch(PDO::FETCH_ASSOC);
@@ -375,7 +344,7 @@ function parseJsonToTable($message, $type) {
             $html .= '<tr><td class="json-label">Услуга</td><td class="json-value">' . htmlspecialchars($data['service_name']) . '</td></tr>';
         }
         if (!empty($data['price'])) {
-            $html .= '<tr><td class="json-label">Стоимость</td><td class="json-value">' . number_format($data['price'], 0, '.', ' ') . ' ₽</td></tr>';
+            $html .= '<tr><td class="json-label">Стоимость</td><td class="json-value">' . number_format($data['price'], 0, '.', ' ') . ' ₽</span></td></tr>';
         }
     } elseif ($type === 'q') {
         if (!empty($data['subject'])) {
