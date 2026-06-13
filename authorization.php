@@ -23,11 +23,13 @@ $reg_name = '';
 // Для таймера повторной отправки
 $showResendTimer = false;
 $resendEmail = '';
+$activeTab = 'login'; // по умолчанию вход
 
 // Обработка входа
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $login = trim($_POST['login'] ?? '');
     $password = $_POST['password'] ?? '';
+    $activeTab = 'login';
 
     $user = $auth->attempt($login, $password);
     if ($user && !($user instanceof GuestUser)) {
@@ -35,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $error = 'Подтвердите email перед входом. Проверьте почту.';
             $showResendTimer = true;
             $resendEmail = $user->email;
+            $activeTab = 'login';
         } else {
             $auth->login($user);
             header("Location: " . $user->getDashboardUrl());
@@ -42,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     } else {
         $error = 'Неверный логин или пароль';
+        $activeTab = 'login';
     }
 }
 
@@ -53,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $reg_password = $_POST['reg_password'] ?? '';
     $reg_password_confirm = $_POST['reg_password_confirm'] ?? '';
     $privacy_accepted = isset($_POST['privacy_accepted']) ? 1 : 0;
+    $activeTab = 'register';
 
     // Валидация
     if (!$reg_login || !$reg_email || !$reg_name || !$reg_password) {
@@ -103,11 +108,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     // Отправка письма
                     if (sendEmailNotification($reg_email, $reg_name, $subject, $htmlMessage)) {
                         $success = "Регистрация успешна! На почту <strong>" . htmlspecialchars($reg_email) . "</strong> отправлено письмо с подтверждением.";
-                        $reg_login = $reg_email = $reg_name = '';
                         $showResendTimer = true;
                         $resendEmail = $reg_email;
+                        $reg_login = $reg_email = $reg_name = '';
                     } else {
-                        $error = "Ошибка отправки письма подтверждения.";
+                        $error = "Ошибка отправки письма подтверждения. Попробуйте позже.";
                         // При ошибке отправки — удаляем пользователя
                         $pdo = $database->getPdo();
                         $stmt = $pdo->prepare("DELETE FROM user WHERE id = ?");
@@ -129,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="mip/css/style_auth.css" />
     <link rel="stylesheet" href="mip/css/style_mip.css" />
     <title>Вход и регистрация</title>
@@ -166,8 +172,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             margin-bottom: -2px;
         }
         .auth-tab.active {
-            color: #00a896;
-            border-bottom-color: #00a896;
+            color: #1a1982;
+            border-bottom-color: #1a1982;
             font-weight: 600;
         }
         .auth-tab:hover:not(.active) {
@@ -203,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             border-left: 4px solid #f97316;
         }
         .error a {
-            color: #00a896;
+            color: #1a1982;
             text-decoration: none;
             font-weight: 600;
         }
@@ -236,8 +242,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             font-weight: 400;
         }
         .input-field:focus {
-            border-color: #00a896;
-            box-shadow: 0 0 0 4px rgba(0, 168, 150, 0.1);
+            border-color: #1a1982;
+            box-shadow: 0 0 0 4px rgba(26, 25, 130, 0.1);
             outline: none;
         }
         
@@ -253,14 +259,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             transition: all 0.25s ease;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #00a896 0%, #008a7a 100%);
+            background: linear-gradient(135deg, #1a1982 0%, #0d0c4a 100%);
             color: white;
-            box-shadow: 0 4px 12px rgba(0, 168, 150, 0.25);
+            box-shadow: 0 4px 12px rgba(26, 25, 130, 0.25);
         }
         .btn-primary:hover {
-            background: linear-gradient(135deg, #008a7a 0%, #007a6a 100%);
+            background: linear-gradient(135deg, #0d0c4a 0%, #08073a 100%);
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 168, 150, 0.3);
+            box-shadow: 0 8px 20px rgba(26, 25, 130, 0.3);
         }
         
         .btn-resend {
@@ -269,6 +275,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             margin-top: 10px;
             padding: 10px 20px;
             font-size: 14px;
+            border-radius: 10px;
+            width: 100%;
         }
         .btn-resend:hover {
             background: #e0e0e0;
@@ -282,14 +290,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         .resend-timer {
             margin-top: 15px;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #f0f4ff;
+            border-radius: 12px;
             text-align: center;
             font-size: 13px;
-            color: #64748b;
+            color: #1a1982;
+            border-left: 3px solid #1a1982;
         }
-        .resend-link {
-            color: #00a896;
-            cursor: pointer;
-            text-decoration: underline;
+        .resend-timer i {
+            margin-right: 5px;
         }
         
         .privacy-check {
@@ -314,17 +325,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             margin-top: 1px;
             flex-shrink: 0;
             cursor: pointer;
-            accent-color: #00a896;
+            accent-color: #1a1982;
         }
         .privacy-check a {
-            color: #00a896;
+            color: #1a1982;
             text-decoration: none;
             font-weight: 500;
-            border-bottom: 1px dashed #00a896;
+            border-bottom: 1px dashed #1a1982;
         }
         .privacy-check a:hover {
             border-bottom-style: solid;
-            color: #008a7a;
+            color: #0d0c4a;
         }
         .required-mark {
             color: #e11d48;
@@ -341,14 +352,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             font-weight: 500;
         }
         .auth-links a {
-            color: #00a896;
+            color: #1a1982;
             text-decoration: none;
             font-weight: 600;
             transition: all 0.2s;
         }
         .auth-links a:hover {
             text-decoration: underline;
-            color: #008a7a;
+            color: #0d0c4a;
         }
         
         .forgot-password {
@@ -363,7 +374,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             text-decoration: none;
         }
         .forgot-password a:hover {
-            color: #00a896;
+            color: #1a1982;
             text-decoration: underline;
         }
         
@@ -414,7 +425,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <!-- Таймер повторной отправки -->
             <?php if ($showResendTimer && $resendEmail): ?>
             <div class="resend-timer" id="resendBlock">
-                <span id="timerText">Отправить письмо повторно можно через <span id="timerCount">60</span> секунд</span>
+                <i class="fas fa-envelope"></i>
+                <span id="timerText">Письмо не пришло? <span id="timerCount">60</span> секунд</span>
                 <button class="btn btn-resend" id="resendBtn" style="display:none;" onclick="resendVerification('<?= htmlspecialchars($resendEmail) ?>')">
                     <i class="fas fa-paper-plane"></i> Отправить повторно
                 </button>
@@ -422,11 +434,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <?php endif; ?>
 
             <div class="auth-tabs">
-                <div class="auth-tab active" onclick="switchTab('login')">Вход</div>
-                <div class="auth-tab" onclick="switchTab('register')">Регистрация</div>
+                <div class="auth-tab <?= $activeTab === 'login' ? 'active' : '' ?>" onclick="switchTab('login')">Вход</div>
+                <div class="auth-tab <?= $activeTab === 'register' ? 'active' : '' ?>" onclick="switchTab('register')">Регистрация</div>
             </div>
 
-            <form method="POST" class="auth-form active" id="form-login">
+            <form method="POST" class="auth-form <?= $activeTab === 'login' ? 'active' : '' ?>" id="form-login">
                 <input type="hidden" name="action" value="login">
                 <input type="text" name="login" placeholder="Логин" class="input-field" value="<?= htmlspecialchars($login) ?>" required>
                 <input type="password" name="password" placeholder="Пароль" class="input-field" required>
@@ -439,7 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 </div>
             </form>
 
-            <form method="POST" class="auth-form" id="form-register">
+            <form method="POST" class="auth-form <?= $activeTab === 'register' ? 'active' : '' ?>" id="form-register">
                 <input type="hidden" name="action" value="register">
                 <input type="text" name="reg_name" placeholder="Ваше имя *" class="input-field" value="<?= htmlspecialchars($reg_name) ?>" required>
                 <input type="text" name="reg_login" placeholder="Придумайте логин *" class="input-field" value="<?= htmlspecialchars($reg_login) ?>" required>
@@ -482,11 +494,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 document.querySelector('.auth-tab:last-child').classList.add('active');
                 document.getElementById('form-register').classList.add('active');
             }
-            
-            const errorDiv = document.querySelector('.error');
-            const successDiv = document.querySelector('.success');
-            if (errorDiv) errorDiv.style.display = 'none';
-            if (successDiv) successDiv.style.display = 'none';
         }
         
         // Таймер для повторной отправки
@@ -529,7 +536,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             .then(data => {
                 if (data.success) {
                     alert('Письмо отправлено повторно! Проверьте почту.');
-                    // Перезапустить таймер
                     location.reload();
                 } else {
                     alert('Ошибка: ' + (data.message || 'Не удалось отправить письмо'));
