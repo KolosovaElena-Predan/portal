@@ -111,6 +111,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_to_cart') {
         $addToCartQuantity = min($requestedQuantity, $currentStock);
         $remainingQuantity = $requestedQuantity - $addToCartQuantity;
         
+        // Формируем ключ для корзины
         $configKey = 'prod_' . $productId;
         if ($configurationId) {
             $configKey .= '_cfg_' . $configurationId;
@@ -147,10 +148,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_to_cart') {
             $stmtImg = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? LIMIT 1");
             $stmtImg->execute([$productId]);
             $_SESSION['cart'][$configKey]['img_url'] = $stmtImg->fetchColumn() ?: 'img/placeholder.jpg';
-            
             $_SESSION['selected_items'][$configKey] = true;
         }
         
+        // Обновляем или удаляем заявку
         if ($remainingQuantity > 0) {
             $messageData['quantity'] = $remainingQuantity;
             $newMessage = json_encode($messageData, JSON_UNESCAPED_UNICODE);
@@ -204,15 +205,17 @@ function parseWaitingItemData($message) {
     ];
 }
 
-// Группируем товары
+// Группируем товары (только общие данные, без списка заявок)
 $groupedItems = [];
 
 foreach ($waitingItems as $item) {
     $itemData = parseWaitingItemData($item['message']);
     $key = getItemKey($item, $itemData);
+    
     if (!isset($groupedItems[$key])) {
         $configurationId = $itemData['configuration']['id'] ?? null;
         $currentStock = getProductStock($pdo, $item['product_id'], $configurationId);
+        
         $groupedItems[$key] = [
             'product_id' => $item['product_id'],
             'product_name' => $item['product_name'],
@@ -225,17 +228,15 @@ foreach ($waitingItems as $item) {
             'lead_time' => $itemData['lead_time'],
             'total_quantity' => 0,
             'current_stock' => $currentStock,
-            'items' => [],
+            'request_ids' => [], // храним ID заявок для удаления
             'first_date' => $item['datetime']
         ];
     }
+    
     $groupedItems[$key]['total_quantity'] += $itemData['quantity'];
-    $groupedItems[$key]['items'][] = [
-        'id' => $item['id'],
-        'datetime' => $item['datetime'],
-        'quantity' => $itemData['quantity']
-    ];
-    if ($item['datetime'] < $groupedItems[$key]['first_date']) {
+    $groupedItems[$key]['request_ids'][] = $item['id'];
+    
+    if (strtotime($item['datetime']) < strtotime($groupedItems[$key]['first_date'])) {
         $groupedItems[$key]['first_date'] = $item['datetime'];
     }
 }
@@ -343,12 +344,6 @@ uasort($groupedItems, function($a, $b) {
     color: #00302e;
     margin-bottom: 12px;
 }
-.waiting-card-name span {
-    font-size: 13px;
-    color: #4a6a65;
-    margin-left: 10px;
-    font-weight: 400;
-}
 
 .waiting-card-config {
     font-size: 14px;
@@ -452,44 +447,6 @@ uasort($groupedItems, function($a, $b) {
 .waiting-card-status.stock-available {
     background: #e8f5e9;
     color: #2e7d32;
-}
-
-.group-items-list {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid #e0e8e5;
-    font-size: 12px;
-}
-.group-items-list strong {
-    color: #00302e;
-    font-size: 13px;
-}
-.group-item-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    color: #4a6a65;
-    border-bottom: 1px dashed #f0f6f4;
-}
-.group-item-row:last-child {
-    border-bottom: none;
-}
-.group-item-quantity {
-    font-weight: 500;
-}
-.group-item-remove {
-    background: none;
-    border: none;
-    color: #e53935;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 4px 12px;
-    border-radius: 6px;
-    transition: all 0.3s ease;
-}
-.group-item-remove:hover {
-    background: #ffebee;
 }
 
 .waiting-card-actions {
@@ -603,7 +560,6 @@ uasort($groupedItems, function($a, $b) {
     text-align: center;
 }
 
-/* Адаптивность */
 @media (max-width: 1200px) {
     .waiting-page {
         padding-left: 40px;
@@ -642,11 +598,6 @@ uasort($groupedItems, function($a, $b) {
     .waiting-title {
         font-size: 28px;
         text-align: center;
-    }
-    .group-item-row {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 8px;
     }
     .waiting-card-quantity {
         flex-direction: column;
@@ -711,9 +662,9 @@ uasort($groupedItems, function($a, $b) {
             $isMadeToOrder = $group['is_made_to_order'];
             $leadTime = $group['lead_time'];
             $currentStock = $group['current_stock'];
-            $hasMultipleItems = count($group['items']) > 1;
             $canOrder = $currentStock > 0;
             $availableToOrder = $canOrder ? min($totalQuantity, $currentStock) : 0;
+            $requestIds = implode(',', $group['request_ids']);
         ?>
         <div class="waiting-card">
             <div class="waiting-card-content">
@@ -725,9 +676,6 @@ uasort($groupedItems, function($a, $b) {
                 <div class="waiting-card-info">
                     <div class="waiting-card-name">
                         <?= htmlspecialchars($group['product_name']) ?>
-                        <?php if ($hasMultipleItems): ?>
-                            <span>(<?= count($group['items']) ?> заявки)</span>
-                        <?php endif; ?>
                     </div>
                     
                     <?php if (!empty($group['configuration_name'])): ?>
@@ -756,11 +704,11 @@ uasort($groupedItems, function($a, $b) {
                     <div class="waiting-card-quantity">
                         <strong>Ожидаемое количество:</strong>
                         <div class="quantity-control">
-                            <button class="qty-decr" onclick="changeQuantity(this, -1, <?= $group['items'][0]['id'] ?>)">−</button>
-                            <input type="number" class="group-qty" value="<?= $totalQuantity ?>" min="1" data-request-id="<?= $group['items'][0]['id'] ?>" data-original="<?= $totalQuantity ?>">
-                            <button class="qty-incr" onclick="changeQuantity(this, 1, <?= $group['items'][0]['id'] ?>)">+</button>
+                            <button class="qty-decr" onclick="changeQuantity(this, -1, '<?= $requestIds ?>')">−</button>
+                            <input type="number" class="group-qty" value="<?= $totalQuantity ?>" min="1" data-request-ids="<?= $requestIds ?>" data-original="<?= $totalQuantity ?>">
+                            <button class="qty-incr" onclick="changeQuantity(this, 1, '<?= $requestIds ?>')">+</button>
                         </div>
-                        <button class="btn-save-qty" onclick="saveQuantity(<?= $group['items'][0]['id'] ?>)">
+                        <button class="btn-save-qty" onclick="saveQuantity('<?= $requestIds ?>', <?= $totalQuantity ?>)">
                             Сохранить
                         </button>
                     </div>
@@ -785,27 +733,13 @@ uasort($groupedItems, function($a, $b) {
                         <?php endif; ?>
                     </div>
                     
-                    <?php if ($hasMultipleItems): ?>
-                    <div class="group-items-list">
-                        <strong>Заявки:</strong>
-                        <?php foreach ($group['items'] as $subItem): ?>
-                        <div class="group-item-row">
-                            <span class="group-item-quantity"><?= $subItem['quantity'] ?> шт.</span>
-                            <button class="group-item-remove" onclick="confirmRemove(<?= $subItem['id'] ?>, '<?= htmlspecialchars($group['product_name']) ?>', <?= $subItem['quantity'] ?>)">
-                                Удалить
-                            </button>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                    
                     <div class="waiting-card-actions">
                         <a href="product.php?id=<?= $group['product_id'] ?>" class="btn-waiting-catalog">
                             Подробнее
                         </a>
                         
                         <?php if ($canOrder): ?>
-                            <button class="btn-add-to-cart" onclick="addToCart(<?= $group['items'][0]['id'] ?>, <?= $availableToOrder ?>, '<?= htmlspecialchars($group['product_name']) ?>')">
+                            <button class="btn-add-to-cart" onclick="addToCart('<?= $requestIds ?>', <?= $availableToOrder ?>, '<?= htmlspecialchars($group['product_name']) ?>')">
                                 Заказать (<?= $availableToOrder ?> шт.)
                             </button>
                         <?php else: ?>
@@ -814,15 +748,9 @@ uasort($groupedItems, function($a, $b) {
                             </button>
                         <?php endif; ?>
                         
-                        <?php if ($hasMultipleItems): ?>
-                            <button class="btn-waiting-remove" onclick="confirmRemoveAll(<?= htmlspecialchars(json_encode(array_column($group['items'], 'id'))) ?>, '<?= htmlspecialchars($group['product_name']) ?>')">
-                                Отменить всё
-                            </button>
-                        <?php else: ?>
-                            <button class="btn-waiting-remove" onclick="confirmRemove(<?= $group['items'][0]['id'] ?>, '<?= htmlspecialchars($group['product_name']) ?>', <?= $totalQuantity ?>)">
-                                Отменить ожидание
-                            </button>
-                        <?php endif; ?>
+                        <button class="btn-waiting-remove" onclick="confirmRemoveAll('<?= $requestIds ?>', '<?= htmlspecialchars($group['product_name']) ?>')">
+                            Отменить ожидание
+                        </button>
                     </div>
                 </div>
             </div>
@@ -846,7 +774,7 @@ uasort($groupedItems, function($a, $b) {
 </div>
 
 <script>
-function changeQuantity(btn, delta, requestId) {
+function changeQuantity(btn, delta, requestIds) {
     const container = btn.closest('.waiting-card-quantity');
     const input = container.querySelector('.group-qty');
     let newVal = (parseInt(input.value) || 1) + delta;
@@ -855,8 +783,8 @@ function changeQuantity(btn, delta, requestId) {
     input.value = newVal;
 }
 
-async function saveQuantity(requestId) {
-    const input = document.querySelector(`.group-qty[data-request-id="${requestId}"]`);
+async function saveQuantity(requestIds, totalQuantity) {
+    const input = document.querySelector(`.group-qty[data-request-ids="${requestIds}"]`);
     const newQuantity = parseInt(input.value) || 1;
     const originalQuantity = parseInt(input.dataset.original) || 1;
     
@@ -870,34 +798,42 @@ async function saveQuantity(requestId) {
     btn.disabled = true;
     btn.innerHTML = 'Сохранение...';
     
-    const formData = new FormData();
-    formData.append('action', 'update_quantity');
-    formData.append('request_id', requestId);
-    formData.append('quantity', newQuantity);
+    // Разбиваем ID заявок и обновляем каждую
+    const ids = requestIds.split(',');
+    let success = true;
     
-    try {
-        const res = await fetch('waiting_list.php', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.success) {
-            input.dataset.original = newQuantity;
-            alert(`Количество обновлено: ${newQuantity} шт.`);
-            location.reload();
-        } else {
-            alert('Ошибка: ' + (data.error || 'Не удалось обновить количество'));
-            input.value = originalQuantity;
+    for (const id of ids) {
+        const formData = new FormData();
+        formData.append('action', 'update_quantity');
+        formData.append('request_id', id);
+        formData.append('quantity', Math.floor(newQuantity / ids.length));
+        
+        try {
+            const res = await fetch('waiting_list.php', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!data.success) {
+                success = false;
+            }
+        } catch (err) {
+            success = false;
         }
-    } catch (err) {
-        console.error(err);
-        alert('Ошибка соединения');
-        input.value = originalQuantity;
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
     }
+    
+    if (success) {
+        input.dataset.original = newQuantity;
+        alert(`Количество обновлено: ${newQuantity} шт.`);
+        location.reload();
+    } else {
+        alert('Ошибка при обновлении количества');
+        input.value = originalQuantity;
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = originalText;
 }
 
-async function addToCart(requestId, quantity, productName) {
-    if (!confirm(`Добавить товар "${productName}" (${quantity} шт.) в корзину?\nЕсли запрошено больше, чем есть на складе, остаток останется в листе ожидания.`)) {
+async function addToCart(requestIds, quantity, productName) {
+    if (!confirm(`Добавить товар "${productName}" (${quantity} шт.) в корзину?`)) {
         return;
     }
     
@@ -906,41 +842,43 @@ async function addToCart(requestId, quantity, productName) {
     btn.disabled = true;
     btn.innerHTML = 'Добавление...';
     
-    const formData = new FormData();
-    formData.append('action', 'add_to_cart');
-    formData.append('request_id', requestId);
-    formData.append('quantity', quantity);
+    const ids = requestIds.split(',');
+    let success = true;
     
-    try {
-        const res = await fetch('waiting_list.php', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.success) {
-            window.location.href = data.redirect || 'cart.php';
-        } else {
-            alert('Ошибка: ' + (data.error || 'Не удалось добавить в корзину'));
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+    for (const id of ids) {
+        const formData = new FormData();
+        formData.append('action', 'add_to_cart');
+        formData.append('request_id', id);
+        formData.append('quantity', quantity);
+        
+        try {
+            const res = await fetch('waiting_list.php', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                    return;
+                }
+            } else {
+                success = false;
+            }
+        } catch (err) {
+            success = false;
         }
-    } catch (err) {
-        console.error(err);
-        alert('Произошла ошибка');
+    }
+    
+    if (success) {
+        window.location.href = 'cart.php';
+    } else {
+        alert('Ошибка при добавлении в корзину');
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
 }
 
-function confirmRemove(id, productName, quantity) {
-    let message = `Вы уверены, что хотите отменить ожидание товара "${productName}"`;
-    if (quantity) message += ` (${quantity} шт.)`;
-    message += `?\nТовар будет удалён из листа ожидания.`;
-    if (confirm(message)) {
-        window.location.href = `waiting_list.php?remove=${id}`;
-    }
-}
-
-function confirmRemoveAll(idsJson, productName) {
-    const ids = JSON.parse(idsJson);
-    if (confirm(`Вы уверены, что хотите отменить ожидание всех заявок на товар "${productName}" (${ids.length} заявок)?\nВсе товары будут удалены из листа ожидания.`)) {
+function confirmRemoveAll(requestIds, productName) {
+    const ids = requestIds.split(',');
+    if (confirm(`Вы уверены, что хотите отменить ожидание товара "${productName}"?`)) {
         const formData = new FormData();
         formData.append('action', 'remove_multiple');
         formData.append('ids', JSON.stringify(ids));
