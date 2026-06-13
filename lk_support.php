@@ -2,7 +2,7 @@
 session_start();
 require_once 'config.php';
 require_once 'includes/notifications.php';
-require_once 'includes/email_config.php';
+require_once 'mip/includes/email_config.php';
 
 // Устанавливаем контекст для шапки и подвала (раздел МИП)
 $context = 'lab';
@@ -337,7 +337,7 @@ function parseJsonToTable($message, $type) {
         }
         if (!empty($data['line_total']) || !empty($data['total_price'])) {
             $total = $data['line_total'] ?? $data['total_price'] ?? 0;
-            $html .= '<tr><td class="json-label">Сумма</td><td class="json-value"><strong>' . number_format($total, 0, '.', ' ') . ' ₽</strong></td></tr>';
+            $html .= '<tr><td class="json-label">Сумма</td><td class="json-value"><strong>' . number_format($total, 0, '.', ' ') . ' ₽</strong></td></td>';
         }
     } elseif ($type === 's') {
         if (!empty($data['service_name'])) {
