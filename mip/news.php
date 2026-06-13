@@ -27,7 +27,7 @@ try {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:title" content="Новости — МИП" />
-    <!--<meta property="og:description" content="Актуальная информация о проектах и достижениях МИП" />-->
+    <meta property="og:description" content="Актуальная информация о проектах и достижениях" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header_mip.css" />
     <link rel="stylesheet" href="../css/footer.css" />
@@ -44,7 +44,7 @@ try {
             <!-- Заголовок страницы -->
             <section class="news-header-section">
                 <h1 class="news-page-title">Новости МИП</h1>
-                <p class="news-page-subtitle">Актуальная информация о проектах, разработках и достижениях</p>
+                <!--<p class="news-page-subtitle">Актуальная информация о проектах, разработках и достижениях</p>-->
             </section>
             <!-- Контейнер новостей -->
             <div class="news-container">
