@@ -68,9 +68,12 @@ $mip_path = $BASE . '/mip';
             <ul class="footer-links">
                 <?php if ($context === 'lab'): ?>
                     <li><a href="<?= $lab_path ?>/question.php">Задать вопрос</a></li>
+					<li><a href="<?= $mip_path ?>privacy.php">Политика конфиденциальности</a></li>
+					<li><a href="<?= $mip_path ?>policy.php">Обработка персональных данных</a></li>
                 <?php else: ?>
                     <li><a href="<?= $mip_path ?>/lk_user.php">Личный кабинет</a></li>
-                    <li><a href="<?= $mip_path ?>/privacy.php">Политика конфиденциальности</a></li>
+                    <li><a href="<?= $mip_path ?>privacy.php">Политика конфиденциальности</a></li>
+					<li><a href="<?= $mip_path ?>policy.php">Обработка персональных данных</a></li>
                     <li><a href="<?= $mip_path ?>/question.php">Сотрудничество</a></li>
                 <?php endif; ?>
             </ul>
