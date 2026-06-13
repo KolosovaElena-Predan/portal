@@ -1,12 +1,13 @@
 <?php
 /**
- * email_config.php - Для РЕАЛЬНОГО СЕРВЕРА (ручная установка)
+ * email_config.php - Для РЕАЛЬНОГО СЕРВЕРА
+ * Сайт в корне, без папки portal
  */
 
-// Подключаем PHPMailer вручную (без Composer)
-require_once __DIR__ . '/../../vendor/phpmailer/phpmailer/src/Exception.php';
-require_once __DIR__ . '/../../vendor/phpmailer/phpmailer/src/PHPMailer.php';
-require_once __DIR__ . '/../../vendor/phpmailer/phpmailer/src/SMTP.php';
+// Подключаем PHPMailer (пути относительно корня сайта)
+require_once __DIR__ . '/vendor/phpmailer/phpmailer/src/Exception.php';
+require_once __DIR__ . '/vendor/phpmailer/phpmailer/src/PHPMailer.php';
+require_once __DIR__ . '/vendor/phpmailer/phpmailer/src/SMTP.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -46,7 +47,7 @@ function sendEmailNotification($toEmail, $toName, $subject, $htmlMessage) {
     }
 }
 
-// Остальные функции-шаблоны (те же, что в предыдущем ответе)
+// Шаблоны писем (те же самые)
 function getVerificationEmailTemplate($name, $verifyLink) {
     return '<!DOCTYPE html>
     <html>
@@ -78,6 +79,8 @@ function getProductAvailableEmailTemplate($productName, $productUrl, $requestedQ
             <p style="text-align: center;">
                 <a href="' . $productUrl . '" style="display: inline-block; padding: 12px 30px; background: #00a896; color: white; text-decoration: none; border-radius: 8px;">Перейти к товару</a>
             </p>
+            <hr>
+            <p style="font-size: 12px; color: #666;">Это автоматическое уведомление.</p>
         </div>
     </body>
     </html>';
@@ -93,8 +96,10 @@ function getOrderStatusEmailTemplate($orderId, $statusText, $statusComment = nul
             <p>Статус вашего заказа №<strong>' . $orderId . '</strong> изменён на: <strong>' . htmlspecialchars($statusText) . '</strong></p>
             ' . ($statusComment ? '<p>Комментарий: ' . nl2br(htmlspecialchars($statusComment)) . '</p>' : '') . '
             <p style="text-align: center;">
-                <a href="https://' . $_SERVER['HTTP_HOST'] . '/portal/mip/lk_user.php" style="display: inline-block; padding: 12px 30px; background: #00a896; color: white; text-decoration: none; border-radius: 8px;">Перейти в личный кабинет</a>
+                <a href="https://' . $_SERVER['HTTP_HOST'] . '/mip/lk_user.php" style="display: inline-block; padding: 12px 30px; background: #00a896; color: white; text-decoration: none; border-radius: 8px;">Перейти в личный кабинет</a>
             </p>
+            <hr>
+            <p style="font-size: 12px; color: #666;">Это автоматическое уведомление.</p>
         </div>
     </body>
     </html>';
@@ -110,8 +115,10 @@ function getNewMessageEmailTemplate($requestId, $message, $senderName) {
             <p><strong>' . htmlspecialchars($senderName) . '</strong> оставил(а) сообщение по заявке №' . $requestId . ':</p>
             <div style="background: #f0fbfb; padding: 15px; border-left: 3px solid #00a896;">' . nl2br(htmlspecialchars($message)) . '</div>
             <p style="text-align: center;">
-                <a href="https://' . $_SERVER['HTTP_HOST'] . '/portal/mip/lk_user.php" style="display: inline-block; padding: 12px 30px; background: #00a896; color: white; text-decoration: none; border-radius: 8px;">Ответить в чате</a>
+                <a href="https://' . $_SERVER['HTTP_HOST'] . '/mip/lk_user.php" style="display: inline-block; padding: 12px 30px; background: #00a896; color: white; text-decoration: none; border-radius: 8px;">Ответить в чате</a>
             </p>
+            <hr>
+            <p style="font-size: 12px; color: #666;">Это автоматическое уведомление.</p>
         </div>
     </body>
     </html>';
