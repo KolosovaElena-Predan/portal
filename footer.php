@@ -67,7 +67,6 @@ $mip_path = $BASE . '/mip';
             <h4 class="footer-heading">Ресурсы</h4>
             <ul class="footer-links">
                 <?php if ($context === 'lab'): ?>
-                    <li><a href="<?= $lab_path ?>/about.php#education">Образование</a></li>
                     <li><a href="<?= $lab_path ?>/question.php">Задать вопрос</a></li>
                 <?php else: ?>
                     <li><a href="<?= $mip_path ?>/lk_user.php">Личный кабинет</a></li>

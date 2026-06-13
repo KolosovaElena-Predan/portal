@@ -36,6 +36,14 @@ $status_classes = [
     'completed' => 'status-completed',
     'planned' => 'status-planned'
 ];
+
+// Функция для безопасного форматирования даты
+function formatDate($date) {
+    if (empty($date) || $date === '0000-00-00') {
+        return '—';
+    }
+    return date('d.m.Y', strtotime($date));
+}
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -207,13 +215,11 @@ $status_classes = [
             
             <div class="project-meta">
                 <div class="meta-item">
-                    Начало: <?= date('d.m.Y', strtotime($project['start_date'])) ?>
+                    Начало: <?= formatDate($project['start_date']) ?>
                 </div>
-                <?php if ($project['end_date']): ?>
                 <div class="meta-item">
-                    Окончание: <?= date('d.m.Y', strtotime($project['end_date'])) ?>
+                    Окончание: <?= formatDate($project['end_date']) ?>
                 </div>
-                <?php endif; ?>
                 <div class="meta-item">
                     <span class="status-badge <?= $status_classes[$project['status']] ?>">
                         <?= $status_labels[$project['status']] ?>

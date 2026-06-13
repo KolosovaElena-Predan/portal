@@ -37,7 +37,6 @@ function getChatMessages($pdo, $requestId) {
     $stmt->execute([$requestId]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Группируем файлы по сообщениям
     $messages = [];
     foreach ($results as $row) {
         $msgId = $row['id'];
@@ -87,7 +86,7 @@ $user_data = [
     'address' => $addressData
 ];
 
-// --- ЗАГРУЗКА ЗАКАЗОВ (оборудование и услуги) ---
+// --- ЗАГРУЗКА ЗАКАЗОВ ---
 $stmt = $pdo->prepare("
 SELECT
     r.id, r.datetime, r.status, r.type, r.message, r.product_id,
@@ -141,7 +140,7 @@ foreach ($raw_requests as $req) {
     }
 }
 
-// Формируем заказы (группируем товары с услугами)
+// Формируем заказы
 $orders = [];
 $usedServiceIds = [];
 
@@ -179,10 +178,8 @@ foreach ($servicesByProductId as $groupId => $servicesList) {
     }
 }
 
-// Сортируем заказы по дате
 usort($orders, function($a, $b) { return strtotime($b['datetime']) - strtotime($a['datetime']); });
 
-// Разделяем заказы на активные и завершенные
 $activeOrders = [];
 $completedOrders = [];
 
@@ -194,7 +191,6 @@ foreach ($orders as $order) {
     }
 }
 
-// Получаем количество товаров в листе ожидания
 $waitingListCount = 0;
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM request WHERE user_id = ? AND type = 'wl' AND status = 'waiting'");
 $stmt->execute([$user->id]);
@@ -215,13 +211,12 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
 <link rel="stylesheet" href="css/style_mip.css" />
 <link rel="stylesheet" href="css/header_mip.css" />
 <link rel="stylesheet" href="css/style_lk.css" />
+<link rel="stylesheet" href="css/modals.css">
 <style>
-/* Дополнительные стили (бирюзовая гамма) */
 * {
     font-family: 'Inter', sans-serif;
 }
 
-/* Отступы - увеличены слева и справа, уменьшен сверху */
 .lk-content {
     margin-top: 40px;
     padding-left: 80px;
@@ -366,7 +361,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
 .status-cancelled { background: #f8d7da; color: #721c24; }
 .status-waiting { background: #fff8e1; color: #e65100; }
 
-/* Кнопки истории и чата - более насыщенные */
 .btn-detail {
     background: #e8f4f1;
     border: 1px solid #00a896;
@@ -534,7 +528,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     border-radius: 8px;
 }
 
-/* Стили для чата с файлами */
 .chat-messages-modal {
     max-height: 400px;
     overflow-y: auto;
@@ -604,9 +597,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     background: #00a896;
     color: #fff;
 }
-.chat-file-link i {
-    font-size: 12px;
-}
 .chat-reply-form-modal {
     display: flex;
     flex-direction: column;
@@ -624,7 +614,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     border-radius: 12px;
     resize: vertical;
     font-size: 15px;
-    font-weight: 400;
     font-family: 'Inter', sans-serif;
 }
 .chat-reply-input-modal:focus {
@@ -640,7 +629,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     cursor: pointer;
     font-size: 15px;
     font-weight: 500;
-    font-family: 'Inter', sans-serif;
     white-space: nowrap;
 }
 .chat-reply-btn-modal:hover {
@@ -804,48 +792,30 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     border: 1px solid #e0e8e5;
 }
 
-/* Адаптивность */
+.error-message {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.field-error {
+    border-color: #dc3545 !important;
+    background-color: #fff5f5 !important;
+}
+
 @media (max-width: 1200px) {
-    .lk-content {
-        padding-left: 60px;
-        padding-right: 60px;
-    }
+    .lk-content { padding-left: 60px; padding-right: 60px; }
 }
-
 @media (max-width: 900px) {
-    .lk-content {
-        padding-left: 40px;
-        padding-right: 40px;
-    }
+    .lk-content { padding-left: 40px; padding-right: 40px; }
 }
-
 @media (max-width: 600px) {
-    .chat-reply-input-modal {
-        max-width: 100%;
-    }
-    .lk-content {
-        margin-top: 30px;
-        padding-left: 20px;
-        padding-right: 20px;
-    }
-    .lk-title {
-        font-size: 28px;
-    }
-    .type-title {
-        font-size: 22px;
-    }
-    .order-item-name {
-        font-size: 16px;
-    }
-    .order-item-price {
-        font-size: 15px;
-    }
-    .chat-input-area {
-        flex-direction: column;
-    }
-    .chat-reply-btn-modal {
-        width: 100%;
-    }
+    .lk-content { margin-top: 30px; padding-left: 20px; padding-right: 20px; }
+    .lk-title { font-size: 28px; }
+    .type-title { font-size: 22px; }
+    .chat-input-area { flex-direction: column; }
+    .chat-reply-btn-modal { width: 100%; }
 }
 </style>
 <title>Личный кабинет</title>
@@ -861,7 +831,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
 <div class="lk-main-content">
 <div class="device-list-wrapper">
 
-<!-- АКТИВНЫЕ ЗАКАЗЫ -->
 <?php if (empty($activeOrders) && empty($completedOrders)): ?>
 <div class="no-orders">У вас пока нет заказов</div>
 <?php else: ?>
@@ -882,7 +851,7 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
                     <?php if ($item['type'] === 'product'): ?>
                         <?php $product = $item['data']; ?>
                         <div class="order-item">
-                            <img src="<?= htmlspecialchars($product['img']) ?>" alt="<?= htmlspecialchars($product['name']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
+                            <img src="<?= htmlspecialchars($product['img']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($product['name']) ?></div>
                                 <?php if ($product['quantity'] > 1): ?><div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div><?php endif; ?>
@@ -924,7 +893,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
         <?php endforeach; ?>
     <?php endif; ?>
 
-    <!-- ЗАВЕРШЕННЫЕ ЗАКАЗЫ (внизу) -->
     <?php if (!empty($completedOrders)): ?>
     <div class="completed-section">
         <h3 class="type-title">Завершённые заказы</h3>
@@ -946,7 +914,7 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
                     <?php if ($item['type'] === 'product'): ?>
                         <?php $product = $item['data']; ?>
                         <div class="order-item">
-                            <img src="<?= htmlspecialchars($product['img']) ?>" alt="<?= htmlspecialchars($product['name']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
+                            <img src="<?= htmlspecialchars($product['img']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($product['name']) ?></div>
                                 <?php if ($product['quantity'] > 1): ?><div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div><?php endif; ?>
@@ -1015,54 +983,70 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
             <h3>Редактирование профиля</h3>
             <button class="modal-close" onclick="closeModal('editProfileModal')">&times;</button>
         </div>
-        <form class="modal-body profile-form" id="profileForm" onsubmit="saveProfile(event)">
-            <div class="form-group">
-                <label>ФИО</label>
-                <input type="text" name="name" value="<?= htmlspecialchars($user_data['name']) ?>" required>
+        <form class="modal-body profile-form" id="profileForm" onsubmit="return false;">
+    <div class="form-group">
+        <label>ФИО</label>
+        <input type="text" name="name" id="profileName" value="<?= htmlspecialchars($user_data['name']) ?>" required>
+        <!-- Изменено id="nameError" на id="profileNameError" -->
+        <div class="error-message" id="profileNameError" style="display:none;"></div>
+    </div>
+    <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" id="profileEmail" value="<?= htmlspecialchars($user_data['email']) ?>" required>
+        <!-- Изменено id="emailError" на id="profileEmailError" -->
+        <div class="error-message" id="profileEmailError" style="display:none;"></div>
+    </div>
+    <div class="form-group">
+        <label>Телефон</label>
+        <input type="tel" name="phone" id="profilePhone" value="<?= htmlspecialchars($user_data['phone']) ?>" placeholder="+7 (999) 000-00-00">
+        <!-- Изменено id="phoneError" на id="profilePhoneError" -->
+        <div class="error-message" id="profilePhoneError" style="display:none;"></div>
+    </div>
+    
+    <div class="form-group">
+        <label>Адрес доставки</label>
+        <div class="address-row">
+            <div class="form-group" style="flex: 2;">
+                <input type="text" name="address_city" id="addressCity" placeholder="Город" value="<?= htmlspecialchars($user_data['address']['city']) ?>">
+                <!-- Изменено id="cityError" на id="addressCityError" -->
+                <div class="error-message" id="addressCityError" style="display:none;"></div>
             </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" name="email" value="<?= htmlspecialchars($user_data['email']) ?>" required>
+        </div>
+        <div class="address-row" style="margin-top: 10px;">
+            <div class="form-group" style="flex: 3;">
+                <input type="text" name="address_street" id="addressStreet" placeholder="Улица" value="<?= htmlspecialchars($user_data['address']['street']) ?>">
+                <!-- Изменено id="streetError" на id="addressStreetError" -->
+                <div class="error-message" id="addressStreetError" style="display:none;"></div>
             </div>
-            <div class="form-group">
-                <label>Телефон</label>
-                <input type="tel" name="phone" value="<?= htmlspecialchars($user_data['phone']) ?>" placeholder="+7 (999) 000-00-00">
+            <div class="form-group" style="flex: 1;">
+                <input type="text" name="address_house" id="addressHouse" placeholder="Дом" value="<?= htmlspecialchars($user_data['address']['house']) ?>">
+                <!-- Изменено id="houseError" на id="addressHouseError" -->
+                <div class="error-message" id="addressHouseError" style="display:none;"></div>
             </div>
-            
-            <div class="form-group">
-                <label>Адрес доставки</label>
-                <div class="address-row">
-                    <div class="form-group" style="flex: 2;">
-                        <input type="text" name="address_city" placeholder="Город" value="<?= htmlspecialchars($user_data['address']['city']) ?>">
-                    </div>
-                </div>
-                <div class="address-row" style="margin-top: 10px;">
-                    <div class="form-group" style="flex: 3;">
-                        <input type="text" name="address_street" placeholder="Улица" value="<?= htmlspecialchars($user_data['address']['street']) ?>">
-                    </div>
-                    <div class="form-group" style="flex: 1;">
-                        <input type="text" name="address_house" placeholder="Дом/Кв" value="<?= htmlspecialchars($user_data['address']['house']) ?>">
-                    </div>
-                </div>
-            </div>
+        </div>
+    </div>
 
-            <div class="form-group">
-                <label>Логин</label>
-                <input type="text" name="login" value="<?= htmlspecialchars($user_data['login']) ?>" disabled>
-                <small>Логин нельзя изменить</small>
-            </div>
-            <div class="form-group">
-                <label>Новый пароль</label>
-                <input type="password" name="new_password" placeholder="Оставьте пустым, чтобы не менять">
-            </div>
-            <div class="form-group">
-                <label>Подтверждение пароля</label>
-                <input type="password" name="confirm_password" placeholder="Повторите новый пароль">
-            </div>
-        </form>
+    <div class="form-group">
+        <label>Логин</label>
+        <input type="text" name="login" value="<?= htmlspecialchars($user_data['login']) ?>" disabled>
+        <small>Логин нельзя изменить</small>
+    </div>
+    <div class="form-group">
+        <label>Новый пароль</label>
+        <input type="password" name="new_password" id="newPassword" placeholder="Оставьте пустым, чтобы не менять">
+        <!-- Изменено id="passwordError" на id="newPasswordError" -->
+        <div class="error-message" id="newPasswordError" style="display:none;"></div>
+    </div>
+    <div class="form-group">
+        <label>Подтверждение пароля</label>
+        <input type="password" name="confirm_password" id="confirmPassword" placeholder="Повторите новый пароль">
+        <!-- Изменено id="confirmError" на id="confirmPasswordError" -->
+        <div class="error-message" id="confirmPasswordError" style="display:none;"></div>
+    </div>
+</form>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('editProfileModal')">Отмена</button>
-            <button class="btn-save" onclick="document.getElementById('profileForm').requestSubmit()">Сохранить</button>
+            <button class="btn-save" onclick="validateAndSave()">Сохранить</button>
         </div>
     </div>
 </div>
@@ -1103,6 +1087,167 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
 <script>
 let currentChatRequestId = null;
 let currentFile = null;
+
+// Функции валидации
+function validatePhoneOnClient(phone) {
+    if (!phone) return { valid: true, message: '' };
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) {
+        return { valid: true, message: '' };
+    }
+    return { valid: false, message: 'Телефон должен содержать 11 цифр и начинаться с 7 или 8' };
+}
+
+function validateCityOnClient(city) {
+    if (!city) return { valid: true, message: '' };
+    if (city.length < 2) {
+        return { valid: false, message: 'Город: минимум 2 символа' };
+    }
+    if (!/^[а-яА-ЯёЁa-zA-Z\s\-]+$/.test(city)) {
+        return { valid: false, message: 'Город: только буквы, пробелы и дефисы' };
+    }
+    return { valid: true, message: '' };
+}
+
+function validateStreetOnClient(street) {
+    if (!street) return { valid: true, message: '' };
+    if (street.length < 2) {
+        return { valid: false, message: 'Улица: минимум 2 символа' };
+    }
+    return { valid: true, message: '' };
+}
+
+function validateHouseOnClient(house) {
+    if (!house) return { valid: true, message: '' };
+    if (house.length < 1) {
+        return { valid: false, message: 'Дом: обязательно' };
+    }
+    if (!/^[0-9]+[а-яА-Яa-zA-Z]?(\/[0-9]+)?$/.test(house)) {
+        return { valid: false, message: 'Дом: примеры: 15, 15а, 15/2' };
+    }
+    return { valid: true, message: '' };
+}
+
+function validatePasswordOnClient(password) {
+    if (!password) return { valid: true, message: '' };
+    if (password.length < 6) {
+        return { valid: false, message: 'Пароль: минимум 6 символов' };
+    }
+    return { valid: true, message: '' };
+}
+
+function clearErrors() {
+    document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    document.querySelectorAll('.error-message').forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+}
+
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.classList.add('field-error');
+    }
+    const errorDiv = document.getElementById(fieldId + 'Error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+function validateAndSave() {
+    clearErrors();
+    
+    let isValid = true;
+    
+    const phone = document.getElementById('profilePhone').value;
+    const phoneValidation = validatePhoneOnClient(phone);
+    if (!phoneValidation.valid) {
+        showFieldError('profilePhone', phoneValidation.message);
+        isValid = false;
+    }
+    
+    const city = document.getElementById('addressCity').value;
+    const cityValidation = validateCityOnClient(city);
+    if (!cityValidation.valid) {
+        showFieldError('addressCity', cityValidation.message);
+        isValid = false;
+    }
+    
+    const street = document.getElementById('addressStreet').value;
+    const streetValidation = validateStreetOnClient(street);
+    if (!streetValidation.valid) {
+        showFieldError('addressStreet', streetValidation.message);
+        isValid = false;
+    }
+    
+    const house = document.getElementById('addressHouse').value;
+    const houseValidation = validateHouseOnClient(house);
+    if (!houseValidation.valid) {
+        showFieldError('addressHouse', houseValidation.message);
+        isValid = false;
+    }
+    
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const passwordValidation = validatePasswordOnClient(newPassword);
+    
+    if (newPassword && !passwordValidation.valid) {
+        showFieldError('newPassword', passwordValidation.message);
+        isValid = false;
+    }
+    
+    if (newPassword && newPassword !== confirmPassword) {
+        showFieldError('confirmPassword', 'Пароли не совпадают');
+        isValid = false;
+    }
+    
+    if (isValid) {
+        saveProfile();
+    }
+}
+
+function saveProfile() {
+    const form = document.getElementById('profileForm');
+    const formData = new FormData(form);
+    formData.append('action', 'update_profile');
+    
+    const city = formData.get('address_city');
+    const street = formData.get('address_street');
+    const house = formData.get('address_house');
+    
+    formData.delete('address_city');
+    formData.delete('address_street');
+    formData.delete('address_house');
+    
+    const addressObj = { city: city, street: street, house: house };
+    formData.append('address_json', JSON.stringify(addressObj));
+    
+    const saveBtn = document.querySelector('#editProfileModal .btn-save');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Сохранение...';
+    saveBtn.disabled = true;
+    
+    fetch('update_profile.php', { method: 'POST', body: formData })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Профиль успешно обновлён');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Не удалось обновить профиль'));
+        }
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Ошибка соединения с сервером');
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
+}
 
 function openStatusModal(requestId) {
     fetch('get_status_history.php?request_id=' + requestId)
@@ -1148,7 +1293,7 @@ function loadChatMessages(requestId) {
                     msg.files.forEach(file => {
                         const fileSize = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
                         filesHtml += `<a href="${file.url}" class="chat-file-link" target="_blank">
-                            📎 ${escapeHtml(file.name)} ${fileSize ? '(' + fileSize + ')' : ''}
+                            ${escapeHtml(file.name)} ${fileSize ? '(' + fileSize + ')' : ''}
                         </a>`;
                     });
                     filesHtml += '</div>';
@@ -1168,11 +1313,10 @@ function loadChatMessages(requestId) {
     });
 }
 
-// Обработка выбора файла
 document.getElementById('chatFileInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        const maxSize = 10 * 1024 * 1024; // 10 MB
+        const maxSize = 10 * 1024 * 1024;
         if (file.size > maxSize) {
             alert('Файл слишком большой. Максимальный размер 10 MB.');
             this.value = '';
@@ -1188,7 +1332,6 @@ document.getElementById('chatFileInput').addEventListener('change', function(e) 
     }
 });
 
-// Отправка сообщения с файлом
 document.getElementById('chatReplyFormModal').addEventListener('submit', async function(e) {
     e.preventDefault();
     const requestId = this.dataset.requestId;
@@ -1207,7 +1350,6 @@ document.getElementById('chatReplyFormModal').addEventListener('submit', async f
     try {
         let messageId = null;
         
-        // Сначала отправляем текстовое сообщение, если есть
         if (message) {
             const textFormData = new FormData();
             textFormData.append('action', 'add_message');
@@ -1223,7 +1365,6 @@ document.getElementById('chatReplyFormModal').addEventListener('submit', async f
             messageId = textData.message_id;
         }
         
-        // Затем отправляем файл, если есть
         if (currentFile) {
             progressSpan.textContent = 'Загрузка файла...';
             
@@ -1261,62 +1402,27 @@ document.getElementById('chatReplyFormModal').addEventListener('submit', async f
 });
 
 function openEditProfileModal() {
+    clearErrors();
     document.getElementById('editProfileModal').classList.add('active');
 }
 
-function saveProfile(event) {
-    event.preventDefault();
-    const form = document.getElementById('profileForm');
-    const formData = new FormData(form);
-    formData.append('action', 'update_profile');
-    
-    const city = formData.get('address_city');
-    const street = formData.get('address_street');
-    const house = formData.get('address_house');
-    
-    formData.delete('address_city');
-    formData.delete('address_street');
-    formData.delete('address_house');
-    
-    const addressObj = { city: city, street: street, house: house };
-    formData.append('address_json', JSON.stringify(addressObj));
-    
-    const saveBtn = document.querySelector('#editProfileModal .btn-save');
-    const originalText = saveBtn.textContent;
-    saveBtn.textContent = 'Сохранение...';
-    saveBtn.disabled = true;
-    
-    fetch('update_profile.php', { method: 'POST', body: formData })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert('Профиль обновлён!');
-            location.reload();
-        } else {
-            alert('Ошибка: ' + (data.error || 'Не удалось обновить'));
-        }
-        saveBtn.textContent = originalText;
-        saveBtn.disabled = false;
-    })
-    .catch(err => {
-        console.error(err);
-        alert('Ошибка соединения');
-        saveBtn.textContent = originalText;
-        saveBtn.disabled = false;
-    });
+function closeModal(modalId) { 
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('active');
 }
 
-function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
-function closeModalIfClickOutside(event, modalId) { if (event.target === document.getElementById(modalId)) closeModal(modalId); }
+function closeModalIfClickOutside(event, modalId) { 
+    const modal = document.getElementById(modalId);
+    if (event.target === modal) closeModal(modalId); 
+}
+
 function escapeHtml(text) { 
     if (!text) return '';
     const div = document.createElement('div'); 
     div.textContent = text; 
     return div.innerHTML; 
 }
-</script>
-<script>
-// Проверяем, нужно ли открыть модальное окно после перехода из уведомлений
+
 document.addEventListener('DOMContentLoaded', function() {
     const openModal = sessionStorage.getItem('openModal');
     const requestId = sessionStorage.getItem('modalRequestId');

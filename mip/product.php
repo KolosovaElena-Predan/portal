@@ -99,14 +99,110 @@ function getImageUrl($url) {
 <link rel="stylesheet" href="css/header_mip.css" />
 <link rel="stylesheet" href="css/modals.css">
 <title><?= htmlspecialchars($product['name']) ?></title>
+<style>
+/* Стили для модального окна "Товар добавлен" */
+.cart-success-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+.cart-success-modal.show {
+    display: flex;
+}
+.cart-success-content {
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: modalFadeIn 0.25s ease;
+    overflow: hidden;
+}
+.cart-success-header {
+    padding: 25px 25px 0 25px;
+    text-align: center;
+}
+.cart-success-header h3 {
+    font-family: "Inter-Bold", sans-serif;
+    font-size: 22px;
+    color: #00a896;
+    margin: 0 0 10px;
+}
+.cart-success-icon {
+    width: 60px;
+    height: 60px;
+    background: #00a896;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+}
+.cart-success-icon i {
+    font-size: 30px;
+    color: white;
+}
+.cart-success-body {
+    padding: 20px 25px;
+    text-align: center;
+}
+.cart-success-body p {
+    font-size: 16px;
+    color: #333;
+    margin: 5px 0;
+}
+.cart-success-footer {
+    display: flex;
+    gap: 12px;
+    padding: 0 25px 25px 25px;
+}
+.btn-cart-success {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    text-decoration: none;
+    display: inline-block;
+}
+.btn-continue {
+    background: #f0f0f0;
+    color: #333;
+}
+.btn-continue:hover {
+    background: #e0e0e0;
+}
+.btn-to-cart {
+    background: #00a896;
+    color: white;
+}
+.btn-to-cart:hover {
+    background: #008a7a;
+}
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+</style>
 </head>
 <body>
 <div class="screen">
 <div class="div">
 <?php 
-				$context = 'mip';
-				require_once '../header.php'; 
-			?>
+$context = 'mip';
+require_once '../header.php'; 
+?>
 
 <div class="product-page-wrapper">
     
@@ -148,45 +244,48 @@ function getImageUrl($url) {
         <h2>Конфигуратор заказа</h2>
         
         <!-- Комплектации -->
-        <?php if (!empty($configurations)): ?>
-        <h3>Выберите комплектацию</h3>
-        <table class="config-table">
-            <thead>
-                <tr>
-                    <th>Название</th>
-                    <th>Характеристики</th>
-                    <th>Цена</th>
-                    <th>Выбор</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($configurations as $cfg): 
-                    $chars = !empty($cfg['characteristics']) ? json_decode($cfg['characteristics'], true) : [];
-                    if (!is_array($chars)) $chars = [];
-                ?>
-                <tr>
-                    <td><strong><?= htmlspecialchars($cfg['name']) ?></strong></td>
-                    <td>
-                        <?php if (!empty($chars)): ?>
-                            <?php foreach ($chars as $k => $v): ?>
-                                <div><small><?= htmlspecialchars($k) ?>:</small> <?= htmlspecialchars($v) ?></div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <span style="color:#999;">—</span>
+        <!-- Комплектации -->
+<?php if (!empty($configurations)): ?>
+<h3>Выберите комплектацию</h3>
+<table class="config-table">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Характеристики</th>
+            <th>Цена</th>
+            <th>Выбор</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($configurations as $cfg): 
+            $chars = !empty($cfg['characteristics']) ? json_decode($cfg['characteristics'], true) : [];
+            if (!is_array($chars)) $chars = [];
+        ?>
+        <tr>
+            <td><strong><?= htmlspecialchars($cfg['name']) ?></strong></td>
+            <td>
+                <?php if (!empty($chars)): ?>
+                    <?php foreach ($chars as $k => $v): ?>
+                        <?php if (!in_array($k, ['stock', 'made_to_order', 'lead_time'])): ?>
+                            <div><small><?= htmlspecialchars($k) ?>:</small> <?= htmlspecialchars($v) ?></div>
                         <?php endif; ?>
-                    </td>
-                    <td><strong><?= number_format($cfg['price'], 0, ',', ' ') ?> ₽</strong></td>
-                    <td>
-                        <input type="radio" name="configuration" value="<?= $cfg['id'] ?>" 
-                               data-price="<?= $cfg['price'] ?>"
-                               data-name="<?= htmlspecialchars($cfg['name']) ?>"
-                               onchange="updateTotal()" style="transform: scale(1.5);">
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <span style="color:#999;">—</span>
+                <?php endif; ?>
+            </td>
+            <td><strong><?= number_format($cfg['price'], 0, ',', ' ') ?> ₽</strong></td>
+            <td>
+                <input type="radio" name="configuration" value="<?= $cfg['id'] ?>" 
+                       data-price="<?= $cfg['price'] ?>"
+                       data-name="<?= htmlspecialchars($cfg['name']) ?>"
+                       onchange="updateTotal()" style="transform: scale(1.5);">
+            </td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+<?php endif; ?>
 
         <!-- Модификации -->
         <?php if (!empty($modifications)): ?>
@@ -336,6 +435,30 @@ function getImageUrl($url) {
     <?php endif; ?>
 
 </div>
+
+<!-- Модальное окно "Товар добавлен в корзину" -->
+<div id="cartSuccessModal" class="cart-success-modal">
+    <div class="cart-success-content">
+        <div class="cart-success-header">
+            <div class="cart-success-icon">
+                <i class="fas fa-check"></i>
+            </div>
+            <h3>Товар добавлен в корзину!</h3>
+        </div>
+        <div class="cart-success-body">
+            <p>Товар успешно добавлен в вашу корзину.</p>
+        </div>
+        <div class="cart-success-footer">
+            <button class="btn-cart-success btn-continue" onclick="closeCartSuccessModal()">
+                Продолжить покупки
+            </button>
+            <a href="cart.php" class="btn-cart-success btn-to-cart">
+                Перейти в корзину
+            </a>
+        </div>
+    </div>
+</div>
+
 <?php
 if (!isset($context)) {
     $context = 'lab';
@@ -524,6 +647,23 @@ function updateTotal() {
     }
 }
 
+/* Модальное окно успешного добавления */
+function showCartSuccessModal() {
+    const modal = document.getElementById('cartSuccessModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeCartSuccessModal() {
+    const modal = document.getElementById('cartSuccessModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
 /* Добавление в корзину с проверкой авторизации */
 function addToCart(productId, btnElement) {
     const btn = btnElement || document.querySelector('.btn-order1');
@@ -647,7 +787,12 @@ function proceedAddToCart(productId, btn) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            window.location.href = 'cart.php';
+            // Показать модальное окно вместо прямого перехода
+            showCartSuccessModal();
+            if (btn) {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         } else {
             throw new Error(data.error || 'Неизвестная ошибка');
         }
@@ -709,6 +854,7 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAuthModal();
         closeRoleErrorModal();
+        closeCartSuccessModal();
     }
 });
 
@@ -727,6 +873,15 @@ if (roleModal) {
     roleModal.addEventListener('click', function(e) {
         if (e.target === this) {
             closeRoleErrorModal();
+        }
+    });
+}
+
+const cartSuccessModal = document.getElementById('cartSuccessModal');
+if (cartSuccessModal) {
+    cartSuccessModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeCartSuccessModal();
         }
     });
 }
@@ -784,6 +939,19 @@ document.addEventListener('keydown', function(e) {
     else if (e.key === 'ArrowLeft') navigateScheme(-1);
     else if (e.key === 'ArrowRight') navigateScheme(1);
 });
+
+// Схемы для лайтбокса
+const schemeImages = <?php 
+    $schemeData = [];
+    foreach ($schemes as $idx => $scheme) {
+        $schemeData[] = [
+            'src' => htmlspecialchars($scheme['image_url']),
+            'alt' => htmlspecialchars($scheme['title'] ?? 'Схема')
+        ];
+    }
+    echo json_encode($schemeData);
+?>;
+let currentSchemeIndex = 0;
 </script>
 
 <!-- Модальное окно для авторизации -->

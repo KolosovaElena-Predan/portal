@@ -22,10 +22,10 @@
 
 <div class="top-controls">
     <!-- Поиск -->
-    <div class="search-box">
+    <!--<div class="search-box">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Поиск..." id="headerSearch">
-    </div>
+    </div>-->
 
     <!-- Авторизация -->
     <?php if ($user): ?>
@@ -55,7 +55,7 @@
             </div>
             <div class="card-text">
                 <h2 class="card-title">Лаборатория перспективных энергетических технологий</h2>
-                <p class="card-desc">Научные исследования и разработки</p>
+                <p class="card-desc">Научные исследования, проекты, новости и сотрудничество</p>
             </div>
         </a>
 
@@ -66,7 +66,7 @@
             </div>
             <div class="card-text">
                 <h2 class="card-title">ООО МИП "НПЦ ПИТиА"</h2>
-                <p class="card-desc">Малое инновационное предприятие</p>
+                <p class="card-desc">Приобретение товаров и услуг</p>
             </div>
         </a>
 

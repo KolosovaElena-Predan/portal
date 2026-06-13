@@ -47,7 +47,7 @@ if ($context === 'mip') {
     switch ($user_role) {
         case 'admin': $lk_link = '/admin/lk_admin.php'; break;
         case 'support_specialist': $lk_link = '/lk_support.php'; break;
-        case 'client': $lk_link = '/lab/lk_lab.php'; break;
+        case 'client': $lk_link = '/mip/lk_user.php'; break;
         default: $lk_link = '/lab/main_lab.php';
     }
 }
