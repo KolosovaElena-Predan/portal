@@ -6,7 +6,7 @@ require_once 'Database.php';
 require_once 'User.php';
 require_once 'UserRepository.php';
 require_once 'Auth.php';
-require_once 'mip/includes/email_config.php'; // ПРАВИЛЬНЫЙ ПУТЬ К ФАЙЛУ
+require_once 'mip/includes/email_config.php';
 
 // Создаём зависимости
 $database = new Database();
@@ -20,6 +20,10 @@ $reg_login = '';
 $reg_email = '';
 $reg_name = '';
 
+// Для таймера повторной отправки
+$showResendTimer = false;
+$resendEmail = '';
+
 // Обработка входа
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $login = trim($_POST['login'] ?? '');
@@ -28,7 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $user = $auth->attempt($login, $password);
     if ($user && !($user instanceof GuestUser)) {
         if (!$user->isVerified()) {
-            $error = 'Подтвердите email перед входом. Проверьте почту или <a href="resend_verify.php">запросите письмо повторно</a>.';
+            $error = 'Подтвердите email перед входом. Проверьте почту.';
+            $showResendTimer = true;
+            $resendEmail = $user->email;
         } else {
             $auth->login($user);
             header("Location: " . $user->getDashboardUrl());
@@ -92,44 +98,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                     $subject = "Подтверждение регистрации на сайте МИП «НПЦ ПИТиА»";
                     
-                    // HTML письма
-                    $htmlMessage = "
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset='UTF-8'>
-                            <title>Подтверждение email</title>
-                        </head>
-                        <body style='font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; margin: 0;'>
-                            <div style='max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>
-                                <h2 style='color: #00a896; margin-top: 0;'>Здравствуйте, " . htmlspecialchars($reg_name) . "!</h2>
-                                <p>Благодарим вас за регистрацию на сайте <strong>ООО МИП «НПЦ ПИТиА»</strong>.</p>
-                                <p>Для завершения регистрации активируйте ваш аккаунт, перейдя по ссылке ниже:</p>
-                                <p style='text-align: center; margin: 30px 0;'>
-                                    <a href='{$verifyLink}' style='display: inline-block; padding: 12px 30px; background: #00a896; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;'>
-                                        Подтвердить адрес электронной почты
-                                    </a>
-                                </p>
-                                <p style='font-size: 14px; color: #666;'>
-                                    <strong>Важно:</strong> Ссылка действительна в течение 24 часов.<br>
-                                    Если вы не регистрировались на нашем сайте, просто проигнорируйте это письмо.
-                                </p>
-                                <hr style='border: none; border-top: 1px solid #eee; margin: 30px 0;'>
-                                <p style='font-size: 12px; color: #999;'>
-                                    Это автоматическое сообщение, пожалуйста, не отвечайте на него.<br>
-                                    © " . date('Y') . " ООО МИП «НПЦ ПИТиА». Все права защищены.
-                                </p>
-                            </div>
-                        </body>
-                        </html>
-                    ";
+                    $htmlMessage = getVerificationEmailTemplate($reg_name, $verifyLink);
 
                     // Отправка письма
                     if (sendEmailNotification($reg_email, $reg_name, $subject, $htmlMessage)) {
-                        $success = "Регистрация успешна! На почту <strong>" . htmlspecialchars($reg_email) . "</strong> отправлено письмо с подтверждением. Перейдите по ссылке в письме для активации аккаунта.";
+                        $success = "Регистрация успешна! На почту <strong>" . htmlspecialchars($reg_email) . "</strong> отправлено письмо с подтверждением.";
                         $reg_login = $reg_email = $reg_name = '';
+                        $showResendTimer = true;
+                        $resendEmail = $reg_email;
                     } else {
-                        $error = "Ошибка отправки письма подтверждения. Попробуйте позже или обратитесь в поддержку.";
+                        $error = "Ошибка отправки письма подтверждения.";
                         // При ошибке отправки — удаляем пользователя
                         $pdo = $database->getPdo();
                         $stmt = $pdo->prepare("DELETE FROM user WHERE id = ?");
@@ -285,6 +263,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             box-shadow: 0 8px 20px rgba(0, 168, 150, 0.3);
         }
         
+        .btn-resend {
+            background: #f0f0f0;
+            color: #333;
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        .btn-resend:hover {
+            background: #e0e0e0;
+            transform: translateY(-1px);
+        }
+        .btn-resend:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .resend-timer {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .resend-link {
+            color: #00a896;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        
         .privacy-check {
             margin: 20px 0 24px;
             padding: 6px 0;
@@ -403,6 +410,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <?php if ($success): ?>
                 <div class="success"><?= $success ?></div>
             <?php endif; ?>
+            
+            <!-- Таймер повторной отправки -->
+            <?php if ($showResendTimer && $resendEmail): ?>
+            <div class="resend-timer" id="resendBlock">
+                <span id="timerText">Отправить письмо повторно можно через <span id="timerCount">60</span> секунд</span>
+                <button class="btn btn-resend" id="resendBtn" style="display:none;" onclick="resendVerification('<?= htmlspecialchars($resendEmail) ?>')">
+                    <i class="fas fa-paper-plane"></i> Отправить повторно
+                </button>
+            </div>
+            <?php endif; ?>
 
             <div class="auth-tabs">
                 <div class="auth-tab active" onclick="switchTab('login')">Вход</div>
@@ -470,6 +487,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             const successDiv = document.querySelector('.success');
             if (errorDiv) errorDiv.style.display = 'none';
             if (successDiv) successDiv.style.display = 'none';
+        }
+        
+        // Таймер для повторной отправки
+        <?php if ($showResendTimer && $resendEmail): ?>
+        let timerSeconds = 60;
+        const timerElement = document.getElementById('timerCount');
+        const timerTextSpan = document.getElementById('timerText');
+        const resendBtn = document.getElementById('resendBtn');
+        
+        const timerInterval = setInterval(function() {
+            timerSeconds--;
+            if (timerElement) {
+                timerElement.textContent = timerSeconds;
+            }
+            
+            if (timerSeconds <= 0) {
+                clearInterval(timerInterval);
+                if (timerTextSpan) {
+                    timerTextSpan.innerHTML = 'Письмо не пришло? ';
+                }
+                if (resendBtn) {
+                    resendBtn.style.display = 'inline-block';
+                }
+            }
+        }, 1000);
+        <?php endif; ?>
+        
+        function resendVerification(email) {
+            const btn = document.getElementById('resendBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+            
+            fetch('resend_verify_ajax.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'email=' + encodeURIComponent(email)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Письмо отправлено повторно! Проверьте почту.');
+                    // Перезапустить таймер
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + (data.message || 'Не удалось отправить письмо'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(err => {
+                alert('Ошибка соединения');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
         }
         
         document.addEventListener('DOMContentLoaded', function() {
