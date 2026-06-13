@@ -18,6 +18,27 @@ $currentUser = [
     'role' => $_SESSION['role']
 ];
 
+// ============================================
+// ЗАГРУЗКА ДИНАМИЧЕСКИХ СТАТУСОВ ИЗ БД
+// ============================================
+$statusLabels = [];
+$statusColors = [];
+$statusList = [];
+
+try {
+    $stmtStatuses = $pdo->query("SELECT * FROM request_statuses WHERE is_active = 1 ORDER BY sort_order");
+    $statusesList = $stmtStatuses->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($statusesList as $s) {
+        $statusLabels[$s['code']] = $s['name'];
+        $statusColors[$s['code']] = $s['color'];
+        $statusList[$s['code']] = $s;
+    }
+} catch (PDOException $e) {
+    // Если таблица не создана, используем стандартные статусы
+    $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
+    $statusColors = ['new' => '#ffc107', 'processed' => '#17a2b8', 'closed' => '#28a745', 'cancelled' => '#dc3545'];
+}
+
 // Функция для получения сообщений с файлами
 function getChatMessagesWithFiles($pdo, $requestId) {
     $stmt = $pdo->prepare("
@@ -68,20 +89,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     try {
         $action = $_POST['action'];
         
-        // ДЕЙСТВИЕ: Обновление статуса
+        // ДЕЙСТВИЕ: Обновление статуса (с поддержкой динамических статусов)
         if ($action === 'update_status') {
             $requestId = (int)($_POST['request_id'] ?? 0);
             $newStatus = $_POST['status'] ?? '';
             $comment = trim($_POST['comment'] ?? '');
             
-            if ($requestId && in_array($newStatus, ['new', 'processed', 'closed', 'cancelled'])) {
+            // Проверяем, существует ли такой статус в таблице request_statuses
+            $stmtCheck = $pdo->prepare("SELECT code, name FROM request_statuses WHERE code = ? AND is_active = 1");
+            $stmtCheck->execute([$newStatus]);
+            $validStatus = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            
+            if ($requestId && $validStatus) {
                 $pdo->prepare("UPDATE request SET status = ? WHERE id = ?")->execute([$newStatus, $requestId]);
                 $pdo->prepare("INSERT INTO request_status_history (request_id, status, comment, created_by) VALUES (?, ?, ?, ?)")
                     ->execute([$requestId, $newStatus, $comment, $currentUser['id']]);
                 
-                $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
+                $statusName = $validStatus['name'];
                 $title = "Статус заявки #{$requestId} изменён";
-                $messageText = "Статус вашей заявки изменён на: {$statusLabels[$newStatus]}";
+                $messageText = "Статус вашей заявки изменён на: {$statusName}";
                 if ($comment) $messageText .= "\nКомментарий: " . $comment;
                 
                 $stmt = $pdo->prepare("SELECT user_id FROM request WHERE id = ?");
@@ -97,13 +123,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     
                     if ($userInfo && !empty($userInfo['email'])) {
                         $emailSubject = "Статус заявки #{$requestId} изменён";
-                        $emailBody = getOrderStatusEmailTemplate($requestId, $statusLabels[$newStatus], $comment);
+                        $emailBody = getOrderStatusEmailTemplate($requestId, $statusName, $comment);
                         sendEmailNotification($userInfo['email'], $userInfo['name'], $emailSubject, $emailBody);
                     }
                 }
                 echo json_encode(['success' => true]);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Ошибка валидации']);
+                echo json_encode(['success' => false, 'message' => 'Неверный статус']);
             }
             exit;
         }
@@ -312,9 +338,15 @@ usort($groupedRequests, function($a, $b) {
 });
 
 function getStatusHistory($pdo, $id) {
-    $stmt = $pdo->prepare("SELECT * FROM request_status_history WHERE request_id = ? ORDER BY created_at ASC");
+    $stmt = $pdo->prepare("
+        SELECT rsh.*, rs.name as status_name, rs.color as status_color
+        FROM request_status_history rsh
+        LEFT JOIN request_statuses rs ON rsh.status = rs.code
+        WHERE rsh.request_id = ?
+        ORDER BY rsh.created_at ASC
+    ");
     $stmt->execute([$id]);
-    return $stmt->fetchAll();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function parseJsonToTable($message, $type) {
@@ -348,7 +380,7 @@ function parseJsonToTable($message, $type) {
         }
     } elseif ($type === 'q') {
         if (!empty($data['subject'])) {
-            $html .= '<tr><td class="json-label">Тема</td><td class="json-value">' . htmlspecialchars($data['subject']) . '</td><td>';
+            $html .= '<tr><td class="json-label">Тема</td><td class="json-value">' . htmlspecialchars($data['subject']) . '</td></tr>';
         }
         if (!empty($data['question'])) {
             $html .= '<tr><td class="json-label">Вопрос</td><td class="json-value">' . nl2br(htmlspecialchars($data['question'])) . '</td></tr>';
@@ -359,7 +391,11 @@ function parseJsonToTable($message, $type) {
     return $html;
 }
 
-$statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
+// Загружаем статусы для выпадающего списка в модальном окне
+$statusOptionsHtml = '';
+foreach ($statusList as $code => $status) {
+    $statusOptionsHtml .= '<option value="' . htmlspecialchars($code) . '">' . htmlspecialchars($status['name']) . '</option>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -451,6 +487,12 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
 <?php else: ?>
 <?php foreach ($groupedRequests as $group):
     $hasMultiple = count($group['items']) > 1;
+    // Определяем статус группы (наиболее критичный)
+    $statuses = array_column($group['items'], 'status');
+    if (in_array('new', $statuses)) $groupStatus = 'new';
+    elseif (in_array('processed', $statuses)) $groupStatus = 'processed';
+    elseif (in_array('cancelled', $statuses)) $groupStatus = 'cancelled';
+    else $groupStatus = 'closed';
 ?>
 <div class="request-card" data-user-id="<?= $group['user_id'] ?>">
     <div class="request-header">
@@ -459,15 +501,8 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
                 <span class="group-badge"><?= count($group['items']) ?> заявок</span>
             <?php endif; ?>
         </div>
-        <span class="status-badge">
-            <?php 
-            $statuses = array_column($group['items'], 'status');
-            if (in_array('new', $statuses)) $groupStatus = 'new';
-            elseif (in_array('processed', $statuses)) $groupStatus = 'processed';
-            elseif (in_array('cancelled', $statuses)) $groupStatus = 'cancelled';
-            else $groupStatus = 'closed';
-            echo $statusLabels[$groupStatus] ?? $groupStatus;
-            ?>
+        <span class="status-badge" style="background-color: <?= $statusColors[$groupStatus] ?? '#6c757d' ?>20; color: <?= $statusColors[$groupStatus] ?? '#6c757d' ?>;">
+            <?= $statusLabels[$groupStatus] ?? $groupStatus ?>
         </span>
     </div>
     <div class="request-info-grid">
@@ -512,7 +547,9 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
     <div class="sub-request <?= $isHighlighted ? 'highlight-request' : '' ?>" data-request-id="<?= $req['id'] ?>">
         <div class="sub-request-title">
             Заявка №<?= $req['id'] ?> 
-            <span class="status-badge" style="font-size: 10px;"><?= $statusLabels[$req['status']] ?? $req['status'] ?></span>
+            <span class="status-badge" style="font-size: 10px; background-color: <?= $statusColors[$req['status']] ?? '#6c757d' ?>20; color: <?= $statusColors[$req['status']] ?? '#6c757d' ?>;">
+                <?= $statusLabels[$req['status']] ?? $req['status'] ?>
+            </span>
             <span style="float: right;"><?= date('d.m.Y H:i', strtotime($req['datetime'])) ?></span>
         </div>
         <div class="request-details" style="padding: 0;">
@@ -537,7 +574,9 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
                 <?php foreach ($history as $i => $h): ?>
                 <div class="timeline-item <?= $i === count($history) - 1 ? 'current' : 'completed' ?>">
                     <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($h['created_at'])) ?></div>
-                    <div class="timeline-status"><?= $statusLabels[$h['status']] ?? $h['status'] ?></div>
+                    <div class="timeline-status" style="color: <?= $h['status_color'] ?? '#333' ?>; font-weight: 600;">
+                        <?= $h['status_name'] ?? $h['status'] ?>
+                    </div>
                     <?php if ($h['comment']): ?>
                     <div class="timeline-comment"><?= htmlspecialchars($h['comment']) ?></div>
                     <?php endif; ?>
@@ -546,7 +585,7 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
             <?php else: ?>
                 <div class="timeline-item current">
                     <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($req['datetime'])) ?></div>
-                    <div class="timeline-status"><?= $statusLabels[$req['status']] ?></div>
+                    <div class="timeline-status"><?= $statusLabels[$req['status']] ?? $req['status'] ?></div>
                     <div class="timeline-comment">Заказ создан</div>
                 </div>
             <?php endif; ?>
@@ -580,7 +619,9 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
             <?php foreach ($history as $i => $h): ?>
             <div class="timeline-item <?= $i === count($history) - 1 ? 'current' : 'completed' ?>">
                 <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($h['created_at'])) ?></div>
-                <div class="timeline-status"><?= $statusLabels[$h['status']] ?? $h['status'] ?></div>
+                <div class="timeline-status" style="color: <?= $h['status_color'] ?? '#333' ?>; font-weight: 600;">
+                    <?= $h['status_name'] ?? $h['status'] ?>
+                </div>
                 <?php if ($h['comment']): ?>
                 <div class="timeline-comment"><?= htmlspecialchars($h['comment']) ?></div>
                 <?php endif; ?>
@@ -589,7 +630,7 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
         <?php else: ?>
             <div class="timeline-item current">
                 <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($req['datetime'])) ?></div>
-                <div class="timeline-status"><?= $statusLabels[$req['status']] ?></div>
+                <div class="timeline-status"><?= $statusLabels[$req['status']] ?? $req['status'] ?></div>
                 <div class="timeline-comment">Заказ создан</div>
             </div>
         <?php endif; ?>
@@ -603,15 +644,13 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
 </div>
 </div>
 
-<!-- Модальное окно "Статус" -->
+<!-- Модальное окно "Статус" (с динамическими статусами) -->
 <div class="modal-overlay" id="status-overlay" onclick="closeModal('status')"></div>
 <div class="modal" id="status-modal">
     <h3>Изменить статус</h3>
     <input type="hidden" id="status-request-id" />
     <select id="status-select" class="modal-input">
-        <option value="new">Новый</option>
-        <option value="processed">В обработке</option>
-        <option value="closed">Закрыт</option>
+        <?= $statusOptionsHtml ?>
     </select>
     <textarea id="status-comment" class="modal-input" rows="3" placeholder="Комментарий..."></textarea>
     <div class="modal-buttons">
@@ -620,7 +659,7 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
     </div>
 </div>
 
-<!-- Модальное окно "Отклонить" -->
+<!-- Модальное окно "Отклонить" (использует статус cancelled) -->
 <div class="modal-overlay" id="reject-overlay" onclick="closeModal('reject')"></div>
 <div class="modal" id="reject-modal">
     <h3 class="text-danger">Отклонить</h3>
