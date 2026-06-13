@@ -128,6 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -411,6 +412,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </style>
 </head>
 <body>
+<?php include 'header.php'; ?>
     <div class="login-container">
         <div class="login-box">
             <h2 class="login-title">Личный кабинет</h2>
@@ -558,5 +560,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         });
     </script>
+	<?php include 'footer.php'; ?>
 </body>
 </html>

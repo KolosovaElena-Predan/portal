@@ -1,6 +1,6 @@
 <?php
 $pageTitle = 'Политика обработки персональных данных';
-$context = 'mip';
+$context = 'lab';
 require_once 'header.php';
 ?>
 <!DOCTYPE html>

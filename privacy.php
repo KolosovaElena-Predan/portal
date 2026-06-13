@@ -1,6 +1,6 @@
 <?php
 $pageTitle = 'Политика конфиденциальности';
-$context = 'mip';
+$context = 'lab';
 require_once 'header.php';
 ?>
 <!DOCTYPE html>
