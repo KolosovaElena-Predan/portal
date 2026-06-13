@@ -1,16 +1,20 @@
 <?php
 /**
  * email_config.php - Для РЕАЛЬНОГО СЕРВЕРА
- * Сайт в корне, без папки portal
+ * Правильные пути к PHPMailer
  */
 
-// Подключаем PHPMailer (пути относительно корня сайта)
-require_once __DIR__ . '/vendor/phpmailer/phpmailer/src/Exception.php';
-require_once __DIR__ . '/vendor/phpmailer/phpmailer/src/PHPMailer.php';
-require_once __DIR__ . '/vendor/phpmailer/phpmailer/src/SMTP.php';
+// ПРАВИЛЬНЫЕ пути к PHPMailer (относительно корня сайта)
+require_once __DIR__ . '/../../vendor/phpmailer/phpmailer/src/Exception.php';
+require_once __DIR__ . '/../../vendor/phpmailer/phpmailer/src/PHPMailer.php';
+require_once __DIR__ . '/../../vendor/phpmailer/phpmailer/src/SMTP.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+
+// Отключаем ошибки на время теста (чтобы увидеть результат)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 /**
  * Отправка email-уведомления через SMTP
@@ -47,12 +51,12 @@ function sendEmailNotification($toEmail, $toName, $subject, $htmlMessage) {
     }
 }
 
-// Шаблоны писем (те же самые)
+// Шаблоны писем
 function getVerificationEmailTemplate($name, $verifyLink) {
     return '<!DOCTYPE html>
     <html>
     <head><meta charset="UTF-8"></head>
-    <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+    <body style="font-family: Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px;">
             <h2 style="color: #00a896;">Подтверждение регистрации</h2>
             <p>Здравствуйте, <strong>' . htmlspecialchars($name) . '</strong>!</p>
@@ -72,7 +76,7 @@ function getProductAvailableEmailTemplate($productName, $productUrl, $requestedQ
     return '<!DOCTYPE html>
     <html>
     <head><meta charset="UTF-8"></head>
-    <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+    <body style="font-family: Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px;">
             <h2 style="color: #00a896;">Товар поступил в наличие!</h2>
             <p>Товар <strong>' . htmlspecialchars($productName) . '</strong>' . $quantityText . ' снова доступен для заказа.</p>
@@ -90,7 +94,7 @@ function getOrderStatusEmailTemplate($orderId, $statusText, $statusComment = nul
     return '<!DOCTYPE html>
     <html>
     <head><meta charset="UTF-8"></head>
-    <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+    <body style="font-family: Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px;">
             <h2 style="color: #00a896;">Статус заказа изменён</h2>
             <p>Статус вашего заказа №<strong>' . $orderId . '</strong> изменён на: <strong>' . htmlspecialchars($statusText) . '</strong></p>
@@ -109,7 +113,7 @@ function getNewMessageEmailTemplate($requestId, $message, $senderName) {
     return '<!DOCTYPE html>
     <html>
     <head><meta charset="UTF-8"></head>
-    <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+    <body style="font-family: Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px;">
             <h2 style="color: #00a896;">Новое сообщение в чате</h2>
             <p><strong>' . htmlspecialchars($senderName) . '</strong> оставил(а) сообщение по заявке №' . $requestId . ':</p>
