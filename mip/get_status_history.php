@@ -5,34 +5,40 @@ require_once 'config.php';
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'error' => 'Not authorized']);
+    echo json_encode(['success' => false, 'error' => 'Не авторизован']);
     exit;
 }
 
 $requestId = (int)($_GET['request_id'] ?? 0);
+
 if (!$requestId) {
-    echo json_encode(['success' => false, 'error' => 'No request ID']);
+    echo json_encode(['success' => false, 'error' => 'ID заказа не указан']);
     exit;
 }
 
-// Проверяем, что заявка принадлежит пользователю
+// Проверяем, что заказ принадлежит пользователю
 $stmt = $pdo->prepare("SELECT user_id FROM request WHERE id = ?");
 $stmt->execute([$requestId]);
-$req = $stmt->fetch();
-if (!$req || $req['user_id'] != $_SESSION['user_id']) {
-    echo json_encode(['success' => false, 'error' => 'Access denied']);
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$request || $request['user_id'] != $_SESSION['user_id']) {
+    echo json_encode(['success' => false, 'error' => 'Заказ не найден']);
     exit;
 }
 
-$stmt = $pdo->prepare("SELECT status, comment, created_at FROM request_status_history WHERE request_id = ? ORDER BY created_at ASC");
+// Получаем историю с названиями статусов
+$stmt = $pdo->prepare("
+    SELECT rsh.status, rsh.comment, rsh.created_at, rs.name as status_text
+    FROM request_status_history rsh
+    LEFT JOIN request_statuses rs ON rsh.status = rs.code
+    WHERE rsh.request_id = ?
+    ORDER BY rsh.created_at ASC
+");
 $stmt->execute([$requestId]);
-$history = $stmt->fetchAll();
+$history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отменён'];
-
-foreach ($history as &$item) {
-    $item['status_text'] = $statusLabels[$item['status']] ?? $item['status'];
-    $item['created_at'] = date('d.m.Y H:i', strtotime($item['created_at']));
-}
-
-echo json_encode(['success' => true, 'history' => $history]);
+echo json_encode([
+    'success' => true,
+    'history' => $history
+]);
+?>

@@ -17,10 +17,37 @@ if (!($user instanceof ClientUser)) {
 
 require_once 'config.php';
 
+// ============================================
+// ЗАГРУЗКА ДИНАМИЧЕСКИХ СТАТУСОВ ИЗ БД
+// ============================================
+$statusLabels = [];
+$statusColors = [];
+
+try {
+    $stmtStatuses = $pdo->query("SELECT * FROM request_statuses WHERE is_active = 1 ORDER BY sort_order");
+    $statusesList = $stmtStatuses->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($statusesList as $s) {
+        $statusLabels[$s['code']] = $s['name'];
+        $statusColors[$s['code']] = $s['color'];
+    }
+} catch (PDOException $e) {
+    $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Завершён', 'cancelled' => 'Отменён'];
+    $statusColors = ['new' => '#ffc107', 'processed' => '#17a2b8', 'closed' => '#28a745', 'cancelled' => '#dc3545'];
+}
+
+$statusLabels['waiting'] = 'Ожидание';
+$statusColors['waiting'] = '#e65100';
+
 // --- ФУНКЦИИ ПОМОЩНИКИ ---
 
 function getStatusHistory($pdo, $requestId) {
-    $stmt = $pdo->prepare("SELECT status, comment, created_at FROM request_status_history WHERE request_id = ? ORDER BY created_at ASC");
+    $stmt = $pdo->prepare("
+        SELECT rsh.status, rsh.comment, rsh.created_at, rs.name as status_text
+        FROM request_status_history rsh
+        LEFT JOIN request_statuses rs ON rsh.status = rs.code
+        WHERE rsh.request_id = ?
+        ORDER BY rsh.created_at ASC
+    ");
     $stmt->execute([$requestId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -180,11 +207,20 @@ foreach ($servicesByProductId as $groupId => $servicesList) {
 
 usort($orders, function($a, $b) { return strtotime($b['datetime']) - strtotime($a['datetime']); });
 
+// Разделяем заказы на активные и завершенные
 $activeOrders = [];
 $completedOrders = [];
 
+$closedStatusCodes = [];
+try {
+    $stmt = $pdo->query("SELECT code FROM request_statuses WHERE is_closed = 1 AND is_active = 1");
+    $closedStatusCodes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    $closedStatusCodes = ['closed', 'cancelled'];
+}
+
 foreach ($orders as $order) {
-    if ($order['status'] === 'closed' || $order['status'] === 'cancelled') {
+    if (in_array($order['status'], $closedStatusCodes)) {
         $completedOrders[] = $order;
     } else {
         $activeOrders[] = $order;
@@ -192,11 +228,9 @@ foreach ($orders as $order) {
 }
 
 $waitingListCount = 0;
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM request WHERE user_id = ? AND type = 'wl' AND status = 'waiting'");
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM request WHERE user_id = ? AND type = 'wl'");
 $stmt->execute([$user->id]);
 $waitingListCount = $stmt->fetchColumn();
-
-$statusLabels = ['new' => 'Оформление', 'processed' => 'В обработке', 'closed' => 'Завершён', 'cancelled' => 'Отменён', 'waiting' => 'Ожидание'];
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -211,7 +245,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
 <link rel="stylesheet" href="css/style_mip.css" />
 <link rel="stylesheet" href="css/header_mip.css" />
 <link rel="stylesheet" href="css/style_lk.css" />
-<link rel="stylesheet" href="css/modals.css">
 <style>
 * {
     font-family: 'Inter', sans-serif;
@@ -355,11 +388,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     font-size: 14px;
     font-weight: 500;
 }
-.status-new { background: #fff3cd; color: #856404; }
-.status-processed { background: #cce5ff; color: #004085; }
-.status-closed { background: #d4edda; color: #155724; }
-.status-cancelled { background: #f8d7da; color: #721c24; }
-.status-waiting { background: #fff8e1; color: #e65100; }
 
 .btn-detail {
     background: #e8f4f1;
@@ -563,10 +591,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     font-weight: 600;
     margin-bottom: 6px;
     color: #00a896;
-}
-.chat-message-text {
-    word-wrap: break-word;
-    margin-bottom: 6px;
 }
 .chat-message-time {
     font-size: 11px;
@@ -792,18 +816,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     border: 1px solid #e0e8e5;
 }
 
-.error-message {
-    color: #dc3545;
-    font-size: 12px;
-    margin-top: 5px;
-    display: none;
-}
-
-.field-error {
-    border-color: #dc3545 !important;
-    background-color: #fff5f5 !important;
-}
-
 @media (max-width: 1200px) {
     .lk-content { padding-left: 60px; padding-right: 60px; }
 }
@@ -842,7 +854,9 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
                 <div class="order-id"><strong>Заказ №<?= $order['id'] ?></strong></div>
                 <div class="order-date"><?= date('d.m.Y H:i', strtotime($order['datetime'])) ?></div>
                 <div class="order-status">
-                    <span class="status-badge status-<?= $order['status'] ?>"><?= $statusLabels[$order['status']] ?? $order['status'] ?></span>
+                    <span class="status-badge" style="background-color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>20; color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>;">
+                        <?= $statusLabels[$order['status']] ?? $order['status'] ?>
+                    </span>
                 </div>
             </div>
             
@@ -897,7 +911,7 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
     <div class="completed-section">
         <h3 class="type-title">Завершённые заказы</h3>
         <div class="completed-orders-note">
-            Здесь отображаются доставленные и отменённые заказы
+            Здесь отображаются завершённые и отменённые заказы
         </div>
         <?php foreach ($completedOrders as $order): ?>
         <div class="order-card">
@@ -905,7 +919,9 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
                 <div class="order-id"><strong>Заказ №<?= $order['id'] ?></strong></div>
                 <div class="order-date"><?= date('d.m.Y H:i', strtotime($order['datetime'])) ?></div>
                 <div class="order-status">
-                    <span class="status-badge status-<?= $order['status'] ?>"><?= $statusLabels[$order['status']] ?? $order['status'] ?></span>
+                    <span class="status-badge" style="background-color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>20; color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>;">
+                        <?= $statusLabels[$order['status']] ?? $order['status'] ?>
+                    </span>
                 </div>
             </div>
             
@@ -983,70 +999,54 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
             <h3>Редактирование профиля</h3>
             <button class="modal-close" onclick="closeModal('editProfileModal')">&times;</button>
         </div>
-        <form class="modal-body profile-form" id="profileForm" onsubmit="return false;">
-    <div class="form-group">
-        <label>ФИО</label>
-        <input type="text" name="name" id="profileName" value="<?= htmlspecialchars($user_data['name']) ?>" required>
-        <!-- Изменено id="nameError" на id="profileNameError" -->
-        <div class="error-message" id="profileNameError" style="display:none;"></div>
-    </div>
-    <div class="form-group">
-        <label>Email</label>
-        <input type="email" name="email" id="profileEmail" value="<?= htmlspecialchars($user_data['email']) ?>" required>
-        <!-- Изменено id="emailError" на id="profileEmailError" -->
-        <div class="error-message" id="profileEmailError" style="display:none;"></div>
-    </div>
-    <div class="form-group">
-        <label>Телефон</label>
-        <input type="tel" name="phone" id="profilePhone" value="<?= htmlspecialchars($user_data['phone']) ?>" placeholder="+7 (999) 000-00-00">
-        <!-- Изменено id="phoneError" на id="profilePhoneError" -->
-        <div class="error-message" id="profilePhoneError" style="display:none;"></div>
-    </div>
-    
-    <div class="form-group">
-        <label>Адрес доставки</label>
-        <div class="address-row">
-            <div class="form-group" style="flex: 2;">
-                <input type="text" name="address_city" id="addressCity" placeholder="Город" value="<?= htmlspecialchars($user_data['address']['city']) ?>">
-                <!-- Изменено id="cityError" на id="addressCityError" -->
-                <div class="error-message" id="addressCityError" style="display:none;"></div>
+        <form class="modal-body profile-form" id="profileForm" onsubmit="saveProfile(event)">
+            <div class="form-group">
+                <label>ФИО</label>
+                <input type="text" name="name" value="<?= htmlspecialchars($user_data['name']) ?>" required>
             </div>
-        </div>
-        <div class="address-row" style="margin-top: 10px;">
-            <div class="form-group" style="flex: 3;">
-                <input type="text" name="address_street" id="addressStreet" placeholder="Улица" value="<?= htmlspecialchars($user_data['address']['street']) ?>">
-                <!-- Изменено id="streetError" на id="addressStreetError" -->
-                <div class="error-message" id="addressStreetError" style="display:none;"></div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="<?= htmlspecialchars($user_data['email']) ?>" required>
             </div>
-            <div class="form-group" style="flex: 1;">
-                <input type="text" name="address_house" id="addressHouse" placeholder="Дом" value="<?= htmlspecialchars($user_data['address']['house']) ?>">
-                <!-- Изменено id="houseError" на id="addressHouseError" -->
-                <div class="error-message" id="addressHouseError" style="display:none;"></div>
+            <div class="form-group">
+                <label>Телефон</label>
+                <input type="tel" name="phone" value="<?= htmlspecialchars($user_data['phone']) ?>" placeholder="+7 (999) 000-00-00">
             </div>
-        </div>
-    </div>
+            
+            <div class="form-group">
+                <label>Адрес доставки</label>
+                <div class="address-row">
+                    <div class="form-group" style="flex: 2;">
+                        <input type="text" name="address_city" placeholder="Город" value="<?= htmlspecialchars($user_data['address']['city']) ?>">
+                    </div>
+                </div>
+                <div class="address-row" style="margin-top: 10px;">
+                    <div class="form-group" style="flex: 3;">
+                        <input type="text" name="address_street" placeholder="Улица" value="<?= htmlspecialchars($user_data['address']['street']) ?>">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" name="address_house" placeholder="Дом" value="<?= htmlspecialchars($user_data['address']['house']) ?>">
+                    </div>
+                </div>
+            </div>
 
-    <div class="form-group">
-        <label>Логин</label>
-        <input type="text" name="login" value="<?= htmlspecialchars($user_data['login']) ?>" disabled>
-        <small>Логин нельзя изменить</small>
-    </div>
-    <div class="form-group">
-        <label>Новый пароль</label>
-        <input type="password" name="new_password" id="newPassword" placeholder="Оставьте пустым, чтобы не менять">
-        <!-- Изменено id="passwordError" на id="newPasswordError" -->
-        <div class="error-message" id="newPasswordError" style="display:none;"></div>
-    </div>
-    <div class="form-group">
-        <label>Подтверждение пароля</label>
-        <input type="password" name="confirm_password" id="confirmPassword" placeholder="Повторите новый пароль">
-        <!-- Изменено id="confirmError" на id="confirmPasswordError" -->
-        <div class="error-message" id="confirmPasswordError" style="display:none;"></div>
-    </div>
-</form>
+            <div class="form-group">
+                <label>Логин</label>
+                <input type="text" name="login" value="<?= htmlspecialchars($user_data['login']) ?>" disabled>
+                <small>Логин нельзя изменить</small>
+            </div>
+            <div class="form-group">
+                <label>Новый пароль</label>
+                <input type="password" name="new_password" placeholder="Оставьте пустым, чтобы не менять">
+            </div>
+            <div class="form-group">
+                <label>Подтверждение пароля</label>
+                <input type="password" name="confirm_password" placeholder="Повторите новый пароль">
+            </div>
+        </form>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('editProfileModal')">Отмена</button>
-            <button class="btn-save" onclick="validateAndSave()">Сохранить</button>
+            <button class="btn-save" onclick="document.getElementById('profileForm').requestSubmit()">Сохранить</button>
         </div>
     </div>
 </div>
@@ -1087,167 +1087,6 @@ $statusLabels = ['new' => 'Оформление', 'processed' => 'В обраб�
 <script>
 let currentChatRequestId = null;
 let currentFile = null;
-
-// Функции валидации
-function validatePhoneOnClient(phone) {
-    if (!phone) return { valid: true, message: '' };
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) {
-        return { valid: true, message: '' };
-    }
-    return { valid: false, message: 'Телефон должен содержать 11 цифр и начинаться с 7 или 8' };
-}
-
-function validateCityOnClient(city) {
-    if (!city) return { valid: true, message: '' };
-    if (city.length < 2) {
-        return { valid: false, message: 'Город: минимум 2 символа' };
-    }
-    if (!/^[а-яА-ЯёЁa-zA-Z\s\-]+$/.test(city)) {
-        return { valid: false, message: 'Город: только буквы, пробелы и дефисы' };
-    }
-    return { valid: true, message: '' };
-}
-
-function validateStreetOnClient(street) {
-    if (!street) return { valid: true, message: '' };
-    if (street.length < 2) {
-        return { valid: false, message: 'Улица: минимум 2 символа' };
-    }
-    return { valid: true, message: '' };
-}
-
-function validateHouseOnClient(house) {
-    if (!house) return { valid: true, message: '' };
-    if (house.length < 1) {
-        return { valid: false, message: 'Дом: обязательно' };
-    }
-    if (!/^[0-9]+[а-яА-Яa-zA-Z]?(\/[0-9]+)?$/.test(house)) {
-        return { valid: false, message: 'Дом: примеры: 15, 15а, 15/2' };
-    }
-    return { valid: true, message: '' };
-}
-
-function validatePasswordOnClient(password) {
-    if (!password) return { valid: true, message: '' };
-    if (password.length < 6) {
-        return { valid: false, message: 'Пароль: минимум 6 символов' };
-    }
-    return { valid: true, message: '' };
-}
-
-function clearErrors() {
-    document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
-    document.querySelectorAll('.error-message').forEach(el => {
-        el.style.display = 'none';
-        el.textContent = '';
-    });
-}
-
-function showFieldError(fieldId, message) {
-    const field = document.getElementById(fieldId);
-    if (field) {
-        field.classList.add('field-error');
-    }
-    const errorDiv = document.getElementById(fieldId + 'Error');
-    if (errorDiv) {
-        errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
-    }
-}
-
-function validateAndSave() {
-    clearErrors();
-    
-    let isValid = true;
-    
-    const phone = document.getElementById('profilePhone').value;
-    const phoneValidation = validatePhoneOnClient(phone);
-    if (!phoneValidation.valid) {
-        showFieldError('profilePhone', phoneValidation.message);
-        isValid = false;
-    }
-    
-    const city = document.getElementById('addressCity').value;
-    const cityValidation = validateCityOnClient(city);
-    if (!cityValidation.valid) {
-        showFieldError('addressCity', cityValidation.message);
-        isValid = false;
-    }
-    
-    const street = document.getElementById('addressStreet').value;
-    const streetValidation = validateStreetOnClient(street);
-    if (!streetValidation.valid) {
-        showFieldError('addressStreet', streetValidation.message);
-        isValid = false;
-    }
-    
-    const house = document.getElementById('addressHouse').value;
-    const houseValidation = validateHouseOnClient(house);
-    if (!houseValidation.valid) {
-        showFieldError('addressHouse', houseValidation.message);
-        isValid = false;
-    }
-    
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    const passwordValidation = validatePasswordOnClient(newPassword);
-    
-    if (newPassword && !passwordValidation.valid) {
-        showFieldError('newPassword', passwordValidation.message);
-        isValid = false;
-    }
-    
-    if (newPassword && newPassword !== confirmPassword) {
-        showFieldError('confirmPassword', 'Пароли не совпадают');
-        isValid = false;
-    }
-    
-    if (isValid) {
-        saveProfile();
-    }
-}
-
-function saveProfile() {
-    const form = document.getElementById('profileForm');
-    const formData = new FormData(form);
-    formData.append('action', 'update_profile');
-    
-    const city = formData.get('address_city');
-    const street = formData.get('address_street');
-    const house = formData.get('address_house');
-    
-    formData.delete('address_city');
-    formData.delete('address_street');
-    formData.delete('address_house');
-    
-    const addressObj = { city: city, street: street, house: house };
-    formData.append('address_json', JSON.stringify(addressObj));
-    
-    const saveBtn = document.querySelector('#editProfileModal .btn-save');
-    const originalText = saveBtn.textContent;
-    saveBtn.textContent = 'Сохранение...';
-    saveBtn.disabled = true;
-    
-    fetch('update_profile.php', { method: 'POST', body: formData })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert('Профиль успешно обновлён');
-            location.reload();
-        } else {
-            alert('Ошибка: ' + (data.error || 'Не удалось обновить профиль'));
-        }
-        saveBtn.textContent = originalText;
-        saveBtn.disabled = false;
-    })
-    .catch(err => {
-        console.error(err);
-        alert('Ошибка соединения с сервером');
-        saveBtn.textContent = originalText;
-        saveBtn.disabled = false;
-    });
-}
 
 function openStatusModal(requestId) {
     fetch('get_status_history.php?request_id=' + requestId)
@@ -1402,26 +1241,54 @@ document.getElementById('chatReplyFormModal').addEventListener('submit', async f
 });
 
 function openEditProfileModal() {
-    clearErrors();
     document.getElementById('editProfileModal').classList.add('active');
 }
 
-function closeModal(modalId) { 
-    const modal = document.getElementById(modalId);
-    if (modal) modal.classList.remove('active');
+function saveProfile(event) {
+    event.preventDefault();
+    const form = document.getElementById('profileForm');
+    const formData = new FormData(form);
+    formData.append('action', 'update_profile');
+    
+    const city = formData.get('address_city');
+    const street = formData.get('address_street');
+    const house = formData.get('address_house');
+    
+    formData.delete('address_city');
+    formData.delete('address_street');
+    formData.delete('address_house');
+    
+    const addressObj = { city: city, street: street, house: house };
+    formData.append('address_json', JSON.stringify(addressObj));
+    
+    const saveBtn = document.querySelector('#editProfileModal .btn-save');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Сохранение...';
+    saveBtn.disabled = true;
+    
+    fetch('update_profile.php', { method: 'POST', body: formData })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Профиль обновлён!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Не удалось обновить'));
+        }
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Ошибка соединения');
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
 }
 
-function closeModalIfClickOutside(event, modalId) { 
-    const modal = document.getElementById(modalId);
-    if (event.target === modal) closeModal(modalId); 
-}
-
-function escapeHtml(text) { 
-    if (!text) return '';
-    const div = document.createElement('div'); 
-    div.textContent = text; 
-    return div.innerHTML; 
-}
+function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
+function closeModalIfClickOutside(event, modalId) { if (event.target === document.getElementById(modalId)) closeModal(modalId); }
+function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
 document.addEventListener('DOMContentLoaded', function() {
     const openModal = sessionStorage.getItem('openModal');

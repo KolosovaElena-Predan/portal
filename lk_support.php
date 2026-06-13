@@ -4,7 +4,7 @@ require_once 'config.php';
 require_once 'includes/notifications.php';
 require_once 'mip/includes/email_config.php';
 
-// Устанавливаем контекст для шапки и подвала (раздел МИП)
+// Устанавливаем контекст для шапки и подвала
 $context = 'lab';
 
 // Проверка авторизации
@@ -55,6 +55,13 @@ function getChatMessagesWithFiles($pdo, $requestId) {
     return array_values($messages);
 }
 
+// Функция для получения списка ID специалистов поддержки
+function getSupportSpecialists($pdo) {
+    $stmt = $pdo->prepare("SELECT id, name, email FROM user WHERE role = 'support_specialist'");
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 // Обработка AJAX-запросов
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -82,10 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $requestData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
-                    // Уведомление в системе
                     addNotification($pdo, $requestData['user_id'], 'status_change', $title, $messageText, '/mip/lk_user.php#request-' . $requestId);
                     
-                    // Отправка email
                     $userStmt = $pdo->prepare("SELECT email, name FROM user WHERE id = ?");
                     $userStmt->execute([$requestData['user_id']]);
                     $userInfo = $userStmt->fetch(PDO::FETCH_ASSOC);
@@ -126,10 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $requestData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($requestData) {
-                    // Уведомление в системе
                     addNotification($pdo, $requestData['user_id'], 'new_message', 'Новое сообщение в чате', "Специалист поддержки ответил на ваше обращение #{$requestId}", '/mip/lk_user.php#request-' . $requestId);
                     
-                    // Отправка email
                     $userStmt = $pdo->prepare("SELECT email, name FROM user WHERE id = ?");
                     $userStmt->execute([$requestData['user_id']]);
                     $userInfo = $userStmt->fetch(PDO::FETCH_ASSOC);
@@ -219,8 +222,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $filter = $_GET['filter'] ?? 'all';
 $search = trim($_GET['search'] ?? '');
 $sort = $_GET['sort'] ?? 'desc';
+$highlightRequestId = isset($_GET['request_id']) ? (int)$_GET['request_id'] : 0;
 
-// Исключаем заявки типа 'wl' (лист ожидания)
 $sql = "SELECT r.*, u.name AS client_name, u.email AS client_email, p.name AS product_name
 FROM request r
 LEFT JOIN user u ON r.user_id = u.id
@@ -244,14 +247,12 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $rawRequests = $stmt->fetchAll();
 
-// Функция для парсинга адреса из JSON
 function getAddressFromMessage($message) {
     $data = json_decode($message, true);
     if (!is_array($data)) return '';
     return $data['address'] ?? '';
 }
 
-// Функция для проверки, можно ли группировать заявки (разница не более 1 часа = 3600 секунд)
 function canGroupRequests($req1, $req2) {
     $time1 = strtotime($req1['datetime']);
     $time2 = strtotime($req2['datetime']);
@@ -259,7 +260,6 @@ function canGroupRequests($req1, $req2) {
     return $diff <= 3600;
 }
 
-// ГРУППИРОВКА ЗАЯВОК ПО ПОЛЬЗОВАТЕЛЮ, АДРЕСУ И ВРЕМЕНИ
 $groupedRequests = [];
 
 foreach ($rawRequests as $req) {
@@ -337,7 +337,7 @@ function parseJsonToTable($message, $type) {
         }
         if (!empty($data['line_total']) || !empty($data['total_price'])) {
             $total = $data['line_total'] ?? $data['total_price'] ?? 0;
-            $html .= '<tr><td class="json-label">Сумма</td><td class="json-value"><strong>' . number_format($total, 0, '.', ' ') . ' ₽</strong></td></td>';
+            $html .= '<tr><td class="json-label">Сумма</td><td class="json-value"><strong>' . number_format($total, 0, '.', ' ') . ' ₽</strong></td></tr>';
         }
     } elseif ($type === 's') {
         if (!empty($data['service_name'])) {
@@ -348,7 +348,7 @@ function parseJsonToTable($message, $type) {
         }
     } elseif ($type === 'q') {
         if (!empty($data['subject'])) {
-            $html .= '<tr><td class="json-label">Тема</td><td class="json-value">' . htmlspecialchars($data['subject']) . '</td></tr>';
+            $html .= '<tr><td class="json-label">Тема</td><td class="json-value">' . htmlspecialchars($data['subject']) . '</td><td>';
         }
         if (!empty($data['question'])) {
             $html .= '<tr><td class="json-label">Вопрос</td><td class="json-value">' . nl2br(htmlspecialchars($data['question'])) . '</td></tr>';
@@ -389,6 +389,12 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
 .sub-request { margin-left: 20px; padding: 8px 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #2c7da0; }
 .sub-request-title { font-size: 12px; font-weight: 600; color: #2c7da0; margin-bottom: 5px; }
 .request-header-left { display: flex; align-items: center; gap: 10px; }
+.highlight-request { background: #fff8e1; border: 2px solid #ffc107; animation: pulse 1s ease; }
+@keyframes pulse {
+    0% { background: #fff8e1; }
+    50% { background: #ffeaa7; }
+    100% { background: #fff8e1; }
+}
 </style>
 <title>Поддержка</title>
 </head>
@@ -399,9 +405,28 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
 <div class="lk-content">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
     <h1 class="lk-title" style="margin-bottom: 0;">Личный кабинет сотрудника</h1>
-    <a href="logout.php" class="btn btn-danger">
-        <i class="fas fa-sign-out-alt"></i> Выйти
-    </a>
+    
+    <div style="display: flex; gap: 15px; align-items: center;">
+        <!-- Кнопка уведомлений -->
+        <div class="notifications-wrapper" style="position: relative;">
+            <button class="notifications-btn" id="notificationsBtn" style="background: none; border: none; font-size: 24px; cursor: pointer; position: relative; color: #1a1982;">
+                <i class="fas fa-bell"></i>
+                <span id="notificationsBadge" class="notifications-badge" style="position: absolute; top: -8px; right: -12px; background: #dc3545; color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; min-width: 18px; text-align: center; display: none;">0</span>
+            </button>
+            <div id="notificationsDropdown" class="notifications-dropdown" style="display: none; position: absolute; right: 0; top: 40px; width: 350px; background: white; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); z-index: 1000; max-height: 400px; overflow-y: auto;">
+                <div style="padding: 12px 15px; border-bottom: 1px solid #eee; font-weight: 600;">Уведомления</div>
+                <div id="notificationsList" style="padding: 0;">
+                    <div style="padding: 15px; text-align: center; color: #999;">Загрузка...</div>
+                </div>
+                <div style="padding: 10px 15px; border-top: 1px solid #eee; text-align: center;">
+                    <a href="/notifications.php" style="color: #1a1982; text-decoration: none; font-size: 13px;">Все уведомления</a>
+                </div>
+            </div>
+        </div>
+        <a href="logout.php" class="btn btn-danger">
+            <i class="fas fa-sign-out-alt"></i> Выйти
+        </a>
+    </div>
 </div>
 <div class="lk-controls">
     <form method="GET" class="lk-search">
@@ -481,8 +506,10 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
     <div class="group-header">
         <i class="fas fa-list"></i> Заявки в группе:
     </div>
-    <?php foreach ($group['items'] as $req): ?>
-    <div class="sub-request" data-request-id="<?= $req['id'] ?>">
+    <?php foreach ($group['items'] as $req):
+        $isHighlighted = ($highlightRequestId == $req['id']);
+    ?>
+    <div class="sub-request <?= $isHighlighted ? 'highlight-request' : '' ?>" data-request-id="<?= $req['id'] ?>">
         <div class="sub-request-title">
             Заявка №<?= $req['id'] ?> 
             <span class="status-badge" style="font-size: 10px;"><?= $statusLabels[$req['status']] ?? $req['status'] ?></span>
@@ -529,11 +556,12 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
     <?php endforeach; ?>
     <?php else: 
         $req = $group['items'][0];
+        $isHighlighted = ($highlightRequestId == $req['id']);
     ?>
-    <div class="request-details">
+    <div class="request-details <?= $isHighlighted ? 'highlight-request' : '' ?>">
         <?= parseJsonToTable($req['message'], $req['type']) ?>
     </div>
-    <div class="btn-actions">
+    <div class="btn-actions <?= $isHighlighted ? 'highlight-request' : '' ?>">
         <?php if ($req['type'] !== 'q'): ?>
             <button class="btn btn-primary" onclick="openModal('status', <?= $req['id'] ?>)">Статус</button>
             <button class="btn btn-primary" onclick="openModal('chat', <?= $req['id'] ?>)">Чат</button>
@@ -628,6 +656,79 @@ $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 
 
 <script>
 let currentFile = null;
+
+// Уведомления для специалиста поддержки
+let notificationsCheckInterval = null;
+
+function loadNotifications() {
+    fetch('/get_notifications.php')
+        .then(res => res.json())
+        .then(data => {
+            const badge = document.getElementById('notificationsBadge');
+            if (data.unread_count > 0) {
+                badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+            
+            const list = document.getElementById('notificationsList');
+            if (data.notifications && data.notifications.length > 0) {
+                list.innerHTML = data.notifications.map(n => `
+                    <div class="notification-item" data-id="${n.id}" data-link="${n.link}" style="padding: 12px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; ${!n.is_read ? 'background: #f0f4ff;' : ''}">
+                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px;">${escapeHtml(n.title)}</div>
+                        <div style="font-size: 12px; color: #666;">${escapeHtml(n.message)}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 5px;">${n.created_at}</div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = '<div style="padding: 15px; text-align: center; color: #999;">Нет уведомлений</div>';
+            }
+        })
+        .catch(err => console.error('Ошибка загрузки уведомлений:', err));
+}
+
+function markNotificationRead(id) {
+    fetch('/mark_notification_read.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'id=' + id
+    }).catch(err => console.error(err));
+}
+
+// Обработчик клика по уведомлению
+document.addEventListener('click', function(e) {
+    const item = e.target.closest('.notification-item');
+    if (item) {
+        e.stopPropagation();
+        const id = item.dataset.id;
+        const link = item.dataset.link;
+        if (id) markNotificationRead(id);
+        if (link) window.location.href = link;
+    }
+});
+
+// Кнопка уведомлений
+const notifBtn = document.getElementById('notificationsBtn');
+const notifDropdown = document.getElementById('notificationsDropdown');
+if (notifBtn) {
+    notifBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (notifDropdown.style.display === 'block') {
+            notifDropdown.style.display = 'none';
+        } else {
+            loadNotifications();
+            notifDropdown.style.display = 'block';
+        }
+    });
+}
+
+document.addEventListener('click', function() {
+    if (notifDropdown) notifDropdown.style.display = 'none';
+});
+
+loadNotifications();
+notificationsCheckInterval = setInterval(loadNotifications, 30000);
 
 document.getElementById('chat-file-input').addEventListener('change', function(e) {
     const file = e.target.files[0];
@@ -834,7 +935,6 @@ function copyToClipboard(text, btn) {
     });
 }
 
-// ОБРАБОТКА ПЕРЕХОДА К КОНКРЕТНОЙ ЗАЯВКЕ ИЗ УВЕДОМЛЕНИЯ
 document.addEventListener('DOMContentLoaded', function() {
     if (window.location.hash && window.location.hash.startsWith('#request-')) {
         const hash = window.location.hash;
@@ -869,6 +969,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }, 500);
             }
+        }
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightId = urlParams.get('request_id');
+    if (highlightId) {
+        const targetElement = document.querySelector(`.sub-request[data-request-id="${highlightId}"], .request-details[data-request-id="${highlightId}"]`);
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetElement.classList.add('highlight-request');
+            setTimeout(() => {
+                targetElement.classList.remove('highlight-request');
+            }, 3000);
         }
     }
 });

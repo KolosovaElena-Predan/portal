@@ -49,6 +49,12 @@ $activePage = $activePage ?? '';
 								<p>Категории</p>
 							</a>
 						</li>
+						<li class="nav-item">
+    <a href="request_statuses.php" class="nav-link <?= $activePage === 'request_statuses' ? 'active' : '' ?>">
+        <i class="fas fa-tags nav-icon"></i>
+        <p>Статусы заявок</p>
+    </a>
+</li>
 					</ul>
 				</li>
                 <li class="nav-item">
