@@ -10,7 +10,9 @@ $results = [];
 
 if (strlen($query) >= 2) {
     
-    // Поиск в МИП
+    // ============================================
+    // ПОИСК В МИП
+    // ============================================
     try {
         // Товары
         $stmt = $pdo->prepare("
@@ -54,7 +56,9 @@ if (strlen($query) >= 2) {
         error_log("MIP search error: " . $e->getMessage());
     }
     
-    // Поиск в лаборатории
+    // ============================================
+    // ПОИСК В ЛАБОРАТОРИИ
+    // ============================================
     try {
         // Проекты лаборатории
         $stmt = $pdo->prepare("
@@ -95,29 +99,25 @@ if (strlen($query) >= 2) {
             $results[] = $row;
         }
         
-        // Образовательные программы
+        // ============================================
+        // ПОИСК ПО СОТРУДНИКАМ (team)
+        // ============================================
         $stmt = $pdo->prepare("
-            SELECT id, title as name, description as content, 'education' as type, 'lab' as section, '' as price
-            FROM education 
-            WHERE title LIKE ? OR description LIKE ?
-            LIMIT 3
+            SELECT id, name, position, bio as content, 'team' as type, 'lab' as section, '' as price,
+                   photo_url, email, phone, education
+            FROM team 
+            WHERE name LIKE ? OR position LIKE ? OR bio LIKE ? OR education LIKE ?
+            LIMIT 10
         ");
-        $stmt->execute(["%$query%", "%$query%"]);
+        $stmt->execute(["%$query%", "%$query%", "%$query%", "%$query%"]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/lab/education.php?id=' . $row['id'];
-            $results[] = $row;
-        }
-        
-        // Оборудование
-        $stmt = $pdo->prepare("
-            SELECT id, name, description as content, 'equipment' as type, 'lab' as section, '' as price
-            FROM equipment 
-            WHERE name LIKE ? OR description LIKE ?
-            LIMIT 3
-        ");
-        $stmt->execute(["%$query%", "%$query%"]);
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row['url'] = '/lab/equipment.php?id=' . $row['id'];
+            // Формируем краткое описание из должности
+            $content = $row['position'];
+            if (!empty($row['education'])) {
+                $content .= ' | ' . $row['education'];
+            }
+            $row['content'] = $content;
+            $row['url'] = '/lab/about.php#team-' . $row['id'];
             $results[] = $row;
         }
         
@@ -131,4 +131,4 @@ echo json_encode([
     'query' => $query,
     'count' => count($results),
     'results' => $results
-]);
+], JSON_UNESCAPED_UNICODE);
