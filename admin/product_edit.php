@@ -37,7 +37,7 @@ if (!file_exists($uploadBaseDir)) {
 }
 
 // ============================================
-// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ (ИСПРАВЛЕННАЯ)
+// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ (С ПОИСКОМ ПУТИ)
 // ============================================
 function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
     // Логируем вызов
@@ -59,7 +59,7 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
             return 0;
         }
         
-        // Получаем ВСЕХ пользователей из листа ожидания
+        // Получаем пользователей из листа ожидания
         $stmt = $pdo->prepare("
             SELECT r.id, r.user_id, r.message, r.is_notified, u.email, u.name 
             FROM request r
@@ -73,16 +73,53 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
         
         if (empty($waitingRequests)) return 0;
         
-        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/mip';
-        $productUrl = $siteUrl . '/product.php?id=' . $productId;
+        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $productUrl = $siteUrl . '/mip/product.php?id=' . $productId;
         
         // Получаем главное изображение
         $stmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? AND is_main = 1 LIMIT 1");
         $stmt->execute([$productId]);
         $productImage = $stmt->fetchColumn();
         
-        // Подключаем функции уведомлений
-        require_once __DIR__ . '/../mip/includes/notifications.php';
+        // ============================================
+        // ПОИСК ФАЙЛА notifications.php
+        // ============================================
+        $notificationsPath = null;
+        
+        // Вариант 1: ../mip/includes/notifications.php
+        if (file_exists(__DIR__ . '/../mip/includes/notifications.php')) {
+            $notificationsPath = __DIR__ . '/../mip/includes/notifications.php';
+        }
+        // Вариант 2: ../includes/notifications.php
+        elseif (file_exists(__DIR__ . '/../includes/notifications.php')) {
+            $notificationsPath = __DIR__ . '/../includes/notifications.php';
+        }
+        // Вариант 3: ./includes/notifications.php
+        elseif (file_exists(__DIR__ . '/includes/notifications.php')) {
+            $notificationsPath = __DIR__ . '/includes/notifications.php';
+        }
+        // Вариант 4: ../../mip/includes/notifications.php
+        elseif (file_exists(__DIR__ . '/../../mip/includes/notifications.php')) {
+            $notificationsPath = __DIR__ . '/../../mip/includes/notifications.php';
+        }
+        // Вариант 5: ../../includes/notifications.php
+        elseif (file_exists(__DIR__ . '/../../includes/notifications.php')) {
+            $notificationsPath = __DIR__ . '/../../includes/notifications.php';
+        }
+        
+        if (!$notificationsPath) {
+            error_log("Файл notifications.php не найден. Искали в: " . __DIR__);
+            return 0;
+        }
+        
+        error_log("Файл notifications.php найден: " . $notificationsPath);
+        require_once $notificationsPath;
+        
+        // Проверяем, что функции существуют
+        if (!function_exists('addNotification')) {
+            error_log("Функция addNotification не определена");
+            return 0;
+        }
         
         $notifiedCount = 0;
         
@@ -102,10 +139,12 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
                 addNotification($pdo, $req['user_id'], 'stock_available', $title, $message, $link);
                 error_log("Уведомление добавлено в БД для user_id={$req['user_id']}");
                 
-                // 2. Отправляем email
-                $htmlMessage = getProductAvailableEmailTemplate($product['name'], $productUrl, $requestedQty, $productImage);
-                sendEmailNotification($req['email'], $req['name'], $title, $htmlMessage);
-                error_log("Email отправлен на {$req['email']}");
+                // 2. Отправляем email (если функция существует)
+                if (function_exists('sendEmailNotification') && function_exists('getProductAvailableEmailTemplate')) {
+                    $htmlMessage = getProductAvailableEmailTemplate($product['name'], $productUrl, $requestedQty, $productImage);
+                    sendEmailNotification($req['email'], $req['name'], $title, $htmlMessage);
+                    error_log("Email отправлен на {$req['email']}");
+                }
                 
                 // 3. Отмечаем как уведомлённого
                 $updateReq = $pdo->prepare("UPDATE request SET is_notified = 1 WHERE id = ?");
