@@ -10,6 +10,7 @@ require_once 'mip/includes/email_config.php';
 
 // Создаём зависимости
 $database = new Database();
+$pdo = $database->getPdo(); // Получаем PDO для работы с БД
 $userRepo = new UserRepository($database);
 $auth = new Auth($userRepo);
 
@@ -33,28 +34,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $user = $auth->attempt($login, $password);
     if ($user && !($user instanceof GuestUser)) {
-    // Проверка блокировки
-    $stmt = $pdo->prepare("SELECT is_blocked, block_reason FROM user WHERE id = ?");
-    $stmt->execute([$user->id]);
-    $userData = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($userData && $userData['is_blocked'] == 1) {
-        $error = 'Ваш аккаунт заблокирован. ';
-        if ($userData['block_reason']) {
-            $error .= 'Причина: ' . $userData['block_reason'];
+        // Проверка блокировки пользователя
+        try {
+            $stmt = $pdo->prepare("SELECT is_blocked, block_reason FROM user WHERE id = ?");
+            $stmt->execute([$user->id]);
+            $userBlockData = $stmt->fetch(PDO::FETCH_ASSOC);
+            $isBlocked = $userBlockData ? $userBlockData['is_blocked'] : 0;
+            $blockReason = $userBlockData ? $userBlockData['block_reason'] : '';
+        } catch (PDOException $e) {
+            // Если поле is_blocked ещё не добавлено, пропускаем проверку
+            $isBlocked = 0;
+            $blockReason = '';
+            error_log("Block check error: " . $e->getMessage());
         }
-        $activeTab = 'login';
-    } elseif (!$user->isVerified()) {
-        $error = 'Подтвердите email перед входом. Проверьте почту.';
-        $showResendTimer = true;
-        $resendEmail = $user->email;
-        $activeTab = 'login';
+        
+        if ($isBlocked == 1) {
+            $error = 'Ваш аккаунт заблокирован. ';
+            if ($blockReason) {
+                $error .= 'Причина: ' . $blockReason;
+            }
+            $activeTab = 'login';
+        } elseif (!$user->isVerified()) {
+            $error = 'Подтвердите email перед входом. Проверьте почту.';
+            $showResendTimer = true;
+            $resendEmail = $user->email;
+            $activeTab = 'login';
+        } else {
+            $auth->login($user);
+            header("Location: " . $user->getDashboardUrl());
+            exit;
+        }
     } else {
-        $auth->login($user);
-        header("Location: " . $user->getDashboardUrl());
-        exit;
+        $error = 'Неверный логин или пароль';
+        $activeTab = 'login';
     }
-}
 }
 
 // Обработка регистрации
@@ -122,7 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     } else {
                         $error = "Ошибка отправки письма подтверждения. Попробуйте позже.";
                         // При ошибке отправки — удаляем пользователя
-                        $pdo = $database->getPdo();
                         $stmt = $pdo->prepare("DELETE FROM user WHERE id = ?");
                         $stmt->execute([$newUserId]);
                     }
