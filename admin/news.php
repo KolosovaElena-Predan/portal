@@ -1,4 +1,8 @@
 <?php
+// ВРЕМЕННО для отладки - удалить перед продакшеном!
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 $activePage = 'news';
 $pageTitle = 'Новости | Админ-панель';
 require_once 'includes/auth_check.php';
@@ -16,9 +20,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
     
-    $validIds = array_filter($ids, function($id) {
+    // ИСПРАВЛЕНО: array_values сбрасывает ключи массива
+    $validIds = array_values(array_filter($ids, function($id) {
         return filter_var($id, FILTER_VALIDATE_INT);
-    });
+    }));
     
     if (empty($validIds)) {
         echo json_encode(['success' => false, 'message' => 'Некорректные ID']);
@@ -72,10 +77,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // 2. ПОЛУЧЕНИЕ ДАННЫХ ДЛЯ ОТОБРАЖЕНИЯ
 // ==========================================
 try {
+    // ИСПРАВЛЕНО: MAX() для корректной работы с ONLY_FULL_GROUP_BY
     $news = $pdo->query("
         SELECT n.*,
             COUNT(ni.id) as images_count,
-            ni_main.image_url as main_image
+            MAX(ni_main.image_url) as main_image
         FROM news n
         LEFT JOIN news_images ni ON n.id = ni.news_id
         LEFT JOIN news_images ni_main ON n.id = ni_main.news_id AND ni_main.is_main = 1
@@ -94,8 +100,8 @@ $(document).ready(function() {
         "responsive": true, 
         "language": {"url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json"},
         "columnDefs": [
-            { "orderable": false, "targets": [0, 6] },
-            { "className": "text-center", "targets": [0, 5, 6] }
+            { "orderable": false, "targets": [0, 7] },
+            { "className": "text-center", "targets": [0, 5, 6, 7] }
         ],
         "drawCallback": function() {
             updateSelection();
@@ -241,6 +247,13 @@ require_once 'includes/sidebar.php';
                     Произошла ошибка при удалении.
                 </div>
             <?php endif; ?>
+            
+            <?php if (isset($dbError)): ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <?= htmlspecialchars($dbError) ?>
+                </div>
+            <?php endif; ?>
 
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -272,9 +285,7 @@ require_once 'includes/sidebar.php';
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if (empty($news)): ?>
-                                <tr><td colspan="8" class="text-center text-muted">Новостей пока нет</td></tr>
-                            <?php else: ?>
+                            <?php if (!empty($news)): ?>
                                 <?php foreach ($news as $n): ?>
                                 <tr data-id="<?= $n['id'] ?>">
                                     <td style="text-align: center;">

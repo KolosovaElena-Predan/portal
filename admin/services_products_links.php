@@ -185,40 +185,7 @@ require_once 'includes/sidebar.php';
                 </div>
             </div>
             
-            <!-- Форма массового добавления -->
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h3 class="card-title">Массовое добавление связей</h3>
-                </div>
-                <div class="card-body">
-                    <form method="POST" class="row align-items-end">
-                        <input type="hidden" name="action" value="add_multiple">
-                        <div class="col-md-4">
-                            <label>Товар</label>
-                            <select name="product_id" class="form-control" required>
-                                <option value="">-- Выберите товар --</option>
-                                <?php foreach ($products as $p): ?>
-                                <option value="<?= $p['id'] ?>"><?= htmlspecialchars($p['name']) ?> (ID: <?= $p['id'] ?>)</option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label>Услуги (можно выбрать несколько)</label>
-                            <select name="service_ids[]" class="form-control" multiple size="5" required>
-                                <?php foreach ($services as $s): ?>
-                                <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?> (<?= number_format($s['price'], 0, '.', ' ') ?> ₽)</option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small class="text-muted">Удерживайте Ctrl для выбора нескольких услуг</small>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-success btn-block">
-                                <i class="fas fa-layer-group"></i> Добавить выбранные
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            
             
             <!-- Список связей -->
             <div class="card mt-3">
