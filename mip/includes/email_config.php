@@ -27,15 +27,15 @@ function sendEmailNotification($toEmail, $toName, $subject, $htmlMessage) {
         $mail->isSMTP();
         $mail->Host       = 'smtp.mail.ru';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'elena.kolosova.04@mail.ru';
-        $mail->Password   = 'a6G2nmXT0Y8sRTPTwCu0'; // ПАРОЛЬ ПРИЛОЖЕНИЯ
+        $mail->Username   = 'nulpet-lab@mail.ru';
+        $mail->Password   = 'UMd6yBghRPhHyJLdct9r'; // ПАРОЛЬ ПРИЛОЖЕНИЯ
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         $mail->Port       = 465;
         
         $mail->CharSet = 'UTF-8';
-        $mail->setFrom('elena.kolosova.04@mail.ru', 'МИП «НПЦ ПИТиА»');
+        $mail->setFrom('nulpet-lab@mail.ru', 'МИП «НПЦ ПИТиА»');
         $mail->addAddress($toEmail, $toName);
-        $mail->addReplyTo('elena.kolosova.04@mail.ru', 'Поддержка МИП');
+        $mail->addReplyTo('nulpet-lab@mail.ru', 'Поддержка МИП');
         
         $mail->isHTML(true);
         $mail->Subject = $subject;
