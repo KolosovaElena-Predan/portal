@@ -61,7 +61,8 @@ try {
                         <article class="news-item">
                             <?php if (!empty($item['main_image'])): ?>
                                 <a href="news_view.php?id=<?= $item['id'] ?>" class="news-image-link">
-                                    <img src="<?= htmlspecialchars($item['main_image']) ?>" 
+                                    <!-- ✅ ИСПРАВЛЕНО: добавлен ../ перед путем -->
+                                    <img src="../<?= htmlspecialchars($item['main_image']) ?>" 
                                          alt="<?= htmlspecialchars($item['title']) ?>" 
                                          class="news-item-image"
                                          loading="lazy">
