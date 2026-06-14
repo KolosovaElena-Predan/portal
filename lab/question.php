@@ -2,6 +2,10 @@
 session_start();
 require_once '../config.php';
 
+// ВРЕМЕННО: Включить вывод ошибок для отладки
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Получаем данные авторизованного пользователя
 $userData = null;
 $user_id = null;
@@ -25,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $message = trim($_POST['question'] ?? '');
     $consent = isset($_POST['consent']);
     
+    // Валидация
     if (!$name || !$email || !$message) {
         $error = 'Все поля обязательны для заполнения';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -33,6 +38,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Необходимо согласие на обработку персональных данных';
     } else {
         try {
+            $request_user_id = $user_id;
+            
+            // Если пользователь не авторизован - создаем нового гостя
+            if ($request_user_id === null) {
+                $stmtCreateUser = $pdo->prepare("
+                    INSERT INTO user (name, email, password, role) 
+                    VALUES (?, ?, '', 'guest')
+                ");
+                $stmtCreateUser->execute([$name, $email]);
+                
+                // Получаем ID созданного гостя
+                $request_user_id = $pdo->lastInsertId();
+            }
+            
             // Сохраняем вопрос в таблицу request
             // type = 'q' означает вопрос (question)
             $stmt = $pdo->prepare("
@@ -45,17 +64,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'name' => $name,
                 'email' => $email,
                 'question' => $message,
+                'is_guest' => ($user_id === null),
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             
-            $stmt->execute([$user_id ?? 0, $full_message]);
+            $stmt->execute([$request_user_id, $full_message]);
             
             $success = 'Ваш вопрос отправлен! Мы ответим вам в ближайшее время.';
             $_POST = []; // Очищаем форму
             
         } catch (Exception $e) {
-            $error = 'Ошибка при отправке вопроса. Пожалуйста, попробуйте позже.';
+            // Показываем реальную ошибку БД
+            $error = 'Ошибка при сохранении: ' . $e->getMessage();
             error_log("Error saving question: " . $e->getMessage());
         }
     }
@@ -383,17 +404,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="contact-icon"><i class="fas fa-phone"></i></div>
                             <div class="contact-text">
                                 <strong>Телефон</strong>
-                                <a href="tel:+73022123456">+7 (924) 371-62-05</a>
+                                <a href="tel:+79243716205">+7 (924) 371-62-05</a>
                             </div>
                         </div>
                         
-                        <!--<div class="contact-item">
+                        <div class="contact-item">
                             <div class="contact-icon"><i class="fas fa-envelope"></i></div>
                             <div class="contact-text">
                                 <strong>Email</strong>
-                                <a href="mailto:support@pet-lab.ru">support@pet-lab.ru</a>
+                                <a href="mailto:nulpet-lab@mail.ru">nulpet-lab@mail.ru</a>
                             </div>
-                        </div>-->
+                        </div>
                     </div>
                     
                     <!-- ПРАВАЯ КОЛОНКА: Форма -->

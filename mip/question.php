@@ -2,6 +2,10 @@
 session_start();
 require_once '../config.php';
 
+// ВРЕМЕННО: Включить вывод ошибок для отладки
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Получаем данные авторизованного пользователя
 $userData = null;
 $user_id = null;
@@ -25,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $message = trim($_POST['question'] ?? '');
     $consent = isset($_POST['consent']);
     
+    // Валидация
     if (!$name || !$email || !$message) {
         $error = 'Все поля обязательны для заполнения';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -33,29 +38,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Необходимо согласие на обработку персональных данных';
     } else {
         try {
-            // Сохраняем вопрос в таблицу request
-            // type = 'q' означает вопрос (question)
+            $request_user_id = $user_id;
+            
+            // Если пользователь не авторизован - создаем нового гостя
+            if ($request_user_id === null) {
+                // ИСПРАВЛЕНО: убраны created_at и NOW(), так как такой колонки нет в БД
+                $stmtCreateUser = $pdo->prepare("
+                    INSERT INTO user (name, email, password, role) 
+                    VALUES (?, ?, '', 'guest')
+                ");
+                $stmtCreateUser->execute([$name, $email]);
+                
+                // Получаем ID созданного гостя
+                $request_user_id = $pdo->lastInsertId();
+            }
+            
+            // Теперь у нас гарантированно есть $request_user_id
             $stmt = $pdo->prepare("
                 INSERT INTO request (user_id, message, status, datetime, type) 
                 VALUES (?, ?, 'new', NOW(), 'q')
             ");
             
-            // Формируем сообщение с данными пользователя
             $full_message = json_encode([
                 'name' => $name,
                 'email' => $email,
                 'question' => $message,
+                'is_guest' => ($user_id === null),
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             
-            $stmt->execute([$user_id ?? 0, $full_message]);
+            $stmt->execute([$request_user_id, $full_message]);
             
             $success = 'Ваш вопрос отправлен! Мы ответим вам в ближайшее время.';
             $_POST = []; // Очищаем форму
             
         } catch (Exception $e) {
-            $error = 'Ошибка при отправке вопроса. Пожалуйста, попробуйте позже.';
+            // Показываем реальную ошибку БД
+            $error = 'Ошибка при сохранении: ' . $e->getMessage();
             error_log("Error saving question: " . $e->getMessage());
         }
     }
@@ -84,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: start;
         }
         
-        /* Левая колонка — Контакты (БИРЮЗОВАЯ ТЕМА) */
+        /* Левая колонка — Контакты */
         .contacts-card {
             background: linear-gradient(135deg, #00b5b0 0%, #006b69 100%);
             border-radius: 20px;
@@ -137,30 +157,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             opacity: 0.9;
             text-decoration: underline;
         }
-        .social-links {
-            display: flex;
-            gap: 12px;
-            margin-top: 30px;
-            padding-top: 25px;
-            border-top: 2px solid rgba(255,255,255,0.3);
-        }
-        .social-link {
-            width: 45px;
-            height: 45px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 20px;
-            transition: all 0.3s;
-        }
-        .social-link:hover {
-            background: white;
-            color: #00b5b0;
-            transform: translateY(-3px);
-        }
         
         /* Правая колонка — Форма */
         .question-card {
@@ -173,43 +169,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-align: center;
             margin-bottom: 40px;
         }
-        .question-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #00b5b0, #006b69);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-            box-shadow: 0 4px 15px rgba(0, 181, 176, 0.3);
-        }
-        .question-icon i {
-            color: white;
-            font-size: 36px;
-        }
         .question-title {
             font-family: "Inter-Bold", sans-serif;
             font-size: 32px;
             color: #00b5b0;
             margin: 0 0 10px;
-        }
-        .question-subtitle {
-            font-family: "Inter-Regular", sans-serif;
-            font-size: 16px;
-            color: #666;
-        }
-        .user-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #e0f7f6, #cce5e5);
-            border-radius: 50px;
-            font-size: 14px;
-            color: #006b69;
-            margin-bottom: 30px;
-            border: 2px solid #00b5b0;
         }
         .form-group {
             margin-bottom: 25px;
@@ -241,12 +205,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             outline: none;
             border-color: #00b5b0;
             box-shadow: 0 0 0 4px rgba(0, 181, 176, 0.1);
-        }
-        .input-field:disabled {
-            background: #f8f9fa;
-            color: #6c757d;
-            cursor: not-allowed;
-            border-color: #e1e8ed;
         }
         textarea.input-field {
             min-height: 150px;
@@ -325,7 +283,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 2px solid #9ae6b4;
         }
         
-        /* Адаптивность */
         @media (max-width: 968px) {
             .question-layout {
                 grid-template-columns: 1fr;
@@ -376,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="contact-icon"><i class="fas fa-map-marker-alt"></i></div>
                             <div class="contact-text">
                                 <strong>Адрес</strong>
-                                г. Чита, ул. Александрово-Заводская, 30
+                                г. Чита, ул. Баргузинская, 49
                             </div>
                         </div>
                         
@@ -384,7 +341,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="contact-icon"><i class="fas fa-phone"></i></div>
                             <div class="contact-text">
                                 <strong>Телефон</strong>
-                                <a href="tel:+73022222222">+7 (3022) 22-22-22</a>
+                                <a href="tel:+79243716205">+7 (924) 371-62-05</a>
                             </div>
                         </div>
                         
@@ -392,7 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="contact-icon"><i class="fas fa-envelope"></i></div>
                             <div class="contact-text">
                                 <strong>Email</strong>
-                                <a href="mailto:mip@zabgu.ru">mip@zabgu.ru</a>
+                                <a href="mailto:nulpet-lab@mail.ru">nulpet-lab@mail.ru</a>
                             </div>
                         </div>
                     </div>
@@ -418,7 +375,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
                         
                         <form method="POST" action="" class="question-form">
-                            <!-- ФИО -->
                             <div class="form-group">
                                 <label class="form-label">
                                     Ваше имя
@@ -429,12 +385,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     name="full_name" 
                                     class="input-field"
                                     value="<?= htmlspecialchars($_POST['full_name'] ?? $userData['name'] ?? '') ?>"
-                                    <?= $userData ? 'readonly' : 'required' ?>
+                                    required
                                     placeholder="Иванов Иван Иванович"
                                 >
                             </div>
 
-                            <!-- Email -->
                             <div class="form-group">
                                 <label class="form-label">
                                     Электронная почта
@@ -445,12 +400,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     name="email" 
                                     class="input-field"
                                     value="<?= htmlspecialchars($_POST['email'] ?? $userData['email'] ?? '') ?>"
-                                    <?= $userData ? 'readonly' : 'required' ?>
+                                    required
                                     placeholder="example@mail.ru"
                                 >
                             </div>
 
-                            <!-- Вопрос -->
                             <div class="form-group">
                                 <label class="form-label">
                                     Ваш вопрос
@@ -464,7 +418,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 ><?= htmlspecialchars($_POST['question'] ?? '') ?></textarea>
                             </div>
 
-                            <!-- Согласие -->
                             <div class="consent-box">
                                 <input 
                                     type="checkbox" 
@@ -475,11 +428,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 >
                                 <label for="consent">
                                     Я соглашаюсь на обработку персональных данных и принимаю 
-                                    <a href="privacy_policy.php" target="_blank">политику конфиденциальности</a>
+                                    <a href="/policy.php" target="_blank">политику конфиденциальности</a>
+                                    и 
+                                    <a href="/privacy.php" target="_blank">пользовательское соглашение</a>
                                 </label>
                             </div>
 
-                            <!-- Кнопка -->
                             <button type="submit" class="btn-submit">
                                 <i class="fas fa-paper-plane"></i>
                                 Отправить вопрос
