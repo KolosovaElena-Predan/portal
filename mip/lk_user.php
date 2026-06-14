@@ -114,7 +114,7 @@ $user_data = [
 ];
 
 // ============================================
-// ИСПРАВЛЕННАЯ ЗАГРУЗКА ЗАКАЗОВ
+// ЗАГРУЗКА ЗАКАЗОВ (только товары и услуги, НЕ лист ожидания)
 // ============================================
 $stmt = $pdo->prepare("
 SELECT
@@ -131,7 +131,7 @@ SELECT
     s.price AS service_price, 
     s.img_url AS service_img
 FROM request r
-LEFT JOIN products p ON r.product_id = p.id AND r.type = 'r'
+LEFT JOIN products p ON r.product_id = p.id
 LEFT JOIN services s ON (r.type = 's' AND JSON_UNQUOTE(JSON_EXTRACT(r.message, '$.service_id')) = s.id)
 WHERE r.user_id = ? AND r.type IN ('r', 's')
 ORDER BY r.datetime DESC
@@ -139,7 +139,7 @@ ORDER BY r.datetime DESC
 $stmt->execute([$user->id]);
 $raw_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// ✅ ИСПРАВЛЕНО: каждая заявка - отдельный заказ (группируем по ID заявки)
+// ГРУППИРУЕМ заявки по ID (товары и услуги в одном заказе)
 $orders = [];
 
 foreach ($raw_requests as $req) {
@@ -152,9 +152,11 @@ foreach ($raw_requests as $req) {
             'id' => $orderId,
             'datetime' => $req['datetime'],
             'status' => $req['status'],
+            'type' => $req['type'],
             'items' => [],
             'total_price' => 0,
             'address' => $msgData['address'] ?? '',
+            'delivery_method' => $msgData['delivery_method'] ?? '',
             'status_history' => getStatusHistory($pdo, $orderId),
             'chat_messages' => getChatMessages($pdo, $orderId)
         ];
@@ -162,7 +164,10 @@ foreach ($raw_requests as $req) {
     
     // Добавляем товар или услугу в заказ
     if ($req['type'] === 'r') {
-        $price = isset($msgData['line_total']) ? (float)$msgData['line_total'] : ((float)($req['product_price'] ?? 0) * ((int)($msgData['quantity'] ?? 1)));
+        $quantity = (int)($msgData['quantity'] ?? 1);
+        $availableToBuy = (int)($msgData['available_to_buy'] ?? $quantity);
+        $unitPrice = (float)($msgData['unit_price'] ?? $req['product_price'] ?? 0);
+        $price = isset($msgData['line_total']) ? (float)$msgData['line_total'] : ($unitPrice * $availableToBuy);
         
         $orders[$orderId]['items'][] = [
             'type' => 'product',
@@ -171,8 +176,11 @@ foreach ($raw_requests as $req) {
                 'product_id' => $req['product_id'],
                 'name' => $req['product_name'] ?? 'Товар',
                 'price' => $price,
+                'unit_price' => $unitPrice,
                 'img' => $req['product_img'] ?: 'img/placeholder.jpg',
-                'quantity' => (int)($msgData['quantity'] ?? 1),
+                'quantity' => $quantity,
+                'available_to_buy' => $availableToBuy,
+                'waiting_quantity' => (int)($msgData['waiting_quantity'] ?? 0),
                 'configuration_name' => $msgData['configuration_name'] ?? '',
                 'modifications' => $msgData['modifications'] ?? []
             ]
@@ -180,19 +188,23 @@ foreach ($raw_requests as $req) {
         $orders[$orderId]['total_price'] += $price;
         
     } elseif ($req['type'] === 's') {
-        $price = (float)($req['service_price'] ?? ($msgData['price'] ?? 0));
+        $serviceQuantity = (int)($msgData['quantity'] ?? 1);
+        $serviceUnitPrice = (float)($req['service_price'] ?? ($msgData['price'] ?? 0));
+        $serviceTotal = (float)($msgData['total_price'] ?? ($serviceUnitPrice * $serviceQuantity));
         
         $orders[$orderId]['items'][] = [
             'type' => 'service',
             'data' => [
                 'id' => $req['id'],
-                'name' => $req['service_name'] ?? 'Услуга',
-                'price' => $price,
+                'name' => $req['service_name'] ?? ($msgData['service_name'] ?? 'Услуга'),
+                'price' => $serviceTotal,
+                'unit_price' => $serviceUnitPrice,
+                'quantity' => $serviceQuantity,
                 'img' => $req['service_img'] ?? null,
                 'linked_product_id' => $msgData['product_id'] ?? null
             ]
         ];
-        $orders[$orderId]['total_price'] += $price;
+        $orders[$orderId]['total_price'] += $serviceTotal;
     }
 }
 
@@ -222,8 +234,9 @@ foreach ($orders as $order) {
     }
 }
 
+// Подсчет листа ожидания (для отображения ссылки)
 $waitingListCount = 0;
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM request WHERE user_id = ? AND type = 'wl'");
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM request WHERE user_id = ? AND type = 'wl' AND status = 'waiting'");
 $stmt->execute([$user->id]);
 $waitingListCount = $stmt->fetchColumn();
 ?>
@@ -259,9 +272,11 @@ $waitingListCount = $stmt->fetchColumn();
 .completed-section {
     margin-top: 40px;
 }
+
 .completed-section .type-title {
     color: #4a6a65;
 }
+
 .completed-orders-note {
     font-size: 15px;
     font-weight: 400;
@@ -272,6 +287,7 @@ $waitingListCount = $stmt->fetchColumn();
     border-radius: 8px;
     text-align: center;
 }
+
 .order-card {
     background: #ffffff;
     border-radius: 16px;
@@ -281,11 +297,13 @@ $waitingListCount = $stmt->fetchColumn();
     border: 1px solid #e0e8e5;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
+
 .order-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(0, 168, 150, 0.15);
     border-color: #00a896;
 }
+
 .order-header {
     background: #ffffff;
     padding: 18px 24px;
@@ -296,40 +314,48 @@ $waitingListCount = $stmt->fetchColumn();
     flex-wrap: wrap;
     gap: 10px;
 }
+
 .order-id {
     font-size: 16px;
     font-weight: 500;
     color: #4a6a65;
 }
+
 .order-id strong {
     font-weight: 700;
     color: #00302e;
     font-size: 17px;
 }
+
 .order-date {
     font-size: 16px;
     font-weight: 400;
     color: #4a6a65;
     margin-left: auto;
 }
+
 .order-status {
     display: flex;
     align-items: center;
     gap: 10px;
 }
+
 .order-items {
     padding: 18px 24px;
     background: #ffffff;
 }
+
 .order-item {
     display: flex;
     gap: 18px;
     padding: 16px 0;
     border-bottom: 1px solid #f0f6f4;
 }
+
 .order-item:last-child {
     border-bottom: none;
 }
+
 .order-item-img {
     width: 90px;
     height: 90px;
@@ -337,26 +363,31 @@ $waitingListCount = $stmt->fetchColumn();
     border-radius: 12px;
     background: #f0f6f4;
 }
+
 .order-item-details {
     flex: 1;
 }
+
 .order-item-name {
     font-weight: 600;
     font-size: 18px;
     color: #00302e;
     margin-bottom: 8px;
 }
+
 .order-item-meta {
     font-size: 15px;
     font-weight: 400;
     color: #4a6a65;
     margin-bottom: 6px;
 }
+
 .order-item-price {
     font-size: 17px;
     font-weight: 700;
     color: #00a896;
 }
+
 .order-footer {
     padding: 16px 24px;
     background: #ffffff;
@@ -367,15 +398,18 @@ $waitingListCount = $stmt->fetchColumn();
     flex-wrap: wrap;
     gap: 10px;
 }
+
 .order-total {
     font-size: 19px;
     font-weight: 700;
     color: #00302e;
 }
+
 .order-actions {
     display: flex;
     gap: 12px;
 }
+
 .status-badge {
     display: inline-block;
     padding: 6px 14px;
@@ -399,6 +433,7 @@ $waitingListCount = $stmt->fetchColumn();
     align-items: center;
     gap: 5px;
 }
+
 .btn-detail:hover {
     background: #00a896;
     color: #fff;
@@ -416,9 +451,11 @@ $waitingListCount = $stmt->fetchColumn();
     justify-content: center;
     align-items: center;
 }
+
 .modal-overlay.active {
     display: flex;
 }
+
 .modal-window {
     background: #fff;
     border-radius: 20px;
@@ -429,6 +466,7 @@ $waitingListCount = $stmt->fetchColumn();
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     margin-top: 0;
 }
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -436,12 +474,14 @@ $waitingListCount = $stmt->fetchColumn();
     padding: 20px 24px;
     border-bottom: 2px solid #e0e8e5;
 }
+
 .modal-header h3 {
     margin: 0;
     font-size: 20px;
     font-weight: 600;
     color: #00302e;
 }
+
 .modal-close {
     background: none;
     border: none;
@@ -449,12 +489,15 @@ $waitingListCount = $stmt->fetchColumn();
     cursor: pointer;
     color: #4a6a65;
 }
+
 .modal-close:hover {
     color: #00a896;
 }
+
 .modal-body {
     padding: 24px;
 }
+
 .modal-footer {
     padding: 16px 24px;
     border-top: 1px solid #e0e8e5;
@@ -462,6 +505,7 @@ $waitingListCount = $stmt->fetchColumn();
     justify-content: flex-end;
     gap: 12px;
 }
+
 .btn-cancel, .btn-save {
     padding: 10px 24px;
     border-radius: 8px;
@@ -470,18 +514,22 @@ $waitingListCount = $stmt->fetchColumn();
     font-size: 14px;
     font-weight: 500;
 }
+
 .btn-cancel {
     background: #e0e8e5;
     color: #4a6a65;
 }
+
 .btn-cancel:hover {
     background: #d0ddd9;
     color: #00302e;
 }
+
 .btn-save {
     background: #00a896;
     color: #fff;
 }
+
 .btn-save:hover {
     background: #008a7a;
 }
@@ -491,6 +539,7 @@ $waitingListCount = $stmt->fetchColumn();
     position: relative;
     padding-left: 30px;
 }
+
 .status-timeline-modal::before {
     content: '';
     position: absolute;
@@ -500,17 +549,20 @@ $waitingListCount = $stmt->fetchColumn();
     width: 2px;
     background: #e0e8e5;
 }
+
 .status-timeline-item {
     position: relative;
     margin-bottom: 24px;
     padding-bottom: 20px;
     border-bottom: 1px dashed #e0e8e5;
 }
+
 .status-timeline-item:last-child {
     margin-bottom: 0;
     padding-bottom: 0;
     border-bottom: none;
 }
+
 .status-timeline-item::before {
     content: '';
     position: absolute;
@@ -523,24 +575,29 @@ $waitingListCount = $stmt->fetchColumn();
     border: 3px solid #fff;
     box-shadow: 0 0 0 2px #e0e8e5;
 }
+
 .status-timeline-item.completed::before {
     background: #28a745;
 }
+
 .status-timeline-item.current::before {
     background: #00a896;
     box-shadow: 0 0 0 2px #00a896;
 }
+
 .status-timeline-date {
     font-size: 13px;
     font-weight: 400;
     color: #4a6a65;
     margin-bottom: 5px;
 }
+
 .status-timeline-text {
     font-size: 16px;
     font-weight: 600;
     color: #00302e;
 }
+
 .status-timeline-comment {
     font-size: 14px;
     font-weight: 400;
@@ -560,6 +617,7 @@ $waitingListCount = $stmt->fetchColumn();
     border: 1px solid #e0e8e5;
     padding: 12px;
 }
+
 .chat-message {
     padding: 12px 18px;
     margin-bottom: 14px;
@@ -568,6 +626,7 @@ $waitingListCount = $stmt->fetchColumn();
     font-weight: 400;
     line-height: 1.5;
 }
+
 .chat-message-user {
     background: #d4f5f0;
     color: #00302e;
@@ -575,29 +634,34 @@ $waitingListCount = $stmt->fetchColumn();
     margin-left: auto;
     border-bottom-right-radius: 4px;
 }
+
 .chat-message-support {
     background: #f0f6f4;
     color: #00302e;
     margin-right: auto;
     border-bottom-left-radius: 4px;
 }
+
 .chat-message-author {
     font-size: 13px;
     font-weight: 600;
     margin-bottom: 6px;
     color: #00a896;
 }
+
 .chat-message-time {
     font-size: 11px;
     font-weight: 400;
     color: #4a6a65;
     margin-top: 6px;
 }
+
 .chat-message-files {
     margin-top: 8px;
     padding-top: 6px;
     border-top: 1px solid rgba(0,0,0,0.05);
 }
+
 .chat-file-link {
     display: inline-flex;
     align-items: center;
@@ -612,20 +676,24 @@ $waitingListCount = $stmt->fetchColumn();
     margin-bottom: 5px;
     transition: all 0.3s ease;
 }
+
 .chat-file-link:hover {
     background: #00a896;
     color: #fff;
 }
+
 .chat-reply-form-modal {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
+
 .chat-input-area {
     display: flex;
     gap: 10px;
     align-items: flex-start;
 }
+
 .chat-reply-input-modal {
     flex: 1;
     padding: 12px 14px;
@@ -635,10 +703,12 @@ $waitingListCount = $stmt->fetchColumn();
     font-size: 15px;
     font-family: 'Inter', sans-serif;
 }
+
 .chat-reply-input-modal:focus {
     border-color: #00a896;
     outline: none;
 }
+
 .chat-reply-btn-modal {
     background: #00a896;
     color: #fff;
@@ -650,15 +720,18 @@ $waitingListCount = $stmt->fetchColumn();
     font-weight: 500;
     white-space: nowrap;
 }
+
 .chat-reply-btn-modal:hover {
     background: #008a7a;
 }
+
 .chat-file-attach {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
 }
+
 .chat-file-label {
     display: inline-flex;
     align-items: center;
@@ -673,13 +746,16 @@ $waitingListCount = $stmt->fetchColumn();
     font-weight: 500;
     transition: all 0.3s ease;
 }
+
 .chat-file-label:hover {
     background: #e0e8e5;
     color: #00302e;
 }
+
 .chat-file-input {
     display: none;
 }
+
 .selected-file-name {
     font-size: 12px;
     color: #4a6a65;
@@ -687,6 +763,7 @@ $waitingListCount = $stmt->fetchColumn();
     padding: 6px 12px;
     border-radius: 6px;
 }
+
 .upload-progress {
     font-size: 12px;
     color: #00a896;
@@ -700,6 +777,7 @@ $waitingListCount = $stmt->fetchColumn();
     border: 1px solid #e0e8e5;
     box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08);
 }
+
 .personal-data h3 {
     margin-top: 0;
     margin-bottom: 20px;
@@ -707,16 +785,19 @@ $waitingListCount = $stmt->fetchColumn();
     font-weight: 600;
     color: #00302e;
 }
+
 .personal-data p {
     margin: 14px 0;
     font-size: 16px;
     font-weight: 400;
     color: #4a6a65;
 }
+
 .personal-data p strong {
     font-weight: 600;
     color: #00a896;
 }
+
 .edit-profile-btn, .cart-link, .waiting-link {
     display: block;
     width: 100%;
@@ -733,18 +814,23 @@ $waitingListCount = $stmt->fetchColumn();
     text-align: center;
     box-sizing: border-box;
 }
+
 .edit-profile-btn:hover, .cart-link:hover {
     background: #008a7a;
 }
+
 .waiting-link {
     background: #17a2b8;
 }
+
 .waiting-link:hover {
     background: #138496;
 }
+
 .logout-link {
     background: #dc3545;
 }
+
 .logout-link:hover {
     background: #b02a37;
 }
@@ -752,6 +838,7 @@ $waitingListCount = $stmt->fetchColumn();
 .profile-form .form-group {
     margin-bottom: 18px;
 }
+
 .profile-form .form-group label {
     display: block;
     margin-bottom: 6px;
@@ -759,6 +846,7 @@ $waitingListCount = $stmt->fetchColumn();
     font-weight: 500;
     color: #00302e;
 }
+
 .profile-form .form-group input, .profile-form .form-group textarea {
     width: 100%;
     padding: 12px 14px;
@@ -769,19 +857,23 @@ $waitingListCount = $stmt->fetchColumn();
     font-weight: 400;
     font-family: 'Inter', sans-serif;
 }
+
 .profile-form .form-group input:focus {
     border-color: #00a896;
     outline: none;
 }
+
 .profile-form .form-group small {
     font-size: 12px;
     font-weight: 400;
     color: #4a6a65;
 }
+
 .address-row {
     display: flex;
     gap: 12px;
 }
+
 .address-row .form-group {
     flex: 1;
 }
@@ -792,6 +884,7 @@ $waitingListCount = $stmt->fetchColumn();
     color: #00302e;
     margin-bottom: 40px;
 }
+
 .type-title {
     font-size: 26px;
     font-weight: 700;
@@ -800,6 +893,7 @@ $waitingListCount = $stmt->fetchColumn();
     padding-bottom: 12px;
     border-bottom: 2px solid #e0e8e5;
 }
+
 .no-orders {
     font-size: 16px;
     font-weight: 400;
@@ -812,17 +906,37 @@ $waitingListCount = $stmt->fetchColumn();
 }
 
 @media (max-width: 1200px) {
-    .lk-content { padding-left: 60px; padding-right: 60px; }
+    .lk-content {
+        padding-left: 60px;
+        padding-right: 60px;
+    }
 }
+
 @media (max-width: 900px) {
-    .lk-content { padding-left: 40px; padding-right: 40px; }
+    .lk-content {
+        padding-left: 40px;
+        padding-right: 40px;
+    }
 }
+
 @media (max-width: 600px) {
-    .lk-content { margin-top: 30px; padding-left: 20px; padding-right: 20px; }
-    .lk-title { font-size: 28px; }
-    .type-title { font-size: 22px; }
-    .chat-input-area { flex-direction: column; }
-    .chat-reply-btn-modal { width: 100%; }
+    .lk-content {
+        margin-top: 30px;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+    .lk-title {
+        font-size: 28px;
+    }
+    .type-title {
+        font-size: 22px;
+    }
+    .chat-input-area {
+        flex-direction: column;
+    }
+    .chat-reply-btn-modal {
+        width: 100%;
+    }
 }
 </style>
 <title>Личный кабинет</title>
@@ -863,12 +977,17 @@ $waitingListCount = $stmt->fetchColumn();
                             <img src="<?= htmlspecialchars($product['img']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($product['name']) ?></div>
-                                <?php if ($product['quantity'] > 1): ?><div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div><?php endif; ?>
-                                <?php if (!empty($product['configuration_name'])): ?><div class="order-item-meta">Комплектация: <?= htmlspecialchars($product['configuration_name']) ?></div><?php endif; ?>
-                                <div class="order-item-price"><?= number_format($product['price'], 2, ',', ' ') ?> ₽</div>
+                                <?php if ($product['quantity'] > 1): ?>
+                                    <div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div>
+                                <?php endif; ?>
+                                <?php if (!empty($product['configuration_name'])): ?>
+                                    <div class="order-item-meta">Комплектация: <?= htmlspecialchars($product['configuration_name']) ?></div>
+                                <?php endif; ?>
+                                <div class="order-item-meta">Цена за шт.: <?= number_format($product['unit_price'], 2, ',', ' ') ?> ₽</div>
+                                <div class="order-item-price">Итого: <?= number_format($product['price'], 2, ',', ' ') ?> ₽</div>
                             </div>
                         </div>
-                    <?php else: ?>
+                    <?php elseif ($item['type'] === 'service'): ?>
                         <?php $service = $item['data']; ?>
                         <div class="order-item">
                             <?php if (!empty($service['img'])): ?>
@@ -880,7 +999,11 @@ $waitingListCount = $stmt->fetchColumn();
                             <?php endif; ?>
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($service['name']) ?></div>
-                                <div class="order-item-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
+                                <?php if (($service['quantity'] ?? 1) > 1): ?>
+                                    <div class="order-item-meta">Количество: <?= $service['quantity'] ?> шт.</div>
+                                <?php endif; ?>
+                                <div class="order-item-meta">Цена за шт.: <?= number_format($service['unit_price'], 2, ',', ' ') ?> ₽</div>
+                                <div class="order-item-price">Итого: <?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -940,11 +1063,13 @@ $waitingListCount = $stmt->fetchColumn();
                             <img src="<?= htmlspecialchars($product['img']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($product['name']) ?></div>
-                                <?php if ($product['quantity'] > 1): ?><div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div><?php endif; ?>
+                                <?php if ($product['quantity'] > 1): ?>
+                                    <div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div>
+                                <?php endif; ?>
                                 <div class="order-item-price"><?= number_format($product['price'], 2, ',', ' ') ?> ₽</div>
                             </div>
                         </div>
-                    <?php else: ?>
+                    <?php elseif ($item['type'] === 'service'): ?>
                         <?php $service = $item['data']; ?>
                         <div class="order-item">
                             <?php if (!empty($service['img'])): ?>
@@ -956,6 +1081,9 @@ $waitingListCount = $stmt->fetchColumn();
                             <?php endif; ?>
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($service['name']) ?></div>
+                                <?php if (($service['quantity'] ?? 1) > 1): ?>
+                                    <div class="order-item-meta">Количество: <?= $service['quantity'] ?> шт.</div>
+                                <?php endif; ?>
                                 <div class="order-item-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
                             </div>
                         </div>
@@ -1300,9 +1428,22 @@ function saveProfile(event) {
     });
 }
 
-function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
-function closeModalIfClickOutside(event, modalId) { if (event.target === document.getElementById(modalId)) closeModal(modalId); }
-function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+function closeModal(modalId) { 
+    document.getElementById(modalId).classList.remove('active'); 
+}
+
+function closeModalIfClickOutside(event, modalId) { 
+    if (event.target === document.getElementById(modalId)) {
+        closeModal(modalId); 
+    }
+}
+
+function escapeHtml(text) { 
+    if (!text) return ''; 
+    const div = document.createElement('div'); 
+    div.textContent = text; 
+    return div.innerHTML; 
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     const openModal = sessionStorage.getItem('openModal');

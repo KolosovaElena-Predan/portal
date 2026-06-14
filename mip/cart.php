@@ -25,6 +25,12 @@ if (!isset($_SESSION['selected_items'])) $_SESSION['selected_items'] = [];
 if (!isset($_SESSION['selected_services'])) $_SESSION['selected_services'] = [];
 if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
 
+// Очистка "зависших" услуг при пустой корзине
+if (empty($_SESSION['cart'])) {
+    $_SESSION['selected_services'] = [];
+    $_SESSION['selected_items'] = [];
+}
+
 // --- ПОЛУЧЕНИЕ АДРЕСА ПОЛЬЗОВАТЕЛЯ ИЗ БД ---
 function getUserAddress($pdo, $userId) {
     $stmt = $pdo->prepare("SELECT address FROM user WHERE id = ?");
@@ -227,7 +233,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_qty') {
     if (isset($_SESSION['cart'][$configKey])) {
         $_SESSION['cart'][$configKey]['quantity'] = $quantity;
         
-        // Обновляем стоимость услуг, привязанных к этой конкретной позиции
         foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
             if (isset($service['config_key']) && $service['config_key'] == $configKey) {
                 $_SESSION['selected_services'][$serviceKey]['quantity'] = $quantity;
@@ -362,7 +367,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_service') {
         if (!isset($_SESSION['selected_services'][$serviceKey])) {
             $service = getServiceDetails($pdo, $serviceId);
             if ($service) {
-                // Находим количество товара для этой конкретной позиции
                 $productQuantity = 0;
                 if (isset($_SESSION['cart'][$configKey])) {
                     $productQuantity = (int)$_SESSION['cart'][$configKey]['quantity'];
@@ -439,7 +443,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'remove' && !empty($_GET['key'
     unset($_SESSION['cart'][$_GET['key']]);
     unset($_SESSION['selected_items'][$_GET['key']]);
     
-    // Удаляем услуги, привязанные к этой конкретной позиции
     foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
         if (isset($service['config_key']) && $service['config_key'] == $_GET['key']) {
             unset($_SESSION['selected_services'][$serviceKey]);
@@ -508,7 +511,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
     try {
         $pdo->beginTransaction();
 
-        // ========== ПРОВЕРКА: есть ли выбранные товары с нулевым остатком ==========
         $zeroStockSelected = [];
         $hasAnyAvailableProduct = false;
 
@@ -533,7 +535,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
             }
         }
 
-        // Если есть выбранные товары с нулевым остатком и нет доступных товаров для оплаты
         if (!empty($zeroStockSelected) && !$hasAnyAvailableProduct && empty($_SESSION['selected_services'])) {
             echo json_encode(['success' => false, 'error' => 'Оформление заказа невозможно. Следующие товары отсутствуют на складе: ' . implode(', ', $zeroStockSelected) . '. Пожалуйста, уберите их из корзины или добавьте в лист ожидания.']);
             $pdo->rollBack();
@@ -544,7 +545,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
         $processedServiceKeys = [];
         $totalOrderAmount = 0;
 
-        // Обработка товаров
         if (!empty($_SESSION['cart'])) {
             foreach ($_SESSION['cart'] as $configKey => $item) {
                 if (!isset($_SESSION['selected_items'][$configKey])) continue;
@@ -556,7 +556,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                 $requestedQuantity = (int)$item['quantity'];
                 $currentStock = !$isMadeToOrderFlag ? getProductStock($pdo, $item['product_id'], $configurationId) : -1;
 
-                // Если товара нет в наличии - ПРОПУСКАЕМ (не оформляем)
                 if (!$isMadeToOrderFlag && $currentStock <= 0) {
                     $processedCartKeys[] = $configKey;
                     continue;
@@ -656,7 +655,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
             }
         }
 
-        // Добавляем сумму услуг к общей сумме заказа
         if (!empty($_SESSION['selected_services'])) {
             foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
                 if ($service['selected']) {
@@ -665,14 +663,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
             }
         }
 
-        // ФИНАЛЬНАЯ ПРОВЕРКА: если сумма заказа 0, отменяем
-        if ($totalOrderAmount == 0) {
+        if ($totalOrderAmount == 0 && empty($_SESSION['selected_services'])) {
             echo json_encode(['success' => false, 'error' => 'Нет товаров для оплаты. Сумма заказа не может быть 0.']);
             $pdo->rollBack();
             exit;
         }
 
-        // Обработка услуг
         if (!empty($_SESSION['selected_services'])) {
             foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
                 if ($service['selected']) {
@@ -796,7 +792,6 @@ if (!empty($_SESSION['cart'])) {
     }
 }
 
-// Подсчет выбранных услуг
 if (!empty($_SESSION['selected_services'])) {
     foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
         if ($service['selected']) {
@@ -811,7 +806,6 @@ if (!empty($_SESSION['selected_services'])) {
 
 $selectedTotal = $productsTotal + $servicesTotal;
 
-// Формирование рекомендуемых услуг - ДЛЯ КАЖДОЙ ПОЗИЦИИ ОТДЕЛЬНО
 $recommendedServices = [];
 
 foreach ($cartItems as $item) {
@@ -821,7 +815,6 @@ foreach ($cartItems as $item) {
     if (!isset($recommendedServices[$configKey])) {
         $services = getRecommendedServices($pdo, $productId);
         if (!empty($services)) {
-            // Убираем дубликаты услуг по ID
             $uniqueServices = [];
             foreach ($services as $service) {
                 if (!isset($uniqueServices[$service['id']])) {
@@ -864,799 +857,114 @@ $waitingListCount = $stmt->fetchColumn();
 <link rel="stylesheet" href="css/style_main.css" />
 <link rel="stylesheet" href="css/header_mip.css" />
 <style>
-* {
-    font-family: 'Inter', sans-serif;
-}
-
-.cart-page {
-    max-width: 1400px;
-    margin: 40px auto 80px;
-    padding: 0 40px;
-}
-
-.cart-title {
-    font-size: 32px;
-    font-weight: 700;
-    color: #00302e;
-    margin-bottom: 30px;
-}
-
-.empty-cart {
-    text-align: center;
-    padding: 60px;
-    background: #ffffff;
-    border-radius: 16px;
-    border: 1px solid #e0e8e5;
-}
-
-.empty-text {
-    font-size: 18px;
-    color: #4a6a65;
-    margin-bottom: 20px;
-}
-
-.select-all {
-    margin-bottom: 24px;
-    padding: 14px 20px;
-    background: #f0f6f4;
-    border-radius: 12px;
-}
-
-.select-all label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 16px;
-    color: #00302e;
-}
-
-.select-all input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    accent-color: #00a896;
-}
-
-.cart-layout {
-    display: flex;
-    gap: 40px;
-}
-
-.cart-items {
-    flex: 2;
-}
-
-.cart-summary {
-    flex: 1;
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid #e0e8e5;
-    box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08);
-    height: fit-content;
-    position: sticky;
-    top: 100px;
-}
-
-.cart-item {
-    background: #ffffff;
-    border-radius: 16px;
-    margin-bottom: 20px;
-    border: 1px solid #e0e8e5;
-    transition: all 0.3s ease;
-    overflow: hidden;
-}
-
-.cart-item:hover {
-    border-color: #00a896;
-    box-shadow: 0 4px 12px rgba(0, 168, 150, 0.1);
-}
-
-.cart-item-top {
-    display: flex;
-    gap: 20px;
-    padding: 20px;
-    border-bottom: 1px solid #e0e8e5;
-}
-
-.select-checkbox {
-    display: flex;
-    align-items: flex-start;
-    padding-top: 4px;
-}
-
-.select-checkbox input[type="checkbox"] {
-    width: 22px;
-    height: 22px;
-    cursor: pointer;
-    accent-color: #00a896;
-}
-
-.cart-image {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 12px;
-    background: #f0f6f4;
-    flex-shrink: 0;
-}
-
-.cart-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.cart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.cart-name {
-    font-size: 18px;
-    font-weight: 700;
-    color: #00302e;
-    margin: 0;
-}
-
-.cart-price {
-    font-size: 18px;
-    font-weight: 700;
-    color: #00a896;
-    white-space: nowrap;
-}
-
-.cart-config {
-    font-size: 14px;
-    color: #4a6a65;
-    background: #f0f6f4;
-    padding: 8px 12px;
-    border-radius: 8px;
-}
-
-.cart-config strong {
-    color: #00302e;
-}
-
-.cart-mods {
-    font-size: 14px;
-    color: #4a6a65;
-}
-
-.cart-mods strong {
-    color: #00302e;
-}
-
-.cart-mods ul {
-    margin: 6px 0 0 20px;
-    padding: 0;
-}
-
-.cart-mods li {
-    margin: 4px 0;
-}
-
-.cart-item-bottom {
-    padding: 0 20px 20px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.stock-warning {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: 10px;
-    font-size: 14px;
-    flex-wrap: wrap;
-}
-
-.stock-warning.low {
-    background: #fff8e1;
-    color: #e65100;
-}
-
-.stock-warning.out {
-    background: #ffebee;
-    color: #c62828;
-}
-
-.stock-warning.exceeds {
-    background: #ffebee;
-    color: #c62828;
-}
-
-.stock-warning.made-to-order {
-    background: #e0f7fa;
-    color: #006e6a;
-}
-
-.waiting-list-btn {
-    background: #ffc107;
-    color: #00302e;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.3s;
-}
-
-.waiting-list-btn:hover {
-    background: #e0a800;
-}
-
-.partial-info {
-    margin-top: 8px;
-    padding: 12px 16px;
-    background: #e8f5e9;
-    border-radius: 10px;
-}
-
-.partial-info p {
-    margin: 4px 0;
-    font-size: 14px;
-    color: #1b5e20;
-}
-
-.payable-info {
-    color: #2e7d32;
-    font-weight: 700;
-    margin-top: 8px;
-    font-size: 15px;
-}
-
-.cart-footer-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding-top: 8px;
-}
-
-.quantity-controls {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid #e0e8e5;
-    border-radius: 10px;
-    overflow: hidden;
-    height: 42px;
-}
-
-.qty-btn {
-    width: 42px;
-    height: 42px;
-    border: none;
-    background: #f8f9fa;
-    color: #00302e;
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.qty-btn:hover {
-    background: #e0e8e5;
-}
-
-.qty-btn:disabled {
-    color: #c5cbd1;
-    cursor: not-allowed;
-}
-
-.qty-input {
-    width: 60px;
-    height: 42px;
-    border: none;
-    border-left: 1px solid #e0e8e5;
-    border-right: 1px solid #e0e8e5;
-    text-align: center;
-    font-size: 16px;
-    font-weight: 500;
-    color: #00302e;
-    background: #fff;
-}
-
-.qty-input:focus {
-    outline: none;
-}
-
-.cart-subtotal-display {
-    font-size: 16px;
-    font-weight: 600;
-    color: #00302e;
-}
-
-.cart-subtotal-display span {
-    font-weight: 700;
-    color: #00a896;
-}
-
-.cart-subtotal-display small {
-    display: block;
-    font-size: 12px;
-    color: #2e7d32;
-    font-weight: 400;
-}
-
-.cart-remove {
-    background: none;
-    border: none;
-    color: #c62828;
-    cursor: pointer;
-    font-size: 20px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    transition: all 0.2s;
-    line-height: 1;
-}
-
-.cart-remove:hover {
-    background: #ffebee;
-    color: #b71c1c;
-}
-
-.recommended-services {
-    margin-top: 8px;
-    padding-top: 16px;
-    border-top: 1px solid #e0e8e5;
-    width: 100%;
-}
-
-.recommended-services h4 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: #00302e;
-}
-
-.services-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.service-recommend-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 18px;
-    background: #f8f9fa;
-    border-radius: 12px;
-    border: 1px solid #e0e8e5;
-    transition: all 0.2s;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.service-recommend-item:hover {
-    border-color: #00a896;
-    background: #f0f6f4;
-}
-
-.service-recommend-info {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.service-recommend-name {
-    font-weight: 600;
-    font-size: 15px;
-    color: #00302e;
-}
-
-.service-recommend-price {
-    font-size: 15px;
-    font-weight: 700;
-    color: #00a896;
-}
-
-.service-recommend-duration {
-    font-size: 13px;
-    color: #4a6a65;
-}
-
-.service-recommend-quantity {
-    font-size: 13px;
-    color: #4a6a65;
-    background: #f0f6f4;
-    padding: 4px 10px;
-    border-radius: 20px;
-}
-
-.service-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.btn-service-detail {
-    background: none;
-    border: 1px solid #e0e8e5;
-    color: #00a896;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    padding: 6px 14px;
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-.btn-service-detail:hover {
-    background: #00a896;
-    color: #fff;
-    border-color: #00a896;
-}
-
-.service-select-checkbox {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    accent-color: #00a896;
-}
-
-.summary-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #00302e;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #e0e8e5;
-}
-
-.summary-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    font-size: 15px;
-    color: #4a6a65;
-}
-
-.summary-label {
-    font-weight: 500;
-}
-
-.summary-value {
-    font-weight: 600;
-    color: #00302e;
-}
-
-.services-summary-row {
-    border-top: 1px dashed #e0e8e5;
-    margin-top: 5px;
-}
-
-.total-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 15px 0;
-    margin-top: 10px;
-    border-top: 1px solid #e0e8e5;
-    font-size: 18px;
-    font-weight: 700;
-    color: #00302e;
-}
-
-.total-row span:last-child {
-    color: #00a896;
-}
-
-.delivery-methods {
-    margin: 20px 0;
-}
-
-.delivery-methods h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #00302e;
-    margin-bottom: 15px;
-}
-
-.delivery-tabs {
-    display: flex;
-    border-bottom: 2px solid #e0e8e5;
-    margin-bottom: 16px;
-    gap: 0;
-}
-
-.delivery-tab {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: 12px 16px;
-    font-size: 15px;
-    font-weight: 500;
-    color: #4a6a65;
-    cursor: pointer;
-    transition: all 0.2s;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-}
-
-.delivery-tab:hover {
-    color: #00a896;
-}
-
-.delivery-tab.active {
-    color: #00a896;
-    border-bottom-color: #00a896;
-    font-weight: 600;
-}
-
-.delivery-panel {
-    display: none;
-    animation: fadeIn 0.2s ease;
-}
-
-.delivery-panel.active {
-    display: block;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.pickup-info {
-    padding: 16px;
-    background: #f0f6f4;
-    border: 1px solid #e0e8e5;
-    border-radius: 12px;
-}
-
-.pickup-details p {
-    margin: 0 0 8px;
-    font-size: 14px;
-    color: #4a6a65;
-    line-height: 1.5;
-}
-
-.address-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-.input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.input-group.full-width {
-    grid-column: 1 / -1;
-}
-
-.input-group label {
-    font-size: 13px;
-    font-weight: 500;
-    color: #4a6a65;
-}
-
-.input-field {
-    padding: 12px 14px;
-    border: 1px solid #e0e8e5;
-    border-radius: 10px;
-    font-size: 14px;
-    transition: all 0.2s;
-}
-
-.input-field:focus {
-    border-color: #00a896;
-    outline: none;
-}
-
-.input-field.error {
-    border-color: #dc3545;
-    background-color: #fff5f5;
-}
-
-.error-message {
-    color: #dc3545;
-    font-size: 12px;
-    margin-top: 4px;
-    display: none;
-}
-
-.checkout-btn {
-    width: 100%;
-    padding: 16px;
-    background: #00a896;
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin-top: 20px;
-}
-
-.checkout-btn:hover {
-    background: #008a7a;
-}
-
-.service-modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 48, 46, 0.8);
-    justify-content: center;
-    align-items: center;
-}
-
-.service-modal-content {
-    background: #fff;
-    border-radius: 20px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-}
-
-.service-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 18px 24px;
-    border-bottom: 2px solid #e0e8e5;
-}
-
-.service-modal-header h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: #00302e;
-}
-
-.service-modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #4a6a65;
-}
-
-.service-modal-close:hover {
-    color: #00a896;
-}
-
-.service-modal-body {
-    padding: 24px;
-}
-
-.service-info-block {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #f0f6f4;
-    font-size: 15px;
-}
-
-.service-info-label {
-    font-weight: 500;
-    color: #4a6a65;
-}
-
-.service-info-value {
-    color: #00302e;
-    font-weight: 500;
-}
-
-.service-description {
-    margin-top: 16px;
-    padding-top: 16px;
-    color: #4a6a65;
-    line-height: 1.6;
-    font-size: 14px;
-}
-
-.service-modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid #e0e8e5;
-    display: flex;
-    justify-content: flex-end;
-}
-
-.btn-service-cancel {
-    background: #e0e8e5;
-    color: #4a6a65;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.btn-service-cancel:hover {
-    background: #d0ddd9;
-    color: #00302e;
-}
-
-@media (max-width: 1000px) {
-    .cart-layout {
-        flex-direction: column;
-    }
-    .cart-summary {
-        position: static;
-    }
-    .cart-page {
-        padding: 0 20px;
-    }
-}
-
-@media (max-width: 768px) {
-    .cart-item-top {
-        flex-wrap: wrap;
-    }
-    .cart-image {
-        width: 100%;
-        height: 160px;
-    }
-    .cart-header {
-        flex-direction: column;
-    }
-    .cart-footer-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .service-recommend-info {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .service-actions {
-        flex-direction: column;
-        align-items: flex-end;
-    }
-    .delivery-tabs {
-        flex-direction: column;
-        border-bottom: none;
-        border: 1px solid #e0e8e5;
-        border-radius: 12px;
-        overflow: hidden;
-    }
-    .delivery-tab {
-        border-bottom: 1px solid #e0e8e5;
-        margin-bottom: 0;
-        text-align: left;
-    }
-    .delivery-tab:last-child {
-        border-bottom: none;
-    }
-    .delivery-tab.active {
-        border-bottom-color: #e0e8e5;
-        background: #f0f6f4;
-    }
-    .address-fields {
-        grid-template-columns: 1fr;
-    }
-    .cart-page {
-        margin-top: 30px;
-        padding: 0 15px;
-    }
-    .cart-title {
-        font-size: 26px;
-    }
-}
+* { font-family: 'Inter', sans-serif; }
+.cart-page { max-width: 1400px; margin: 40px auto 80px; padding: 0 40px; }
+.cart-title { font-size: 32px; font-weight: 700; color: #00302e; margin-bottom: 30px; }
+.empty-cart { text-align: center; padding: 60px; background: #ffffff; border-radius: 16px; border: 1px solid #e0e8e5; }
+.empty-text { font-size: 18px; color: #4a6a65; margin-bottom: 20px; }
+.select-all { margin-bottom: 24px; padding: 14px 20px; background: #f0f6f4; border-radius: 12px; }
+.select-all label { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 500; font-size: 16px; color: #00302e; }
+.select-all input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #00a896; }
+.cart-layout { display: flex; gap: 40px; }
+.cart-items { flex: 2; }
+.cart-summary { flex: 1; background: #ffffff; border-radius: 16px; padding: 24px; border: 1px solid #e0e8e5; box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08); height: fit-content; position: sticky; top: 100px; }
+.cart-item { background: #ffffff; border-radius: 16px; margin-bottom: 20px; border: 1px solid #e0e8e5; transition: all 0.3s ease; overflow: hidden; }
+.cart-item:hover { border-color: #00a896; box-shadow: 0 4px 12px rgba(0, 168, 150, 0.1); }
+.cart-item-top { display: flex; gap: 20px; padding: 20px; border-bottom: 1px solid #e0e8e5; }
+.select-checkbox { display: flex; align-items: flex-start; padding-top: 4px; }
+.select-checkbox input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #00a896; }
+.cart-image { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; background: #f0f6f4; flex-shrink: 0; }
+.cart-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.cart-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+.cart-name { font-size: 18px; font-weight: 700; color: #00302e; margin: 0; }
+.cart-price { font-size: 18px; font-weight: 700; color: #00a896; white-space: nowrap; }
+.cart-config { font-size: 14px; color: #4a6a65; background: #f0f6f4; padding: 8px 12px; border-radius: 8px; }
+.cart-config strong { color: #00302e; }
+.cart-mods { font-size: 14px; color: #4a6a65; }
+.cart-mods strong { color: #00302e; }
+.cart-mods ul { margin: 6px 0 0 20px; padding: 0; }
+.cart-mods li { margin: 4px 0; }
+.cart-item-bottom { padding: 0 20px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+.stock-warning { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; font-size: 14px; flex-wrap: wrap; }
+.stock-warning.low { background: #fff8e1; color: #e65100; }
+.stock-warning.out { background: #ffebee; color: #c62828; }
+.stock-warning.exceeds { background: #ffebee; color: #c62828; }
+.stock-warning.made-to-order { background: #e0f7fa; color: #006e6a; }
+.waiting-list-btn { background: #ffc107; color: #00302e; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s; }
+.waiting-list-btn:hover { background: #e0a800; }
+.partial-info { margin-top: 8px; padding: 12px 16px; background: #e8f5e9; border-radius: 10px; }
+.partial-info p { margin: 4px 0; font-size: 14px; color: #1b5e20; }
+.payable-info { color: #2e7d32; font-weight: 700; margin-top: 8px; font-size: 15px; }
+.cart-footer-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding-top: 8px; }
+.quantity-controls { display: inline-flex; align-items: center; border: 1px solid #e0e8e5; border-radius: 10px; overflow: hidden; height: 42px; }
+.qty-btn { width: 42px; height: 42px; border: none; background: #f8f9fa; color: #00302e; cursor: pointer; font-size: 18px; font-weight: 600; transition: all 0.2s; }
+.qty-btn:hover { background: #e0e8e5; }
+.qty-btn:disabled { color: #c5cbd1; cursor: not-allowed; }
+.qty-input { width: 60px; height: 42px; border: none; border-left: 1px solid #e0e8e5; border-right: 1px solid #e0e8e5; text-align: center; font-size: 16px; font-weight: 500; color: #00302e; background: #fff; }
+.qty-input:focus { outline: none; }
+.cart-subtotal-display { font-size: 16px; font-weight: 600; color: #00302e; }
+.cart-subtotal-display span { font-weight: 700; color: #00a896; }
+.cart-subtotal-display small { display: block; font-size: 12px; color: #2e7d32; font-weight: 400; }
+.cart-remove { background: none; border: none; color: #c62828; cursor: pointer; font-size: 20px; padding: 8px 12px; border-radius: 8px; transition: all 0.2s; line-height: 1; }
+.cart-remove:hover { background: #ffebee; color: #b71c1c; }
+.recommended-services { margin-top: 8px; padding-top: 16px; border-top: 1px solid #e0e8e5; width: 100%; }
+.recommended-services h4 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #00302e; }
+.services-list { display: flex; flex-direction: column; gap: 12px; }
+.service-recommend-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #f8f9fa; border-radius: 12px; border: 1px solid #e0e8e5; transition: all 0.2s; width: 100%; box-sizing: border-box; }
+.service-recommend-item:hover { border-color: #00a896; background: #f0f6f4; }
+.service-recommend-info { flex: 1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.service-recommend-name { font-weight: 600; font-size: 15px; color: #00302e; }
+.service-recommend-price { font-size: 15px; font-weight: 700; color: #00a896; }
+.service-recommend-duration { font-size: 13px; color: #4a6a65; }
+.service-recommend-quantity { font-size: 13px; color: #4a6a65; background: #f0f6f4; padding: 4px 10px; border-radius: 20px; }
+.service-actions { display: flex; align-items: center; gap: 12px; }
+.btn-service-detail { background: none; border: 1px solid #e0e8e5; color: #00a896; cursor: pointer; font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: 8px; transition: all 0.2s; }
+.btn-service-detail:hover { background: #00a896; color: #fff; border-color: #00a896; }
+.service-select-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: #00a896; }
+.summary-title { font-size: 20px; font-weight: 700; color: #00302e; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #e0e8e5; }
+.summary-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 15px; color: #4a6a65; }
+.summary-label { font-weight: 500; }
+.summary-value { font-weight: 600; color: #00302e; }
+.services-summary-row { border-top: 1px dashed #e0e8e5; margin-top: 5px; }
+.total-row { display: flex; justify-content: space-between; padding: 15px 0; margin-top: 10px; border-top: 1px solid #e0e8e5; font-size: 18px; font-weight: 700; color: #00302e; }
+.total-row span:last-child { color: #00a896; }
+.delivery-methods { margin: 20px 0; }
+.delivery-methods h3 { font-size: 18px; font-weight: 600; color: #00302e; margin-bottom: 15px; }
+.delivery-tabs { display: flex; border-bottom: 2px solid #e0e8e5; margin-bottom: 16px; gap: 0; }
+.delivery-tab { flex: 1; background: none; border: none; padding: 12px 16px; font-size: 15px; font-weight: 500; color: #4a6a65; cursor: pointer; transition: all 0.2s; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.delivery-tab:hover { color: #00a896; }
+.delivery-tab.active { color: #00a896; border-bottom-color: #00a896; font-weight: 600; }
+.delivery-panel { display: none; animation: fadeIn 0.2s ease; }
+.delivery-panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+.pickup-info { padding: 16px; background: #f0f6f4; border: 1px solid #e0e8e5; border-radius: 12px; }
+.pickup-details p { margin: 0 0 8px; font-size: 14px; color: #4a6a65; line-height: 1.5; }
+.address-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.input-group { display: flex; flex-direction: column; gap: 5px; }
+.input-group.full-width { grid-column: 1 / -1; }
+.input-group label { font-size: 13px; font-weight: 500; color: #4a6a65; }
+.input-field { padding: 12px 14px; border: 1px solid #e0e8e5; border-radius: 10px; font-size: 14px; transition: all 0.2s; }
+.input-field:focus { border-color: #00a896; outline: none; }
+.input-field.error { border-color: #dc3545; background-color: #fff5f5; }
+.error-message { color: #dc3545; font-size: 12px; margin-top: 4px; display: none; }
+.checkout-btn { width: 100%; padding: 16px; background: #00a896; color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 20px; }
+.checkout-btn:hover { background: #008a7a; }
+.service-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 48, 46, 0.8); justify-content: center; align-items: center; }
+.service-modal-content { background: #fff; border-radius: 20px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
+.service-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 2px solid #e0e8e5; }
+.service-modal-header h3 { margin: 0; font-size: 20px; font-weight: 600; color: #00302e; }
+.service-modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #4a6a65; }
+.service-modal-close:hover { color: #00a896; }
+.service-modal-body { padding: 24px; }
+.service-info-block { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f6f4; font-size: 15px; }
+.service-info-label { font-weight: 500; color: #4a6a65; }
+.service-info-value { color: #00302e; font-weight: 500; }
+.service-description { margin-top: 16px; padding-top: 16px; color: #4a6a65; line-height: 1.6; font-size: 14px; }
+.service-modal-footer { padding: 16px 24px; border-top: 1px solid #e0e8e5; display: flex; justify-content: flex-end; }
+.btn-service-cancel { background: #e0e8e5; color: #4a6a65; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+.btn-service-cancel:hover { background: #d0ddd9; color: #00302e; }
+@media (max-width: 1000px) { .cart-layout { flex-direction: column; } .cart-summary { position: static; } .cart-page { padding: 0 20px; } }
+@media (max-width: 768px) { .cart-item-top { flex-wrap: wrap; } .cart-image { width: 100%; height: 160px; } .cart-header { flex-direction: column; } .cart-footer-row { flex-direction: column; align-items: flex-start; } .service-recommend-info { flex-direction: column; align-items: flex-start; } .service-actions { flex-direction: column; align-items: flex-end; } .delivery-tabs { flex-direction: column; border-bottom: none; border: 1px solid #e0e8e5; border-radius: 12px; overflow: hidden; } .delivery-tab { border-bottom: 1px solid #e0e8e5; margin-bottom: 0; text-align: left; } .delivery-tab:last-child { border-bottom: none; } .delivery-tab.active { border-bottom-color: #e0e8e5; background: #f0f6f4; } .address-fields { grid-template-columns: 1fr; } .cart-page { margin-top: 30px; padding: 0 15px; } .cart-title { font-size: 26px; } }
 </style>
 <title>Корзина</title>
 </head>
@@ -2179,7 +1487,6 @@ async function toggleService(configKey, serviceId, isSelected) {
             const cb = document.querySelector(`.service-select-checkbox[data-config-key="${configKey}"][data-service-id="${serviceId}"]`);
             if (cb) cb.checked = isSelected;
             servicesTotal = data.services_total;
-            selectedServicesCount = Object.values(<?= json_encode(array_column($recommendedServices, 'services')) ?>).flat().filter(s => s.is_selected).length;
             document.getElementById('products-total').textContent = formatPrice(data.products_total);
             document.getElementById('total-display').textContent = formatPrice(data.selected_total);
             recalculateTotals();
@@ -2235,7 +1542,6 @@ document.querySelectorAll('.service-select-checkbox').forEach(cb => {
 async function checkout() {
     const method = currentDeliveryMethod;
     
-    // ПРОВЕРКА: есть ли выбранные товары, которые полностью отсутствуют на складе
     let hasFullyOutOfStockSelected = false;
     let outOfStockProducts = [];
     
@@ -2256,7 +1562,6 @@ async function checkout() {
         return;
     }
     
-    // Проверяем, есть ли выбранные товары с положительной суммой к оплате
     let hasPayableItems = false;
     let hasAnySelectedItem = false;
     
