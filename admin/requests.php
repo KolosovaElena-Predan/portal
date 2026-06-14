@@ -4,11 +4,36 @@ $pageTitle = 'Заявки | Админ-панель';
 
 require_once 'includes/auth_check.php';
 
-$statusFilter = $_GET['status'] ?? '';
-$where = $statusFilter ? "WHERE r.status = ?" : "";
-$params = $statusFilter ? [$statusFilter] : [];
+// Загружаем динамические статусы
+$statusLabels = [];
+$statusColors = [];
+$statusCodes = [];
 
-$stmt = $pdo->prepare("SELECT r.*, u.name as user_name, u.email as user_email, p.name as product_name FROM request r LEFT JOIN user u ON r.user_id = u.id LEFT JOIN products p ON r.product_id = p.id $where ORDER BY r.datetime DESC");
+$stmtStatuses = $pdo->query("SELECT * FROM request_statuses WHERE is_active = 1 ORDER BY sort_order");
+$statusesList = $stmtStatuses->fetchAll(PDO::FETCH_ASSOC);
+foreach ($statusesList as $s) {
+    $statusLabels[$s['code']] = $s['name'];
+    $statusColors[$s['code']] = $s['color'];
+    $statusCodes[] = $s['code'];
+}
+
+$statusFilter = $_GET['status'] ?? '';
+$where = "";
+$params = [];
+
+if ($statusFilter && in_array($statusFilter, $statusCodes)) {
+    $where = "WHERE r.status = ?";
+    $params = [$statusFilter];
+}
+
+$stmt = $pdo->prepare("
+    SELECT r.*, u.name as user_name, u.email as user_email, p.name as product_name 
+    FROM request r 
+    LEFT JOIN user u ON r.user_id = u.id 
+    LEFT JOIN products p ON r.product_id = p.id 
+    $where 
+    ORDER BY r.datetime DESC
+");
 $stmt->execute($params);
 $requests = $stmt->fetchAll();
 
@@ -23,10 +48,7 @@ require_once 'includes/sidebar.php';
     .badge-q { background: #17a2b8; color: white; }
     .badge-r { background: #ffc107; color: #212529; }
     .badge-s { background: #28a745; color: white; }
-    .badge-new { background: #dc3545; color: white; }
-    .badge-processed { background: #fd7e14; color: white; }
-    .badge-closed { background: #28a745; color: white; }
-    .badge-cancelled { background: #6c757d; color: white; }
+    .badge-wl { background: #e65100; color: white; }
 </style>
 
 <div class="content-wrapper">
@@ -36,10 +58,13 @@ require_once 'includes/sidebar.php';
                 <div class="col-sm-6"><h1 class="m-0">Заявки пользователей</h1></div>
                 <div class="col-sm-6 text-right">
                     <a href="?status=" class="btn btn-sm btn-<?= !$statusFilter ? 'primary' : 'outline-secondary' ?>">Все</a>
-                    <a href="?status=new" class="btn btn-sm btn-<?= $statusFilter === 'new' ? 'primary' : 'outline-secondary' ?>">Новые</a>
-                    <a href="?status=processed" class="btn btn-sm btn-<?= $statusFilter === 'processed' ? 'primary' : 'outline-secondary' ?>">В работе</a>
-                    <a href="?status=closed" class="btn btn-sm btn-<?= $statusFilter === 'closed' ? 'primary' : 'outline-secondary' ?>">Закрытые</a>
-                    <a href="?status=cancelled" class="btn btn-sm btn-<?= $statusFilter === 'cancelled' ? 'primary' : 'outline-secondary' ?>">Отклонённые</a>
+                    <?php foreach ($statusesList as $s): ?>
+                        <?php if ($s['code'] !== 'waiting'): ?>
+                            <a href="?status=<?= $s['code'] ?>" class="btn btn-sm btn-<?= $statusFilter === $s['code'] ? 'primary' : 'outline-secondary' ?>" style="border-color: <?= $s['color'] ?>; color: <?= $statusFilter === $s['code'] ? 'white' : $s['color'] ?>; <?= $statusFilter === $s['code'] ? 'background: ' . $s['color'] . ';' : '' ?>">
+                                <?= htmlspecialchars($s['name']) ?>
+                            </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
@@ -80,9 +105,17 @@ require_once 'includes/sidebar.php';
                                 } elseif ($r['type'] === 's' && $isJson) {
                                     $productName = $decoded['service_name'] ?? '';
                                     $quantity = '1';
+                                } elseif ($r['type'] === 'wl') {
+                                    $productName = $r['product_name'] ?? '';
+                                    $quantity = $decoded['quantity'] ?? '';
                                 } elseif ($r['type'] === 'q') {
                                     $productName = $r['product_name'] ?? '';
                                 }
+                                
+                                $typeIcon = ['q' => '❓', 'r' => '🛒', 's' => '⚙️', 'wl' => '⏳'][$r['type']] ?? '';
+                                $typeName = ['q' => 'Вопрос', 'r' => 'Заказ', 's' => 'Услуга', 'wl' => 'Лист ожидания'][$r['type']] ?? $r['type'];
+                                $statusName = $statusLabels[$r['status']] ?? $r['status'];
+                                $statusColor = $statusColors[$r['status']] ?? '#6c757d';
                             ?>
                             <tr>
                                 <td><?= $r['id'] ?></td>
@@ -90,8 +123,8 @@ require_once 'includes/sidebar.php';
                                     <strong><?= e($r['user_name'] ?? 'Гость') ?></strong><br>
                                     <small class="text-muted"><?= e($r['user_email'] ?? '') ?></small>
                                 </td>
-                                <td><span class="badge badge-<?= $r['type'] ?>"><?= ['q'=>'Вопрос','r'=>'Заказ','s'=>'Услуга'][$r['type']] ?? $r['type'] ?></span></td>
-                                <td><span class="badge badge-<?= $r['status'] ?>"><?= ['new'=>'Новая','processed'=>'В работе','closed'=>'Закрыта','cancelled'=>'Отклонена'][$r['status']] ?? $r['status'] ?></span></td>
+                                <td><span class="badge badge-<?= $r['type'] ?>"><?= $typeIcon ?> <?= $typeName ?></span></td>
+                                <td><span class="badge" style="background: <?= $statusColor ?>; color: white;"><?= $statusName ?></span></td>
                                 <td><?= e(mb_strimwidth($productName, 0, 40, '...')) ?></td>
                                 <td class="text-center"><?= $quantity ?></td>
                                 <td class="text-right"><?= $totalPrice ?></td>
