@@ -42,7 +42,7 @@ try {
 }
 
 try {
-    // Новости
+    // Новости — ИСПРАВЛЕНО: добавлена фильтрация по разделу МИП
     $stmt = $pdo->prepare("
         SELECT 
             n.id, 
@@ -51,6 +51,7 @@ try {
             n.datetime,
             (SELECT image_url FROM news_images WHERE news_id = n.id ORDER BY is_main DESC, sort_order LIMIT 1) as main_image
         FROM news n
+        WHERE n.section = 'mip'
         ORDER BY n.datetime DESC 
         LIMIT 3
     ");
