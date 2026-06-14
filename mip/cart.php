@@ -78,7 +78,6 @@ function validateAddress($zip, $city, $street, $house, $deliveryMethod) {
     $streetValidation = validateAddressField($street, 'Улица', true);
     if (!$streetValidation['valid']) $errors[] = $streetValidation['error'];
     
-    // Проверка дома/квартиры (не строгая, просто наличие)
     $house = trim($house);
     if (empty($house)) {
         $errors[] = "Поле 'Дом/Квартира' обязательно для заполнения";
@@ -165,7 +164,7 @@ function getServiceDetails($pdo, $serviceId) {
 }
 
 function getRecommendedServices($pdo, $productId) {
-    $stmt = $pdo->prepare("SELECT s.*, ps.product_id as linked_product_id FROM services s INNER JOIN product_services ps ON s.id = ps.service_id WHERE ps.product_id = ? AND ps.is_active = 1 AND s.is_active = 1 ORDER BY s.sort_order");
+    $stmt = $pdo->prepare("SELECT DISTINCT s.*, ps.product_id as linked_product_id FROM services s INNER JOIN product_services ps ON s.id = ps.service_id WHERE ps.product_id = ? AND ps.is_active = 1 AND s.is_active = 1 ORDER BY s.sort_order");
     $stmt->execute([$productId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -228,9 +227,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_qty') {
     if (isset($_SESSION['cart'][$configKey])) {
         $_SESSION['cart'][$configKey]['quantity'] = $quantity;
         
-        // Обновляем стоимость услуг, привязанных к этому товару
+        // Обновляем стоимость услуг, привязанных к этой конкретной позиции
         foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
-            if ($service['product_id'] == $_SESSION['cart'][$configKey]['product_id']) {
+            if (isset($service['config_key']) && $service['config_key'] == $configKey) {
                 $_SESSION['selected_services'][$serviceKey]['quantity'] = $quantity;
                 $_SESSION['selected_services'][$serviceKey]['total_price'] = (float)$service['price'] * $quantity;
             }
@@ -354,36 +353,36 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_select') {
 }
 
 if (isset($_POST['action']) && $_POST['action'] === 'toggle_service') {
+    $configKey = $_POST['config_key'] ?? '';
     $serviceId = $_POST['service_id'] ?? '';
-    $productId = $_POST['product_id'] ?? '';
     $isSelected = isset($_POST['selected']) && $_POST['selected'] === 'true';
-    $serviceKey = $productId . '_' . $serviceId;
+    $serviceKey = $configKey . '_' . $serviceId;
 
     if ($isSelected) {
-        $service = getServiceDetails($pdo, $serviceId);
-        if ($service) {
-            // Находим количество товара, к которому привязывается услуга
-            $productQuantity = 1;
-            foreach ($_SESSION['cart'] as $item) {
-                if ($item['product_id'] == $productId && isset($_SESSION['selected_items'][$item['config_key']])) {
-                    $productQuantity = (int)$item['quantity'];
-                    break;
+        if (!isset($_SESSION['selected_services'][$serviceKey])) {
+            $service = getServiceDetails($pdo, $serviceId);
+            if ($service) {
+                // Находим количество товара для этой конкретной позиции
+                $productQuantity = 0;
+                if (isset($_SESSION['cart'][$configKey])) {
+                    $productQuantity = (int)$_SESSION['cart'][$configKey]['quantity'];
                 }
+                
+                $_SESSION['selected_services'][$serviceKey] = [
+                    'id' => $service['id'],
+                    'name' => $service['name'],
+                    'price' => (float)$service['price'],
+                    'quantity' => $productQuantity,
+                    'total_price' => (float)$service['price'] * $productQuantity,
+                    'duration' => $service['duration'],
+                    'short_description' => $service['short_description'],
+                    'full_description' => $service['full_description'],
+                    'img_url' => $service['img_url'],
+                    'product_id' => $_SESSION['cart'][$configKey]['product_id'],
+                    'config_key' => $configKey,
+                    'selected' => true
+                ];
             }
-            
-            $_SESSION['selected_services'][$serviceKey] = [
-                'id' => $service['id'], 
-                'name' => $service['name'], 
-                'price' => (float)$service['price'],
-                'quantity' => $productQuantity,
-                'total_price' => (float)$service['price'] * $productQuantity,
-                'duration' => $service['duration'], 
-                'short_description' => $service['short_description'],
-                'full_description' => $service['full_description'], 
-                'img_url' => $service['img_url'],
-                'product_id' => $productId, 
-                'selected' => true
-            ];
         }
     } else {
         unset($_SESSION['selected_services'][$serviceKey]);
@@ -440,19 +439,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'remove' && !empty($_GET['key'
     unset($_SESSION['cart'][$_GET['key']]);
     unset($_SESSION['selected_items'][$_GET['key']]);
     
-    // Удаляем услуги, привязанные к этому товару
-    $productIdToRemove = null;
-    foreach ($_SESSION['cart'] as $item) {
-        if ($item['config_key'] == $_GET['key']) {
-            $productIdToRemove = $item['product_id'];
-            break;
-        }
-    }
-    if ($productIdToRemove) {
-        foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
-            if ($service['product_id'] == $productIdToRemove) {
-                unset($_SESSION['selected_services'][$serviceKey]);
-            }
+    // Удаляем услуги, привязанные к этой конкретной позиции
+    foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
+        if (isset($service['config_key']) && $service['config_key'] == $_GET['key']) {
+            unset($_SESSION['selected_services'][$serviceKey]);
         }
     }
     
@@ -471,7 +461,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
     $street = trim($_POST['street'] ?? '');
     $house = trim($_POST['house'] ?? '');
 
-    // ВАЛИДАЦИЯ АДРЕСА
     if ($deliveryMethod !== 'pickup') {
         $errors = validateAddress($zip, $city, $street, $house, $deliveryMethod);
         if (!empty($errors)) {
@@ -480,7 +469,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
         }
     }
 
-    // Формирование полного адреса
     $fullAddress = '';
     $addressParts = [];
 
@@ -520,44 +508,41 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
     try {
         $pdo->beginTransaction();
 
-        $processedCartKeys = [];
-        $processedServiceKeys = [];
-        $hasAnyPayableItem = false;
-        $totalOrderAmount = 0;
+        // ========== ПРОВЕРКА: есть ли выбранные товары с нулевым остатком ==========
+        $zeroStockSelected = [];
+        $hasAnyAvailableProduct = false;
 
-        // ПРОВЕРКА: есть ли хоть один товар с availableToBuy > 0
-        $tempAvailableItems = [];
         if (!empty($_SESSION['cart'])) {
             foreach ($_SESSION['cart'] as $configKey => $item) {
-                if (!isset($_SESSION['selected_items'][$configKey])) continue;
-
-                $configurationId = $item['configuration_id'] ?? null;
-                $hasMods = !empty($item['modifications']);
-                $isMadeToOrderFlag = $item['is_made_to_order'] || $hasMods;
-                $requestedQuantity = (int)$item['quantity'];
-                $currentStock = !$isMadeToOrderFlag ? getProductStock($pdo, $item['product_id'], $configurationId) : -1;
-                
-                if ($isMadeToOrderFlag) {
-                    $tempAvailableItems[$configKey] = $requestedQuantity;
-                    $hasAnyPayableItem = true;
-                } else {
-                    if ($currentStock > 0) {
-                        $availableToBuy = ($requestedQuantity > $currentStock) ? $currentStock : $requestedQuantity;
-                        if ($availableToBuy > 0) {
-                            $tempAvailableItems[$configKey] = $availableToBuy;
-                            $hasAnyPayableItem = true;
+                if (isset($_SESSION['selected_items'][$configKey])) {
+                    $configurationId = $item['configuration_id'] ?? null;
+                    $hasMods = !empty($item['modifications']);
+                    $isMadeToOrderFlag = $item['is_made_to_order'] || $hasMods;
+                    
+                    if (!$isMadeToOrderFlag) {
+                        $currentStock = getProductStock($pdo, $item['product_id'], $configurationId);
+                        if ($currentStock <= 0) {
+                            $zeroStockSelected[] = $item['name'] . ($item['configuration_name'] ? " ({$item['configuration_name']})" : '');
+                        } else {
+                            $hasAnyAvailableProduct = true;
                         }
+                    } else {
+                        $hasAnyAvailableProduct = true;
                     }
                 }
             }
         }
 
-        // Если нет доступных товаров и нет услуг
-        if (!$hasAnyPayableItem && empty($_SESSION['selected_services'])) {
-            echo json_encode(['success' => false, 'error' => 'Нет доступных для оплаты товаров. Выберите товары, которые есть в наличии, или добавьте их в лист ожидания']);
+        // Если есть выбранные товары с нулевым остатком и нет доступных товаров для оплаты
+        if (!empty($zeroStockSelected) && !$hasAnyAvailableProduct && empty($_SESSION['selected_services'])) {
+            echo json_encode(['success' => false, 'error' => 'Оформление заказа невозможно. Следующие товары отсутствуют на складе: ' . implode(', ', $zeroStockSelected) . '. Пожалуйста, уберите их из корзины или добавьте в лист ожидания.']);
             $pdo->rollBack();
             exit;
         }
+
+        $processedCartKeys = [];
+        $processedServiceKeys = [];
+        $totalOrderAmount = 0;
 
         // Обработка товаров
         if (!empty($_SESSION['cart'])) {
@@ -571,6 +556,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                 $requestedQuantity = (int)$item['quantity'];
                 $currentStock = !$isMadeToOrderFlag ? getProductStock($pdo, $item['product_id'], $configurationId) : -1;
 
+                // Если товара нет в наличии - ПРОПУСКАЕМ (не оформляем)
+                if (!$isMadeToOrderFlag && $currentStock <= 0) {
+                    $processedCartKeys[] = $configKey;
+                    continue;
+                }
+
                 $availableToBuy = 0;
                 $waitingQuantity = 0;
 
@@ -578,19 +569,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                     $availableToBuy = $requestedQuantity;
                     $waitingQuantity = 0;
                 } else {
-                    if ($currentStock > 0) {
-                        if ($requestedQuantity > $currentStock) {
-                            $availableToBuy = $currentStock;
-                            $waitingQuantity = $requestedQuantity - $currentStock;
-                        } else {
-                            $availableToBuy = $requestedQuantity;
-                        }
+                    if ($requestedQuantity > $currentStock) {
+                        $availableToBuy = $currentStock;
+                        $waitingQuantity = $requestedQuantity - $currentStock;
                     } else {
-                        $waitingQuantity = $requestedQuantity;
+                        $availableToBuy = $requestedQuantity;
                     }
                 }
 
-                // Если нет доступных для покупки, отправляем только в лист ожидания
                 if ($availableToBuy == 0 && $waitingQuantity > 0) {
                     $waitingMessageData = [
                         'quantity' => $waitingQuantity,
@@ -609,7 +595,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                     continue;
                 }
 
-                // Если availableToBuy == 0 и нет waitingQuantity, пропускаем
                 if ($availableToBuy == 0) {
                     $processedCartKeys[] = $configKey;
                     continue;
@@ -826,17 +811,37 @@ if (!empty($_SESSION['selected_services'])) {
 
 $selectedTotal = $productsTotal + $servicesTotal;
 
+// Формирование рекомендуемых услуг - ДЛЯ КАЖДОЙ ПОЗИЦИИ ОТДЕЛЬНО
 $recommendedServices = [];
+
 foreach ($cartItems as $item) {
-    if (!isset($recommendedServices[$item['product_id']])) {
-        $services = getRecommendedServices($pdo, $item['product_id']);
+    $configKey = $item['config_key'];
+    $productId = $item['product_id'];
+    
+    if (!isset($recommendedServices[$configKey])) {
+        $services = getRecommendedServices($pdo, $productId);
         if (!empty($services)) {
-            foreach ($services as &$service) {
-                $serviceKey = $item['product_id'] . '_' . $service['id'];
-                $service['is_selected'] = isset($_SESSION['selected_services'][$serviceKey]) && $_SESSION['selected_services'][$serviceKey]['selected'];
-                $service['service_key'] = $serviceKey;
+            // Убираем дубликаты услуг по ID
+            $uniqueServices = [];
+            foreach ($services as $service) {
+                if (!isset($uniqueServices[$service['id']])) {
+                    $uniqueServices[$service['id']] = $service;
+                }
             }
-            $recommendedServices[$item['product_id']] = ['product' => $item, 'services' => $services];
+            $services = array_values($uniqueServices);
+            
+            foreach ($services as $index => $service) {
+                $serviceKey = $configKey . '_' . $service['id'];
+                $services[$index]['is_selected'] = isset($_SESSION['selected_services'][$serviceKey]) && $_SESSION['selected_services'][$serviceKey]['selected'];
+                $services[$index]['service_key'] = $serviceKey;
+                $services[$index]['config_key'] = $configKey;
+            }
+            
+            $recommendedServices[$configKey] = [
+                'product' => $item,
+                'services' => $services,
+                'quantity' => $item['quantity']
+            ];
         }
     }
 }
@@ -1748,21 +1753,26 @@ $waitingListCount = $stmt->fetchColumn();
                         <button class="cart-remove" onclick="removeItem('<?= htmlspecialchars($item['config_key']) ?>')"><i class="fas fa-times"></i></button>
                     </div>
                     
-                    <?php if (isset($recommendedServices[$item['product_id']])): ?>
+                    <?php if (isset($recommendedServices[$item['config_key']])): ?>
                     <div class="recommended-services">
                         <h4>Рекомендуем добавить к этому товару:</h4>
-                        <div class="services-list" data-product-id="<?= $item['product_id'] ?>">
-                            <?php foreach ($recommendedServices[$item['product_id']]['services'] as $service): ?>
-                            <div class="service-recommend-item" data-service-id="<?= $service['id'] ?>">
+                        <div class="services-list" data-config-key="<?= htmlspecialchars($item['config_key']) ?>">
+                            <?php foreach ($recommendedServices[$item['config_key']]['services'] as $service): ?>
+                            <div class="service-recommend-item" data-service-id="<?= $service['id'] ?>" data-config-key="<?= htmlspecialchars($service['config_key']) ?>">
                                 <div class="service-recommend-info">
                                     <span class="service-recommend-name"><?= htmlspecialchars($service['name']) ?></span>
                                     <span class="service-recommend-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</span>
-                                    <?php if (!empty($service['duration'])): ?><span class="service-recommend-duration"><?= htmlspecialchars($service['duration']) ?></span><?php endif; ?>
+                                    <?php if (!empty($service['duration'])): ?>
+                                    <span class="service-recommend-duration"><?= htmlspecialchars($service['duration']) ?></span>
+                                    <?php endif; ?>
                                     <span class="service-recommend-quantity">× <?= $item['quantity'] ?> шт. = <?= number_format($service['price'] * $item['quantity'], 2, ',', ' ') ?> ₽</span>
                                 </div>
                                 <div class="service-actions">
                                     <button class="btn-service-detail" onclick="showServiceDetails(<?= $service['id'] ?>)">Подробнее</button>
-                                    <input type="checkbox" class="service-select-checkbox" data-product-id="<?= $item['product_id'] ?>" data-service-id="<?= $service['id'] ?>" <?= $service['is_selected'] ? 'checked' : '' ?>>
+                                    <input type="checkbox" class="service-select-checkbox" 
+                                        data-config-key="<?= htmlspecialchars($service['config_key']) ?>"
+                                        data-service-id="<?= $service['id'] ?>" 
+                                        <?= $service['is_selected'] ? 'checked' : '' ?>>
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -2156,19 +2166,20 @@ async function toggleItemSelect(configKey, isSelected) {
     } catch(err) { console.error(err); }
 }
 
-async function toggleService(serviceId, productId, isSelected) {
+async function toggleService(configKey, serviceId, isSelected) {
     const formData = new FormData();
-    formData.append('action', 'toggle_service'); 
-    formData.append('service_id', serviceId); 
-    formData.append('product_id', productId); 
+    formData.append('action', 'toggle_service');
+    formData.append('config_key', configKey);
+    formData.append('service_id', serviceId);
     formData.append('selected', isSelected ? 'true' : 'false');
     try {
         const res = await fetch('cart.php', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            const cb = document.querySelector(`.service-select-checkbox[data-service-id="${serviceId}"][data-product-id="${productId}"]`);
+            const cb = document.querySelector(`.service-select-checkbox[data-config-key="${configKey}"][data-service-id="${serviceId}"]`);
             if (cb) cb.checked = isSelected;
             servicesTotal = data.services_total;
+            selectedServicesCount = Object.values(<?= json_encode(array_column($recommendedServices, 'services')) ?>).flat().filter(s => s.is_selected).length;
             document.getElementById('products-total').textContent = formatPrice(data.products_total);
             document.getElementById('total-display').textContent = formatPrice(data.selected_total);
             recalculateTotals();
@@ -2198,18 +2209,59 @@ function closeServiceDetailModal() { document.getElementById('serviceDetailModal
 const selectAll = document.getElementById('selectAllCheckbox');
 if (selectAll) {
     selectAll.checked = Array.from(document.querySelectorAll('.item-select')).every(cb => cb.checked);
-    selectAll.addEventListener('change', e => { document.querySelectorAll('.item-select').forEach(cb => { if (cb.checked !== e.target.checked) { cb.checked = e.target.checked; toggleItemSelect(cb.dataset.configKey, e.target.checked); } }); });
+    selectAll.addEventListener('change', e => { 
+        document.querySelectorAll('.item-select').forEach(cb => { 
+            if (cb.checked !== e.target.checked) { 
+                cb.checked = e.target.checked; 
+                toggleItemSelect(cb.dataset.configKey, e.target.checked); 
+            } 
+        }); 
+    });
 }
 
-document.querySelectorAll('.item-select').forEach(cb => { cb.addEventListener('change', function() { toggleItemSelect(this.dataset.configKey, this.checked); if (selectAll) selectAll.checked = Array.from(document.querySelectorAll('.item-select')).every(c => c.checked); }); });
-document.querySelectorAll('.service-select-checkbox').forEach(cb => { cb.addEventListener('change', function() { toggleService(parseInt(this.dataset.serviceId), parseInt(this.dataset.productId), this.checked); }); });
+document.querySelectorAll('.item-select').forEach(cb => { 
+    cb.addEventListener('change', function() { 
+        toggleItemSelect(this.dataset.configKey, this.checked); 
+        if (selectAll) selectAll.checked = Array.from(document.querySelectorAll('.item-select')).every(c => c.checked); 
+    }); 
+});
+
+document.querySelectorAll('.service-select-checkbox').forEach(cb => { 
+    cb.addEventListener('change', function() { 
+        toggleService(this.dataset.configKey, parseInt(this.dataset.serviceId), this.checked); 
+    }); 
+});
 
 async function checkout() {
     const method = currentDeliveryMethod;
     
+    // ПРОВЕРКА: есть ли выбранные товары, которые полностью отсутствуют на складе
+    let hasFullyOutOfStockSelected = false;
+    let outOfStockProducts = [];
+    
+    document.querySelectorAll('.item-select:checked').forEach(cb => {
+        const cartItem = cb.closest('.cart-item');
+        if (cartItem) {
+            const outOfStockWarning = cartItem.querySelector('.stock-warning.out');
+            if (outOfStockWarning) {
+                const productName = cartItem.querySelector('.cart-name')?.innerText || 'Товар';
+                outOfStockProducts.push(productName);
+                hasFullyOutOfStockSelected = true;
+            }
+        }
+    });
+    
+    if (hasFullyOutOfStockSelected) {
+        alert(`Оформление заказа невозможно!\n\nСледующие товары полностью отсутствуют на складе:\n${outOfStockProducts.join('\n')}\n\nПожалуйста, уберите их из корзины или добавьте в лист ожидания.`);
+        return;
+    }
+    
     // Проверяем, есть ли выбранные товары с положительной суммой к оплате
     let hasPayableItems = false;
+    let hasAnySelectedItem = false;
+    
     document.querySelectorAll('.item-select:checked').forEach(cb => {
+        hasAnySelectedItem = true;
         const cartItem = cb.closest('.cart-item');
         if (cartItem) {
             const subtotalSpan = cartItem.querySelector('.cart-subtotal-display span');
@@ -2225,7 +2277,7 @@ async function checkout() {
     
     const hasSelectedServices = document.querySelectorAll('.service-select-checkbox:checked').length > 0;
     
-    if (!hasPayableItems && !hasSelectedServices) {
+    if (hasAnySelectedItem && !hasPayableItems && !hasSelectedServices) {
         alert('Нет товаров, доступных для оплаты.\n\nВыберите товары, которые есть в наличии, или добавьте их в лист ожидания.');
         return;
     }

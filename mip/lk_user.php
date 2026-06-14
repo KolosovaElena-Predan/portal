@@ -113,13 +113,23 @@ $user_data = [
     'address' => $addressData
 ];
 
-// --- ЗАГРУЗКА ЗАКАЗОВ ---
+// ============================================
+// ИСПРАВЛЕННАЯ ЗАГРУЗКА ЗАКАЗОВ
+// ============================================
 $stmt = $pdo->prepare("
 SELECT
-    r.id, r.datetime, r.status, r.type, r.message, r.product_id,
-    p.name AS product_name, p.base_price AS product_price,
+    r.id, 
+    r.datetime, 
+    r.status, 
+    r.type, 
+    r.message, 
+    r.product_id,
+    p.name AS product_name, 
+    p.base_price AS product_price,
     (SELECT image_url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) AS product_img,
-    s.name AS service_name, s.price AS service_price, s.img_url AS service_img
+    s.name AS service_name, 
+    s.price AS service_price, 
+    s.img_url AS service_img
 FROM request r
 LEFT JOIN products p ON r.product_id = p.id AND r.type = 'r'
 LEFT JOIN services s ON (r.type = 's' AND JSON_UNQUOTE(JSON_EXTRACT(r.message, '$.service_id')) = s.id)
@@ -129,83 +139,68 @@ ORDER BY r.datetime DESC
 $stmt->execute([$user->id]);
 $raw_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$products = [];
-$servicesByProductId = []; 
+// ✅ ИСПРАВЛЕНО: каждая заявка - отдельный заказ (группируем по ID заявки)
+$orders = [];
 
 foreach ($raw_requests as $req) {
+    $orderId = $req['id'];
+    $msgData = json_decode($req['message'], true);
+    
+    // Если заказа с таким ID еще нет, создаем
+    if (!isset($orders[$orderId])) {
+        $orders[$orderId] = [
+            'id' => $orderId,
+            'datetime' => $req['datetime'],
+            'status' => $req['status'],
+            'items' => [],
+            'total_price' => 0,
+            'address' => $msgData['address'] ?? '',
+            'status_history' => getStatusHistory($pdo, $orderId),
+            'chat_messages' => getChatMessages($pdo, $orderId)
+        ];
+    }
+    
+    // Добавляем товар или услугу в заказ
     if ($req['type'] === 'r') {
-        $msgData = json_decode($req['message'], true);
         $price = isset($msgData['line_total']) ? (float)$msgData['line_total'] : ((float)($req['product_price'] ?? 0) * ((int)($msgData['quantity'] ?? 1)));
         
-        $products[$req['id']] = [
-            'id' => $req['id'], 'datetime' => $req['datetime'], 'status' => $req['status'],
-            'type' => 'product', 'product_id' => $req['product_id'],
-            'name' => $req['product_name'] ?? 'Товар', 'price' => $price,
-            'img' => $req['product_img'] ?: 'img/placeholder.jpg',
-            'message' => $msgData,
-            'quantity' => (int)($msgData['quantity'] ?? 1),
-            'configuration_name' => $msgData['configuration_name'] ?? '',
-            'modifications' => $msgData['modifications'] ?? [],
-            'address' => $msgData['address'] ?? '',
-            'status_history' => getStatusHistory($pdo, $req['id']),
-            'chat_messages' => getChatMessages($pdo, $req['id'])
+        $orders[$orderId]['items'][] = [
+            'type' => 'product',
+            'data' => [
+                'id' => $req['id'],
+                'product_id' => $req['product_id'],
+                'name' => $req['product_name'] ?? 'Товар',
+                'price' => $price,
+                'img' => $req['product_img'] ?: 'img/placeholder.jpg',
+                'quantity' => (int)($msgData['quantity'] ?? 1),
+                'configuration_name' => $msgData['configuration_name'] ?? '',
+                'modifications' => $msgData['modifications'] ?? []
+            ]
         ];
-    } else {
-        $serviceDetails = json_decode($req['message'], true);
-        $service = [
-            'id' => $req['id'], 'datetime' => $req['datetime'], 'status' => $req['status'],
-            'type' => 'service', 'name' => $req['service_name'] ?? 'Услуга',
-            'price' => (float)($req['service_price'] ?? ($serviceDetails['price'] ?? 0)),
-            'img' => $req['service_img'] ?: null,
-            'linked_product_id' => $serviceDetails['product_id'] ?? null,
-            'status_history' => getStatusHistory($pdo, $req['id']),
-            'chat_messages' => getChatMessages($pdo, $req['id'])
+        $orders[$orderId]['total_price'] += $price;
+        
+    } elseif ($req['type'] === 's') {
+        $price = (float)($req['service_price'] ?? ($msgData['price'] ?? 0));
+        
+        $orders[$orderId]['items'][] = [
+            'type' => 'service',
+            'data' => [
+                'id' => $req['id'],
+                'name' => $req['service_name'] ?? 'Услуга',
+                'price' => $price,
+                'img' => $req['service_img'] ?? null,
+                'linked_product_id' => $msgData['product_id'] ?? null
+            ]
         ];
-        $linkedProductId = $service['linked_product_id'] ?? 'orphan';
-        if (!isset($servicesByProductId[$linkedProductId])) $servicesByProductId[$linkedProductId] = [];
-        $servicesByProductId[$linkedProductId][] = $service;
+        $orders[$orderId]['total_price'] += $price;
     }
 }
 
-// Формируем заказы
-$orders = [];
-$usedServiceIds = [];
-
-foreach ($products as $productId => $product) {
-    $order = [
-        'id' => $product['id'], 'datetime' => $product['datetime'], 'status' => $product['status'],
-        'items' => [], 'total_price' => 0,
-        'status_history' => $product['status_history'], 'chat_messages' => $product['chat_messages'],
-        'address' => $product['address']
-    ];
-    $order['items'][] = ['type' => 'product', 'data' => $product];
-    $order['total_price'] += $product['price'];
-    
-    if (isset($servicesByProductId[$product['product_id']])) {
-        foreach ($servicesByProductId[$product['product_id']] as $service) {
-            $order['items'][] = ['type' => 'service', 'data' => $service];
-            $order['total_price'] += $service['price'];
-            $usedServiceIds[] = $service['id'];
-        }
-        unset($servicesByProductId[$product['product_id']]);
-    }
-    $orders[] = $order;
-}
-
-foreach ($servicesByProductId as $groupId => $servicesList) {
-    foreach ($servicesList as $service) {
-        if (in_array($service['id'], $usedServiceIds)) continue;
-        $orders[] = [
-            'id' => $service['id'], 'datetime' => $service['datetime'], 'status' => $service['status'],
-            'items' => [['type' => 'service', 'data' => $service]],
-            'total_price' => $service['price'],
-            'status_history' => $service['status_history'], 'chat_messages' => $service['chat_messages'],
-            'address' => ''
-        ];
-    }
-}
-
-usort($orders, function($a, $b) { return strtotime($b['datetime']) - strtotime($a['datetime']); });
+// Преобразуем ассоциативный массив в индексированный и сортируем
+$orders = array_values($orders);
+usort($orders, function($a, $b) { 
+    return strtotime($b['datetime']) - strtotime($a['datetime']); 
+});
 
 // Разделяем заказы на активные и завершенные
 $activeOrders = [];
@@ -876,6 +871,13 @@ $waitingListCount = $stmt->fetchColumn();
                     <?php else: ?>
                         <?php $service = $item['data']; ?>
                         <div class="order-item">
+                            <?php if (!empty($service['img'])): ?>
+                                <img src="<?= htmlspecialchars($service['img']) ?>" class="order-item-img" onerror="this.style.display='none'">
+                            <?php else: ?>
+                                <div class="order-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f6f4;">
+                                    <i class="fas fa-cogs" style="font-size: 30px; color: #00a896;"></i>
+                                </div>
+                            <?php endif; ?>
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($service['name']) ?></div>
                                 <div class="order-item-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
@@ -884,7 +886,7 @@ $waitingListCount = $stmt->fetchColumn();
                     <?php endif; ?>
                 <?php endforeach; ?>
                 <?php if (!empty($order['address'])): ?>
-                <div class="order-item-meta" style="margin-top: 12px; padding-top: 12px;">
+                <div class="order-item-meta" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f6f4;">
                     <strong>Адрес доставки:</strong> <?= htmlspecialchars($order['address']) ?>
                 </div>
                 <?php endif; ?>
@@ -897,8 +899,13 @@ $waitingListCount = $stmt->fetchColumn();
                     <button class="btn-detail" onclick="openChatModal(<?= $order['id'] ?>)">Чат</button>
                     <?php 
                     $firstProduct = null;
-                    foreach ($order['items'] as $item) { if ($item['type'] === 'product') { $firstProduct = $item['data']; break; } }
-                    if ($firstProduct): ?>
+                    foreach ($order['items'] as $item) { 
+                        if ($item['type'] === 'product') { 
+                            $firstProduct = $item['data']; 
+                            break; 
+                        } 
+                    }
+                    if ($firstProduct && isset($firstProduct['product_id'])): ?>
                     <a href="product.php?id=<?= $firstProduct['product_id'] ?>" class="btn-detail">Подробнее</a>
                     <?php endif; ?>
                 </div>
@@ -940,6 +947,13 @@ $waitingListCount = $stmt->fetchColumn();
                     <?php else: ?>
                         <?php $service = $item['data']; ?>
                         <div class="order-item">
+                            <?php if (!empty($service['img'])): ?>
+                                <img src="<?= htmlspecialchars($service['img']) ?>" class="order-item-img" onerror="this.style.display='none'">
+                            <?php else: ?>
+                                <div class="order-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f6f4;">
+                                    <i class="fas fa-cogs" style="font-size: 30px; color: #00a896;"></i>
+                                </div>
+                            <?php endif; ?>
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($service['name']) ?></div>
                                 <div class="order-item-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
