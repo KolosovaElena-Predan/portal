@@ -114,109 +114,90 @@ $user_data = [
 ];
 
 // ============================================
-// ЗАГРУЗКА ЗАКАЗОВ (привязка услуг через JSON)
+// ИСПРАВЛЕННАЯ ЗАГРУЗКА ЗАКАЗОВ
 // ============================================
-
 $stmt = $pdo->prepare("
-    SELECT 
-        r.id, 
-        r.datetime, 
-        r.status, 
-        r.type, 
-        r.message, 
-        r.product_id,
-        p.name AS product_name, 
-        p.base_price AS product_price,
-        (SELECT image_url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) AS product_img,
-        s.name AS service_name, 
-        s.price AS service_price, 
-        s.img_url AS service_img
-    FROM request r
-    LEFT JOIN products p ON r.product_id = p.id AND r.type = 'r'
-    LEFT JOIN services s ON (r.type = 's' AND JSON_UNQUOTE(JSON_EXTRACT(r.message, '$.service_id')) = s.id)
-    WHERE r.user_id = ? AND r.type IN ('r', 's')
-    ORDER BY r.datetime DESC
+SELECT
+    r.id, 
+    r.datetime, 
+    r.status, 
+    r.type, 
+    r.message, 
+    r.product_id,
+    p.name AS product_name, 
+    p.base_price AS product_price,
+    (SELECT image_url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) AS product_img,
+    s.name AS service_name, 
+    s.price AS service_price, 
+    s.img_url AS service_img
+FROM request r
+LEFT JOIN products p ON r.product_id = p.id AND r.type = 'r'
+LEFT JOIN services s ON (r.type = 's' AND JSON_UNQUOTE(JSON_EXTRACT(r.message, '$.service_id')) = s.id)
+WHERE r.user_id = ? AND r.type IN ('r', 's')
+ORDER BY r.datetime DESC
 ");
 $stmt->execute([$user->id]);
 $raw_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Группируем заказы и услуги
+// ✅ ИСПРАВЛЕНО: каждая заявка - отдельный заказ (группируем по ID заявки)
 $orders = [];
 
 foreach ($raw_requests as $req) {
+    $orderId = $req['id'];
     $msgData = json_decode($req['message'], true);
     
-    if ($req['type'] === 'r') {
-        // Товарный заказ
-        $price = isset($msgData['line_total']) ? (float)$msgData['line_total'] : ((float)($req['product_price'] ?? 0) * ((int)($msgData['quantity'] ?? 1)));
-        
-        $orders[$req['id']] = [
-            'id' => $req['id'],
+    // Если заказа с таким ID еще нет, создаем
+    if (!isset($orders[$orderId])) {
+        $orders[$orderId] = [
+            'id' => $orderId,
             'datetime' => $req['datetime'],
             'status' => $req['status'],
             'items' => [],
             'total_price' => 0,
             'address' => $msgData['address'] ?? '',
-            'status_history' => getStatusHistory($pdo, $req['id']),
-            'chat_messages' => getChatMessages($pdo, $req['id'])
+            'status_history' => getStatusHistory($pdo, $orderId),
+            'chat_messages' => getChatMessages($pdo, $orderId)
         ];
+    }
+    
+    // Добавляем товар или услугу в заказ
+    if ($req['type'] === 'r') {
+        $price = isset($msgData['line_total']) ? (float)$msgData['line_total'] : ((float)($req['product_price'] ?? 0) * ((int)($msgData['quantity'] ?? 1)));
         
-        $orders[$req['id']]['items'][] = [
+        $orders[$orderId]['items'][] = [
             'type' => 'product',
             'data' => [
-                'request_id' => $req['id'],
+                'id' => $req['id'],
                 'product_id' => $req['product_id'],
-                'name' => $req['product_name'] ?? ($msgData['product_name'] ?? 'Товар'),
+                'name' => $req['product_name'] ?? 'Товар',
                 'price' => $price,
-                'img' => $req['product_img'] ?? 'img/placeholder.jpg',
+                'img' => $req['product_img'] ?: 'img/placeholder.jpg',
                 'quantity' => (int)($msgData['quantity'] ?? 1),
                 'configuration_name' => $msgData['configuration_name'] ?? '',
                 'modifications' => $msgData['modifications'] ?? []
             ]
         ];
-        $orders[$req['id']]['total_price'] += $price;
+        $orders[$orderId]['total_price'] += $price;
         
     } elseif ($req['type'] === 's') {
-        // Услуга - ищем linked_order_id в JSON
         $price = (float)($req['service_price'] ?? ($msgData['price'] ?? 0));
-        $linkedOrderId = $msgData['linked_order_id'] ?? null;
         
-        $serviceData = [
+        $orders[$orderId]['items'][] = [
             'type' => 'service',
             'data' => [
-                'request_id' => $req['id'],
-                'name' => $req['service_name'] ?? ($msgData['service_name'] ?? ($msgData['name'] ?? 'Услуга')),
+                'id' => $req['id'],
+                'name' => $req['service_name'] ?? 'Услуга',
                 'price' => $price,
                 'img' => $req['service_img'] ?? null,
-                'linked_order_id' => $linkedOrderId,
-                'description' => $msgData['description'] ?? '',
-                'duration' => $msgData['duration'] ?? ''
-            ],
-            'status_history' => getStatusHistory($pdo, $req['id']),
-            'chat_messages' => getChatMessages($pdo, $req['id'])
+                'linked_product_id' => $msgData['product_id'] ?? null
+            ]
         ];
-        
-        if ($linkedOrderId && isset($orders[$linkedOrderId])) {
-            // Услуга привязана к заказу
-            $orders[$linkedOrderId]['items'][] = $serviceData;
-            $orders[$linkedOrderId]['total_price'] += $price;
-        } else {
-            // Услуга без привязки - создаем отдельный заказ
-            $orders[$req['id']] = [
-                'id' => $req['id'],
-                'datetime' => $req['datetime'],
-                'status' => $req['status'],
-                'items' => [$serviceData],
-                'total_price' => $price,
-                'address' => $msgData['address'] ?? '',
-                'status_history' => $serviceData['status_history'],
-                'chat_messages' => $serviceData['chat_messages']
-            ];
-        }
+        $orders[$orderId]['total_price'] += $price;
     }
 }
 
-// Сортируем заказы по дате (новые сверху)
+// Преобразуем ассоциативный массив в индексированный и сортируем
+$orders = array_values($orders);
 usort($orders, function($a, $b) { 
     return strtotime($b['datetime']) - strtotime($a['datetime']); 
 });
@@ -241,40 +222,10 @@ foreach ($orders as $order) {
     }
 }
 
-// Подсчет количества услуг в каждом заказе
-foreach ($activeOrders as &$order) {
-    $servicesCount = 0;
-    foreach ($order['items'] as $item) {
-        if ($item['type'] === 'service') {
-            $servicesCount++;
-        }
-    }
-    $order['services_count'] = $servicesCount;
-}
-foreach ($completedOrders as &$order) {
-    $servicesCount = 0;
-    foreach ($order['items'] as $item) {
-        if ($item['type'] === 'service') {
-            $servicesCount++;
-        }
-    }
-    $order['services_count'] = $servicesCount;
-}
-
 $waitingListCount = 0;
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM request WHERE user_id = ? AND type = 'wl'");
 $stmt->execute([$user->id]);
 $waitingListCount = $stmt->fetchColumn();
-
-// Функция для склонения
-function declension($number, $one, $two, $five) {
-    $number = abs($number) % 100;
-    if ($number > 10 && $number < 20) return $five;
-    $number %= 10;
-    if ($number == 1) return $one;
-    if ($number >= 2 && $number <= 4) return $two;
-    return $five;
-}
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -290,108 +241,589 @@ function declension($number, $one, $two, $five) {
 <link rel="stylesheet" href="css/header_mip.css" />
 <link rel="stylesheet" href="css/style_lk.css" />
 <style>
-/* Стили как в предыдущей версии */
-* { font-family: 'Inter', sans-serif; }
-.lk-content { margin-top: 40px; padding-left: 80px; padding-right: 80px; width: 100%; max-width: 1600px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
-.completed-section { margin-top: 40px; }
-.completed-section .type-title { color: #4a6a65; }
-.completed-orders-note { font-size: 15px; font-weight: 400; color: #4a6a65; margin-bottom: 20px; padding: 12px 16px; background: #f0f6f4; border-radius: 8px; text-align: center; }
-.order-card { background: #ffffff; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08); overflow: hidden; border: 1px solid #e0e8e5; transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.order-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 168, 150, 0.15); border-color: #00a896; }
-.order-header { background: #ffffff; padding: 18px 24px; border-bottom: 1px solid #e0e8e5; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-.order-id { font-size: 16px; font-weight: 500; color: #4a6a65; }
-.order-id strong { font-weight: 700; color: #00302e; font-size: 17px; }
-.order-date { font-size: 16px; font-weight: 400; color: #4a6a65; margin-left: auto; }
-.order-status { display: flex; align-items: center; gap: 10px; }
-.order-items { padding: 18px 24px; background: #ffffff; }
-.order-item { display: flex; gap: 18px; padding: 16px 0; border-bottom: 1px solid #f0f6f4; }
-.order-item:last-child { border-bottom: none; }
-.order-item-img { width: 90px; height: 90px; object-fit: cover; border-radius: 12px; background: #f0f6f4; }
-.order-item-details { flex: 1; }
-.order-item-name { font-weight: 600; font-size: 18px; color: #00302e; margin-bottom: 8px; }
-.order-item-meta { font-size: 15px; font-weight: 400; color: #4a6a65; margin-bottom: 6px; }
-.order-item-price { font-size: 17px; font-weight: 700; color: #00a896; }
-.order-footer { padding: 16px 24px; background: #ffffff; border-top: 1px solid #e0e8e5; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-.order-total { font-size: 19px; font-weight: 700; color: #00302e; }
-.order-actions { display: flex; gap: 12px; }
-.status-badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: 500; }
-.btn-detail { background: #e8f4f1; border: 1px solid #00a896; color: #00a896; padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
-.btn-detail:hover { background: #00a896; color: #fff; }
-.modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 48, 46, 0.8); justify-content: center; align-items: center; }
-.modal-overlay.active { display: flex; }
-.modal-window { background: #fff; border-radius: 20px; max-width: 650px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); margin-top: 0; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 2px solid #e0e8e5; }
-.modal-header h3 { margin: 0; font-size: 20px; font-weight: 600; color: #00302e; }
-.modal-close { background: none; border: none; font-size: 26px; cursor: pointer; color: #4a6a65; }
-.modal-close:hover { color: #00a896; }
-.modal-body { padding: 24px; }
-.modal-footer { padding: 16px 24px; border-top: 1px solid #e0e8e5; display: flex; justify-content: flex-end; gap: 12px; }
-.btn-cancel, .btn-save { padding: 10px 24px; border-radius: 8px; cursor: pointer; border: none; font-size: 14px; font-weight: 500; }
-.btn-cancel { background: #e0e8e5; color: #4a6a65; }
-.btn-cancel:hover { background: #d0ddd9; color: #00302e; }
-.btn-save { background: #00a896; color: #fff; }
-.btn-save:hover { background: #008a7a; }
-.status-timeline-modal { padding: 10px; position: relative; padding-left: 30px; }
-.status-timeline-modal::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e0e8e5; }
-.status-timeline-item { position: relative; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed #e0e8e5; }
-.status-timeline-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-.status-timeline-item::before { content: ''; position: absolute; left: -26px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: #00a896; border: 3px solid #fff; box-shadow: 0 0 0 2px #e0e8e5; }
-.status-timeline-item.completed::before { background: #28a745; }
-.status-timeline-item.current::before { background: #00a896; box-shadow: 0 0 0 2px #00a896; }
-.status-timeline-date { font-size: 13px; font-weight: 400; color: #4a6a65; margin-bottom: 5px; }
-.status-timeline-text { font-size: 16px; font-weight: 600; color: #00302e; }
-.status-timeline-comment { font-size: 14px; font-weight: 400; color: #4a6a65; margin-top: 6px; padding: 10px 14px; background: #f0f6f4; border-radius: 8px; }
-.chat-messages-modal { max-height: 400px; overflow-y: auto; margin-bottom: 20px; background: #fafafc; border-radius: 12px; border: 1px solid #e0e8e5; padding: 12px; }
-.chat-message { padding: 12px 18px; margin-bottom: 14px; border-radius: 14px; font-size: 15px; font-weight: 400; line-height: 1.5; }
-.chat-message-user { background: #d4f5f0; color: #00302e; text-align: right; margin-left: auto; border-bottom-right-radius: 4px; }
-.chat-message-support { background: #f0f6f4; color: #00302e; margin-right: auto; border-bottom-left-radius: 4px; }
-.chat-message-author { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #00a896; }
-.chat-message-time { font-size: 11px; font-weight: 400; color: #4a6a65; margin-top: 6px; }
-.chat-message-files { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.05); }
-.chat-file-link { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,168,150,0.1); padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; color: #00a896; margin-right: 8px; margin-bottom: 5px; transition: all 0.3s ease; }
-.chat-file-link:hover { background: #00a896; color: #fff; }
-.chat-reply-form-modal { display: flex; flex-direction: column; gap: 12px; }
-.chat-input-area { display: flex; gap: 10px; align-items: flex-start; }
-.chat-reply-input-modal { flex: 1; padding: 12px 14px; border: 2px solid #e0e8e5; border-radius: 12px; resize: vertical; font-size: 15px; font-family: 'Inter', sans-serif; }
-.chat-reply-input-modal:focus { border-color: #00a896; outline: none; }
-.chat-reply-btn-modal { background: #00a896; color: #fff; border: none; padding: 12px 22px; border-radius: 12px; cursor: pointer; font-size: 15px; font-weight: 500; white-space: nowrap; }
-.chat-reply-btn-modal:hover { background: #008a7a; }
-.chat-file-attach { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.chat-file-label { display: inline-flex; align-items: center; gap: 6px; background: #f0f6f4; border: 1px solid #e0e8e5; color: #4a6a65; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.3s ease; }
-.chat-file-label:hover { background: #e0e8e5; color: #00302e; }
-.chat-file-input { display: none; }
-.selected-file-name { font-size: 12px; color: #4a6a65; background: #f0f6f4; padding: 6px 12px; border-radius: 6px; }
-.upload-progress { font-size: 12px; color: #00a896; }
-.personal-data { background: #ffffff; padding: 24px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #e0e8e5; box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08); }
-.personal-data h3 { margin-top: 0; margin-bottom: 20px; font-size: 22px; font-weight: 600; color: #00302e; }
-.personal-data p { margin: 14px 0; font-size: 16px; font-weight: 400; color: #4a6a65; }
-.personal-data p strong { font-weight: 600; color: #00a896; }
-.edit-profile-btn, .cart-link, .waiting-link { display: block; width: 100%; margin-top: 12px; padding: 14px 16px; background: #00a896; color: #fff; border: none; border-radius: 10px; cursor: pointer; text-decoration: none; font-size: 16px; font-weight: 500; text-align: center; box-sizing: border-box; }
-.edit-profile-btn:hover, .cart-link:hover { background: #008a7a; }
-.waiting-link { background: #17a2b8; }
-.waiting-link:hover { background: #138496; }
-.logout-link { background: #dc3545; }
-.logout-link:hover { background: #b02a37; }
-.profile-form .form-group { margin-bottom: 18px; }
-.profile-form .form-group label { display: block; margin-bottom: 6px; font-size: 15px; font-weight: 500; color: #00302e; }
-.profile-form .form-group input, .profile-form .form-group textarea { width: 100%; padding: 12px 14px; border: 2px solid #e0e8e5; border-radius: 10px; box-sizing: border-box; font-size: 15px; font-weight: 400; font-family: 'Inter', sans-serif; }
-.profile-form .form-group input:focus { border-color: #00a896; outline: none; }
-.profile-form .form-group small { font-size: 12px; font-weight: 400; color: #4a6a65; }
-.address-row { display: flex; gap: 12px; }
-.address-row .form-group { flex: 1; }
-.lk-title { font-size: 36px; font-weight: 700; color: #00302e; margin-bottom: 40px; }
-.type-title { font-size: 26px; font-weight: 700; color: #00302e; margin: 30px 0 20px; padding-bottom: 12px; border-bottom: 2px solid #e0e8e5; }
-.no-orders { font-size: 16px; font-weight: 400; color: #4a6a65; text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e0e8e5; }
-.services-badge { display: inline-flex; align-items: center; gap: 5px; background: #e8f4f1; color: #00a896; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-left: 10px; }
-.services-badge i { font-size: 12px; }
-.services-list-mini { margin-top: 8px; padding-left: 20px; border-left: 2px solid #e0e8e5; }
-.service-item-mini { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: #4a6a65; border-bottom: 1px dashed #f0f6f4; }
-.service-item-mini:last-child { border-bottom: none; }
-.service-name-mini { font-weight: 500; }
-.service-price-mini { color: #00a896; font-weight: 600; }
-@media (max-width: 1200px) { .lk-content { padding-left: 60px; padding-right: 60px; } }
-@media (max-width: 900px) { .lk-content { padding-left: 40px; padding-right: 40px; } }
-@media (max-width: 600px) { .lk-content { margin-top: 30px; padding-left: 20px; padding-right: 20px; } .lk-title { font-size: 28px; } .type-title { font-size: 22px; } .chat-input-area { flex-direction: column; } .chat-reply-btn-modal { width: 100%; } }
+* {
+    font-family: 'Inter', sans-serif;
+}
+
+.lk-content {
+    margin-top: 40px;
+    padding-left: 80px;
+    padding-right: 80px;
+    width: 100%;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+.completed-section {
+    margin-top: 40px;
+}
+.completed-section .type-title {
+    color: #4a6a65;
+}
+.completed-orders-note {
+    font-size: 15px;
+    font-weight: 400;
+    color: #4a6a65;
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: #f0f6f4;
+    border-radius: 8px;
+    text-align: center;
+}
+.order-card {
+    background: #ffffff;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08);
+    overflow: hidden;
+    border: 1px solid #e0e8e5;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.order-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 168, 150, 0.15);
+    border-color: #00a896;
+}
+.order-header {
+    background: #ffffff;
+    padding: 18px 24px;
+    border-bottom: 1px solid #e0e8e5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.order-id {
+    font-size: 16px;
+    font-weight: 500;
+    color: #4a6a65;
+}
+.order-id strong {
+    font-weight: 700;
+    color: #00302e;
+    font-size: 17px;
+}
+.order-date {
+    font-size: 16px;
+    font-weight: 400;
+    color: #4a6a65;
+    margin-left: auto;
+}
+.order-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.order-items {
+    padding: 18px 24px;
+    background: #ffffff;
+}
+.order-item {
+    display: flex;
+    gap: 18px;
+    padding: 16px 0;
+    border-bottom: 1px solid #f0f6f4;
+}
+.order-item:last-child {
+    border-bottom: none;
+}
+.order-item-img {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #f0f6f4;
+}
+.order-item-details {
+    flex: 1;
+}
+.order-item-name {
+    font-weight: 600;
+    font-size: 18px;
+    color: #00302e;
+    margin-bottom: 8px;
+}
+.order-item-meta {
+    font-size: 15px;
+    font-weight: 400;
+    color: #4a6a65;
+    margin-bottom: 6px;
+}
+.order-item-price {
+    font-size: 17px;
+    font-weight: 700;
+    color: #00a896;
+}
+.order-footer {
+    padding: 16px 24px;
+    background: #ffffff;
+    border-top: 1px solid #e0e8e5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.order-total {
+    font-size: 19px;
+    font-weight: 700;
+    color: #00302e;
+}
+.order-actions {
+    display: flex;
+    gap: 12px;
+}
+.status-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-detail {
+    background: #e8f4f1;
+    border: 1px solid #00a896;
+    color: #00a896;
+    padding: 9px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.btn-detail:hover {
+    background: #00a896;
+    color: #fff;
+}
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 48, 46, 0.8);
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.active {
+    display: flex;
+}
+.modal-window {
+    background: #fff;
+    border-radius: 20px;
+    max-width: 650px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    margin-top: 0;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid #e0e8e5;
+}
+.modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #00302e;
+}
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: #4a6a65;
+}
+.modal-close:hover {
+    color: #00a896;
+}
+.modal-body {
+    padding: 24px;
+}
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e0e8e5;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+.btn-cancel, .btn-save {
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+.btn-cancel {
+    background: #e0e8e5;
+    color: #4a6a65;
+}
+.btn-cancel:hover {
+    background: #d0ddd9;
+    color: #00302e;
+}
+.btn-save {
+    background: #00a896;
+    color: #fff;
+}
+.btn-save:hover {
+    background: #008a7a;
+}
+
+.status-timeline-modal {
+    padding: 10px;
+    position: relative;
+    padding-left: 30px;
+}
+.status-timeline-modal::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e0e8e5;
+}
+.status-timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #e0e8e5;
+}
+.status-timeline-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.status-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 4px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #00a896;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #e0e8e5;
+}
+.status-timeline-item.completed::before {
+    background: #28a745;
+}
+.status-timeline-item.current::before {
+    background: #00a896;
+    box-shadow: 0 0 0 2px #00a896;
+}
+.status-timeline-date {
+    font-size: 13px;
+    font-weight: 400;
+    color: #4a6a65;
+    margin-bottom: 5px;
+}
+.status-timeline-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #00302e;
+}
+.status-timeline-comment {
+    font-size: 14px;
+    font-weight: 400;
+    color: #4a6a65;
+    margin-top: 6px;
+    padding: 10px 14px;
+    background: #f0f6f4;
+    border-radius: 8px;
+}
+
+.chat-messages-modal {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    background: #fafafc;
+    border-radius: 12px;
+    border: 1px solid #e0e8e5;
+    padding: 12px;
+}
+.chat-message {
+    padding: 12px 18px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+.chat-message-user {
+    background: #d4f5f0;
+    color: #00302e;
+    text-align: right;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+}
+.chat-message-support {
+    background: #f0f6f4;
+    color: #00302e;
+    margin-right: auto;
+    border-bottom-left-radius: 4px;
+}
+.chat-message-author {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #00a896;
+}
+.chat-message-time {
+    font-size: 11px;
+    font-weight: 400;
+    color: #4a6a65;
+    margin-top: 6px;
+}
+.chat-message-files {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+.chat-file-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,168,150,0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+    color: #00a896;
+    margin-right: 8px;
+    margin-bottom: 5px;
+    transition: all 0.3s ease;
+}
+.chat-file-link:hover {
+    background: #00a896;
+    color: #fff;
+}
+.chat-reply-form-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.chat-input-area {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+.chat-reply-input-modal {
+    flex: 1;
+    padding: 12px 14px;
+    border: 2px solid #e0e8e5;
+    border-radius: 12px;
+    resize: vertical;
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+}
+.chat-reply-input-modal:focus {
+    border-color: #00a896;
+    outline: none;
+}
+.chat-reply-btn-modal {
+    background: #00a896;
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.chat-reply-btn-modal:hover {
+    background: #008a7a;
+}
+.chat-file-attach {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.chat-file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0f6f4;
+    border: 1px solid #e0e8e5;
+    color: #4a6a65;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+.chat-file-label:hover {
+    background: #e0e8e5;
+    color: #00302e;
+}
+.chat-file-input {
+    display: none;
+}
+.selected-file-name {
+    font-size: 12px;
+    color: #4a6a65;
+    background: #f0f6f4;
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+.upload-progress {
+    font-size: 12px;
+    color: #00a896;
+}
+
+.personal-data {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    border: 1px solid #e0e8e5;
+    box-shadow: 0 4px 12px rgba(0, 168, 150, 0.08);
+}
+.personal-data h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 22px;
+    font-weight: 600;
+    color: #00302e;
+}
+.personal-data p {
+    margin: 14px 0;
+    font-size: 16px;
+    font-weight: 400;
+    color: #4a6a65;
+}
+.personal-data p strong {
+    font-weight: 600;
+    color: #00a896;
+}
+.edit-profile-btn, .cart-link, .waiting-link {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: #00a896;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
+    box-sizing: border-box;
+}
+.edit-profile-btn:hover, .cart-link:hover {
+    background: #008a7a;
+}
+.waiting-link {
+    background: #17a2b8;
+}
+.waiting-link:hover {
+    background: #138496;
+}
+.logout-link {
+    background: #dc3545;
+}
+.logout-link:hover {
+    background: #b02a37;
+}
+
+.profile-form .form-group {
+    margin-bottom: 18px;
+}
+.profile-form .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #00302e;
+}
+.profile-form .form-group input, .profile-form .form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e0e8e5;
+    border-radius: 10px;
+    box-sizing: border-box;
+    font-size: 15px;
+    font-weight: 400;
+    font-family: 'Inter', sans-serif;
+}
+.profile-form .form-group input:focus {
+    border-color: #00a896;
+    outline: none;
+}
+.profile-form .form-group small {
+    font-size: 12px;
+    font-weight: 400;
+    color: #4a6a65;
+}
+.address-row {
+    display: flex;
+    gap: 12px;
+}
+.address-row .form-group {
+    flex: 1;
+}
+
+.lk-title {
+    font-size: 36px;
+    font-weight: 700;
+    color: #00302e;
+    margin-bottom: 40px;
+}
+.type-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #00302e;
+    margin: 30px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e0e8e5;
+}
+.no-orders {
+    font-size: 16px;
+    font-weight: 400;
+    color: #4a6a65;
+    text-align: center;
+    padding: 60px 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e0e8e5;
+}
+
+@media (max-width: 1200px) {
+    .lk-content { padding-left: 60px; padding-right: 60px; }
+}
+@media (max-width: 900px) {
+    .lk-content { padding-left: 40px; padding-right: 40px; }
+}
+@media (max-width: 600px) {
+    .lk-content { margin-top: 30px; padding-left: 20px; padding-right: 20px; }
+    .lk-title { font-size: 28px; }
+    .type-title { font-size: 22px; }
+    .chat-input-area { flex-direction: column; }
+    .chat-reply-btn-modal { width: 100%; }
+}
 </style>
 <title>Личный кабинет</title>
 </head>
@@ -414,14 +846,7 @@ function declension($number, $one, $two, $five) {
         <?php foreach ($activeOrders as $order): ?>
         <div class="order-card">
             <div class="order-header">
-                <div class="order-id">
-                    <strong>Заказ №<?= $order['id'] ?></strong>
-                    <?php if ($order['services_count'] > 0): ?>
-                        <span class="services-badge">
-                            </i> <?= $order['services_count'] ?> <?= declension($order['services_count'], 'услуга', 'услуги', 'услуг') ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
+                <div class="order-id"><strong>Заказ №<?= $order['id'] ?></strong></div>
                 <div class="order-date"><?= date('d.m.Y H:i', strtotime($order['datetime'])) ?></div>
                 <div class="order-status">
                     <span class="status-badge" style="background-color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>20; color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>;">
@@ -438,38 +863,32 @@ function declension($number, $one, $two, $five) {
                             <img src="<?= htmlspecialchars($product['img']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($product['name']) ?></div>
-                                <?php if ($product['quantity'] > 1): ?>
-                                    <div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div>
-                                <?php endif; ?>
-                                <?php if (!empty($product['configuration_name'])): ?>
-                                    <div class="order-item-meta">Комплектация: <?= htmlspecialchars($product['configuration_name']) ?></div>
-                                <?php endif; ?>
+                                <?php if ($product['quantity'] > 1): ?><div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div><?php endif; ?>
+                                <?php if (!empty($product['configuration_name'])): ?><div class="order-item-meta">Комплектация: <?= htmlspecialchars($product['configuration_name']) ?></div><?php endif; ?>
                                 <div class="order-item-price"><?= number_format($product['price'], 2, ',', ' ') ?> ₽</div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php $service = $item['data']; ?>
+                        <div class="order-item">
+                            <?php if (!empty($service['img'])): ?>
+                                <img src="<?= htmlspecialchars($service['img']) ?>" class="order-item-img" onerror="this.style.display='none'">
+                            <?php else: ?>
+                                <div class="order-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f6f4;">
+                                    <i class="fas fa-cogs" style="font-size: 30px; color: #00a896;"></i>
+                                </div>
+                            <?php endif; ?>
+                            <div class="order-item-details">
+                                <div class="order-item-name"><?= htmlspecialchars($service['name']) ?></div>
+                                <div class="order-item-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
                             </div>
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
-                
-                <?php if ($order['services_count'] > 0): ?>
-                    <div class="services-list-mini">
-                        <?php foreach ($order['items'] as $item): ?>
-                            <?php if ($item['type'] === 'service'): ?>
-                                <?php $service = $item['data']; ?>
-                                <div class="service-item-mini">
-                                    <span class="service-name-mini">
-                                         <?= htmlspecialchars($service['name']) ?>
-                                    </span>
-                                    <span class="service-price-mini"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</span>
-                                </div>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-                
                 <?php if (!empty($order['address'])): ?>
-                    <div class="order-item-meta" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f6f4;">
-                        <strong>Адрес доставки:</strong> <?= htmlspecialchars($order['address']) ?>
-                    </div>
+                <div class="order-item-meta" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f6f4;">
+                    <strong>Адрес доставки:</strong> <?= htmlspecialchars($order['address']) ?>
+                </div>
                 <?php endif; ?>
             </div>
             
@@ -504,14 +923,7 @@ function declension($number, $one, $two, $five) {
         <?php foreach ($completedOrders as $order): ?>
         <div class="order-card">
             <div class="order-header">
-                <div class="order-id">
-                    <strong>Заказ №<?= $order['id'] ?></strong>
-                    <?php if ($order['services_count'] > 0): ?>
-                        <span class="services-badge">
-                            <?= $order['services_count'] ?> <?= declension($order['services_count'], 'услуга', 'услуги', 'услуг') ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
+                <div class="order-id"><strong>Заказ №<?= $order['id'] ?></strong></div>
                 <div class="order-date"><?= date('d.m.Y H:i', strtotime($order['datetime'])) ?></div>
                 <div class="order-status">
                     <span class="status-badge" style="background-color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>20; color: <?= $statusColors[$order['status']] ?? '#6c757d' ?>;">
@@ -528,30 +940,27 @@ function declension($number, $one, $two, $five) {
                             <img src="<?= htmlspecialchars($product['img']) ?>" class="order-item-img" onerror="this.src='img/placeholder.jpg'">
                             <div class="order-item-details">
                                 <div class="order-item-name"><?= htmlspecialchars($product['name']) ?></div>
-                                <?php if ($product['quantity'] > 1): ?>
-                                    <div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div>
-                                <?php endif; ?>
+                                <?php if ($product['quantity'] > 1): ?><div class="order-item-meta">Количество: <?= $product['quantity'] ?> шт.</div><?php endif; ?>
                                 <div class="order-item-price"><?= number_format($product['price'], 2, ',', ' ') ?> ₽</div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php $service = $item['data']; ?>
+                        <div class="order-item">
+                            <?php if (!empty($service['img'])): ?>
+                                <img src="<?= htmlspecialchars($service['img']) ?>" class="order-item-img" onerror="this.style.display='none'">
+                            <?php else: ?>
+                                <div class="order-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f6f4;">
+                                    <i class="fas fa-cogs" style="font-size: 30px; color: #00a896;"></i>
+                                </div>
+                            <?php endif; ?>
+                            <div class="order-item-details">
+                                <div class="order-item-name"><?= htmlspecialchars($service['name']) ?></div>
+                                <div class="order-item-price"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</div>
                             </div>
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
-                
-                <?php if ($order['services_count'] > 0): ?>
-                    <div class="services-list-mini">
-                        <?php foreach ($order['items'] as $item): ?>
-                            <?php if ($item['type'] === 'service'): ?>
-                                <?php $service = $item['data']; ?>
-                                <div class="service-item-mini">
-                                    <span class="service-name-mini">
-                                        <?= htmlspecialchars($service['name']) ?>
-                                    </span>
-                                    <span class="service-price-mini"><?= number_format($service['price'], 2, ',', ' ') ?> ₽</span>
-                                </div>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
             </div>
             
             <div class="order-footer">
@@ -597,41 +1006,96 @@ function declension($number, $one, $two, $five) {
 </div>
 </div>
 
-<!-- МОДАЛЬНЫЕ ОКНА -->
+<!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ПРОФИЛЯ -->
 <div id="editProfileModal" class="modal-overlay" onclick="closeModalIfClickOutside(event, 'editProfileModal')">
     <div class="modal-window">
-        <div class="modal-header"><h3>Редактирование профиля</h3><button class="modal-close" onclick="closeModal('editProfileModal')">&times;</button></div>
+        <div class="modal-header">
+            <h3>Редактирование профиля</h3>
+            <button class="modal-close" onclick="closeModal('editProfileModal')">&times;</button>
+        </div>
         <form class="modal-body profile-form" id="profileForm" onsubmit="saveProfile(event)">
-            <div class="form-group"><label>ФИО</label><input type="text" name="name" value="<?= htmlspecialchars($user_data['name']) ?>" required></div>
-            <div class="form-group"><label>Email</label><input type="email" name="email" value="<?= htmlspecialchars($user_data['email']) ?>" required></div>
-            <div class="form-group"><label>Телефон</label><input type="tel" name="phone" value="<?= htmlspecialchars($user_data['phone']) ?>" placeholder="+7 (999) 000-00-00"></div>
-            <div class="form-group"><label>Адрес доставки</label>
-                <div class="address-row"><div class="form-group" style="flex:2;"><input type="text" name="address_city" placeholder="Город" value="<?= htmlspecialchars($user_data['address']['city']) ?>"></div></div>
-                <div class="address-row" style="margin-top:10px;"><div class="form-group" style="flex:3;"><input type="text" name="address_street" placeholder="Улица" value="<?= htmlspecialchars($user_data['address']['street']) ?>"></div>
-                <div class="form-group" style="flex:1;"><input type="text" name="address_house" placeholder="Дом" value="<?= htmlspecialchars($user_data['address']['house']) ?>"></div></div>
+            <div class="form-group">
+                <label>ФИО</label>
+                <input type="text" name="name" value="<?= htmlspecialchars($user_data['name']) ?>" required>
             </div>
-            <div class="form-group"><label>Логин</label><input type="text" name="login" value="<?= htmlspecialchars($user_data['login']) ?>" disabled><small>Логин нельзя изменить</small></div>
-            <div class="form-group"><label>Новый пароль</label><input type="password" name="new_password" placeholder="Оставьте пустым, чтобы не менять"></div>
-            <div class="form-group"><label>Подтверждение пароля</label><input type="password" name="confirm_password" placeholder="Повторите новый пароль"></div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="<?= htmlspecialchars($user_data['email']) ?>" required>
+            </div>
+            <div class="form-group">
+                <label>Телефон</label>
+                <input type="tel" name="phone" value="<?= htmlspecialchars($user_data['phone']) ?>" placeholder="+7 (999) 000-00-00">
+            </div>
+            
+            <div class="form-group">
+                <label>Адрес доставки</label>
+                <div class="address-row">
+                    <div class="form-group" style="flex: 2;">
+                        <input type="text" name="address_city" placeholder="Город" value="<?= htmlspecialchars($user_data['address']['city']) ?>">
+                    </div>
+                </div>
+                <div class="address-row" style="margin-top: 10px;">
+                    <div class="form-group" style="flex: 3;">
+                        <input type="text" name="address_street" placeholder="Улица" value="<?= htmlspecialchars($user_data['address']['street']) ?>">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" name="address_house" placeholder="Дом" value="<?= htmlspecialchars($user_data['address']['house']) ?>">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Логин</label>
+                <input type="text" name="login" value="<?= htmlspecialchars($user_data['login']) ?>" disabled>
+                <small>Логин нельзя изменить</small>
+            </div>
+            <div class="form-group">
+                <label>Новый пароль</label>
+                <input type="password" name="new_password" placeholder="Оставьте пустым, чтобы не менять">
+            </div>
+            <div class="form-group">
+                <label>Подтверждение пароля</label>
+                <input type="password" name="confirm_password" placeholder="Повторите новый пароль">
+            </div>
         </form>
-        <div class="modal-footer"><button class="btn-cancel" onclick="closeModal('editProfileModal')">Отмена</button><button class="btn-save" onclick="document.getElementById('profileForm').requestSubmit()">Сохранить</button></div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('editProfileModal')">Отмена</button>
+            <button class="btn-save" onclick="document.getElementById('profileForm').requestSubmit()">Сохранить</button>
+        </div>
     </div>
 </div>
 
+<!-- МОДАЛЬНЫЕ ОКНА ИСТОРИИ И ЧАТА -->
 <div id="statusModal" class="modal-overlay" onclick="closeModalIfClickOutside(event, 'statusModal')">
-    <div class="modal-window"><div class="modal-header"><h3>История статусов</h3><button class="modal-close" onclick="closeModal('statusModal')">&times;</button></div>
-    <div class="modal-body" id="statusModalBody"></div><div class="modal-footer"><button class="btn-cancel" onclick="closeModal('statusModal')">Закрыть</button></div></div>
+    <div class="modal-window">
+        <div class="modal-header"><h3>История статусов</h3><button class="modal-close" onclick="closeModal('statusModal')">&times;</button></div>
+        <div class="modal-body" id="statusModalBody"></div>
+        <div class="modal-footer"><button class="btn-cancel" onclick="closeModal('statusModal')">Закрыть</button></div>
+    </div>
 </div>
 
 <div id="chatModal" class="modal-overlay" onclick="closeModalIfClickOutside(event, 'chatModal')">
-    <div class="modal-window"><div class="modal-header"><h3>Чат с поддержкой</h3><button class="modal-close" onclick="closeModal('chatModal')">&times;</button></div>
-    <div class="modal-body" id="chatModalBody">
-        <div class="chat-messages-modal" id="chatMessagesModal"></div>
-        <form class="chat-reply-form-modal" id="chatReplyFormModal" data-request-id="" enctype="multipart/form-data">
-            <div class="chat-input-area"><textarea class="chat-reply-input-modal" id="chatMessageInput" placeholder="Напишите сообщение..." rows="2"></textarea><button type="submit" class="chat-reply-btn-modal">Отправить</button></div>
-            <div class="chat-file-attach"><label class="chat-file-label"><i class="fas fa-paperclip"></i> Прикрепить файл<input type="file" class="chat-file-input" id="chatFileInput" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt"></label><span class="selected-file-name" id="selectedFileName"></span><span class="upload-progress" id="uploadProgress"></span></div>
-        </form>
-    </div><div class="modal-footer"><button class="btn-cancel" onclick="closeModal('chatModal')">Закрыть</button></div></div>
+    <div class="modal-window">
+        <div class="modal-header"><h3>Чат с поддержкой</h3><button class="modal-close" onclick="closeModal('chatModal')">&times;</button></div>
+        <div class="modal-body" id="chatModalBody">
+            <div class="chat-messages-modal" id="chatMessagesModal"></div>
+            <form class="chat-reply-form-modal" id="chatReplyFormModal" data-request-id="" enctype="multipart/form-data">
+                <div class="chat-input-area">
+                    <textarea class="chat-reply-input-modal" id="chatMessageInput" placeholder="Напишите сообщение..." rows="2"></textarea>
+                    <button type="submit" class="chat-reply-btn-modal">Отправить</button>
+                </div>
+                <div class="chat-file-attach">
+                    <label class="chat-file-label">
+                        <i class="fas fa-paperclip"></i> Прикрепить файл
+                        <input type="file" class="chat-file-input" id="chatFileInput" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt">
+                    </label>
+                    <span class="selected-file-name" id="selectedFileName"></span>
+                    <span class="upload-progress" id="uploadProgress"></span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer"><button class="btn-cancel" onclick="closeModal('chatModal')">Закрыть</button></div>
+    </div>
 </div>
 
 <script>
@@ -681,14 +1145,19 @@ function loadChatMessages(requestId) {
                     filesHtml = '<div class="chat-message-files">';
                     msg.files.forEach(file => {
                         const fileSize = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
-                        filesHtml += `<a href="${file.url}" class="chat-file-link" target="_blank">${escapeHtml(file.name)} ${fileSize ? '(' + fileSize + ')' : ''}</a>`;
+                        filesHtml += `<a href="${file.url}" class="chat-file-link" target="_blank">
+                            ${escapeHtml(file.name)} ${fileSize ? '(' + fileSize + ')' : ''}
+                        </a>`;
                     });
                     filesHtml += '</div>';
                 }
-                return `<div class="chat-message ${msg.sender_type === 'user' ? 'chat-message-user' : 'chat-message-support'}">
-                    <div class="chat-message-author">${msg.sender_type === 'user' ? 'Вы' : 'Поддержка'}</div>
-                    ${msg.message ? `<div class="chat-message-text">${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>` : ''}
-                    ${filesHtml}<div class="chat-message-time">${msg.created_at}</div></div>`;
+                return `
+                    <div class="chat-message ${msg.sender_type === 'user' ? 'chat-message-user' : 'chat-message-support'}">
+                        <div class="chat-message-author">${msg.sender_type === 'user' ? 'Вы' : 'Поддержка'}</div>
+                        ${msg.message ? `<div class="chat-message-text">${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>` : ''}
+                        ${filesHtml}
+                        <div class="chat-message-time">${msg.created_at}</div>
+                    </div>`;
             }).join('');
         } else {
             container.innerHTML = '<p>Нет сообщений</p>';
@@ -700,80 +1169,135 @@ function loadChatMessages(requestId) {
 document.getElementById('chatFileInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        if (file.size > 10 * 1024 * 1024) { alert('Файл слишком большой. Максимальный размер 10 MB.'); this.value = ''; document.getElementById('selectedFileName').textContent = ''; currentFile = null; return; }
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert('Файл слишком большой. Максимальный размер 10 MB.');
+            this.value = '';
+            document.getElementById('selectedFileName').textContent = '';
+            currentFile = null;
+            return;
+        }
         currentFile = file;
         document.getElementById('selectedFileName').textContent = file.name;
-    } else { currentFile = null; document.getElementById('selectedFileName').textContent = ''; }
+    } else {
+        currentFile = null;
+        document.getElementById('selectedFileName').textContent = '';
+    }
 });
 
 document.getElementById('chatReplyFormModal').addEventListener('submit', async function(e) {
     e.preventDefault();
     const requestId = this.dataset.requestId;
     const message = document.getElementById('chatMessageInput').value.trim();
-    if (!message && !currentFile) { alert('Введите сообщение или прикрепите файл'); return; }
+    
+    if (!message && !currentFile) {
+        alert('Введите сообщение или прикрепите файл');
+        return;
+    }
+    
     const btn = this.querySelector('.chat-reply-btn-modal');
     const progressSpan = document.getElementById('uploadProgress');
-    btn.disabled = true; btn.textContent = 'Отправка...';
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+    
     try {
         let messageId = null;
+        
         if (message) {
             const textFormData = new FormData();
             textFormData.append('action', 'add_message');
             textFormData.append('request_id', requestId);
             textFormData.append('message', message);
+            
             const textRes = await fetch('add_chat_message.php', { method: 'POST', body: textFormData });
             const textData = await textRes.json();
-            if (!textData.success) throw new Error(textData.error || 'Не удалось отправить сообщение');
+            
+            if (!textData.success) {
+                throw new Error(textData.error || 'Не удалось отправить сообщение');
+            }
             messageId = textData.message_id;
         }
+        
         if (currentFile) {
             progressSpan.textContent = 'Загрузка файла...';
+            
             const fileFormData = new FormData();
             fileFormData.append('action', 'upload_file');
             fileFormData.append('request_id', requestId);
-            if (messageId) fileFormData.append('message_id', messageId);
+            if (messageId) {
+                fileFormData.append('message_id', messageId);
+            }
             fileFormData.append('file', currentFile);
+            
             const fileRes = await fetch('upload_chat_file.php', { method: 'POST', body: fileFormData });
             const fileData = await fileRes.json();
-            if (!fileData.success) throw new Error(fileData.error || 'Не удалось загрузить файл');
+            
+            if (!fileData.success) {
+                throw new Error(fileData.error || 'Не удалось загрузить файл');
+            }
+            
             progressSpan.textContent = '';
             document.getElementById('chatFileInput').value = '';
             document.getElementById('selectedFileName').textContent = '';
             currentFile = null;
         }
+        
         document.getElementById('chatMessageInput').value = '';
         loadChatMessages(requestId);
-    } catch (err) { alert('Ошибка: ' + err.message); }
-    finally { btn.disabled = false; btn.textContent = 'Отправить'; progressSpan.textContent = ''; }
+        
+    } catch (err) {
+        alert('Ошибка: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Отправить';
+        progressSpan.textContent = '';
+    }
 });
 
-function openEditProfileModal() { document.getElementById('editProfileModal').classList.add('active'); }
+function openEditProfileModal() {
+    document.getElementById('editProfileModal').classList.add('active');
+}
+
 function saveProfile(event) {
     event.preventDefault();
     const form = document.getElementById('profileForm');
     const formData = new FormData(form);
     formData.append('action', 'update_profile');
+    
     const city = formData.get('address_city');
     const street = formData.get('address_street');
     const house = formData.get('address_house');
+    
     formData.delete('address_city');
     formData.delete('address_street');
     formData.delete('address_house');
+    
     const addressObj = { city: city, street: street, house: house };
     formData.append('address_json', JSON.stringify(addressObj));
+    
     const saveBtn = document.querySelector('#editProfileModal .btn-save');
     const originalText = saveBtn.textContent;
     saveBtn.textContent = 'Сохранение...';
     saveBtn.disabled = true;
+    
     fetch('update_profile.php', { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
-        if (data.success) { alert('Профиль обновлён!'); location.reload(); }
-        else { alert('Ошибка: ' + (data.error || 'Не удалось обновить')); }
+        if (data.success) {
+            alert('Профиль обновлён!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Не удалось обновить'));
+        }
         saveBtn.textContent = originalText;
         saveBtn.disabled = false;
     })
-    .catch(err => { console.error(err); alert('Ошибка соединения'); saveBtn.textContent = originalText; saveBtn.disabled = false; });
+    .catch(err => {
+        console.error(err);
+        alert('Ошибка соединения');
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
 }
 
 function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
@@ -783,12 +1307,21 @@ function escapeHtml(text) { if (!text) return ''; const div = document.createEle
 document.addEventListener('DOMContentLoaded', function() {
     const openModal = sessionStorage.getItem('openModal');
     const requestId = sessionStorage.getItem('modalRequestId');
+    
     if (openModal && requestId) {
         sessionStorage.removeItem('openModal');
         sessionStorage.removeItem('modalRequestId');
+        
         setTimeout(function() {
-            if (openModal === 'chat') { if (typeof openChatModal === 'function') openChatModal(requestId); }
-            else if (openModal === 'status') { if (typeof openStatusModal === 'function') openStatusModal(requestId); }
+            if (openModal === 'chat') {
+                if (typeof openChatModal === 'function') {
+                    openChatModal(requestId);
+                }
+            } else if (openModal === 'status') {
+                if (typeof openStatusModal === 'function') {
+                    openStatusModal(requestId);
+                }
+            }
         }, 500);
     }
 });
