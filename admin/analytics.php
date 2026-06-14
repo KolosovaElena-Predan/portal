@@ -8,6 +8,39 @@ if (!in_array($_SESSION['role'] ?? '', ['admin'])) {
     redirect('lk_admin.php');
 }
 
+// ============================================
+// ЗАГРУЗКА ДИНАМИЧЕСКИХ СТАТУСОВ
+// ============================================
+$statusLabels = [];
+$statusColors = [];
+$statusList = [];
+$closedStatusCodes = [];
+
+try {
+    $stmtStatuses = $pdo->query("SELECT * FROM request_statuses WHERE is_active = 1 ORDER BY sort_order");
+    $statusesList = $stmtStatuses->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($statusesList as $s) {
+        $statusLabels[$s['code']] = $s['name'];
+        $statusColors[$s['code']] = $s['color'];
+        $statusList[$s['code']] = $s;
+        if ($s['is_closed']) {
+            $closedStatusCodes[] = $s['code'];
+        }
+    }
+} catch (PDOException $e) {
+    // Стандартные статусы, если таблица не создана
+    $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
+    $statusColors = ['new' => '#ef4444', 'processed' => '#f59e0b', 'closed' => '#10b981', 'cancelled' => '#6b7280'];
+    $closedStatusCodes = ['closed', 'cancelled'];
+}
+
+// Строим динамические столбцы для SQL
+$statusColumns = [];
+foreach ($statusList as $code => $status) {
+    $statusColumns[] = "SUM(CASE WHEN status = '{$code}' THEN 1 ELSE 0 END) as {$code}_count";
+}
+$statusColumnsSql = !empty($statusColumns) ? implode(', ', $statusColumns) : "0 as new_count, 0 as processed_count, 0 as closed_count, 0 as cancelled_count";
+
 $activeTab = $_GET['tab'] ?? 'visits';
 
 // Проверка наличия таблицы visits
@@ -23,7 +56,6 @@ $dateTo = $_GET['to'] ?? date('Y-m-d');
 $params = [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'];
 
 // Данные о посещениях
-
 $chartData = [];
 if ($visitsTableExists) {
     $stmt = $pdo->prepare("
@@ -61,51 +93,54 @@ if ($visitsTableExists) {
     $topPages = $stmt->fetchAll();
 }
 
-// Данные о заявках
+// Данные о заявках с динамическими статусами
 $requestsParams = [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'];
 
 // Общая статистика по заявкам
 $requestsSummary = [];
-$stmt = $pdo->prepare("
+$sql = "
     SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
-        SUM(CASE WHEN status = 'processed' THEN 1 ELSE 0 END) as processed_count,
-        SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_count,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count,
+        {$statusColumnsSql},
         SUM(CASE WHEN type = 'q' THEN 1 ELSE 0 END) as questions,
         SUM(CASE WHEN type = 'r' THEN 1 ELSE 0 END) as orders,
         SUM(CASE WHEN type = 's' THEN 1 ELSE 0 END) as services
     FROM request 
     WHERE datetime >= ? AND datetime <= ?
-");
+";
+$stmt = $pdo->prepare($sql);
 $stmt->execute($requestsParams);
 $requestsSummary = $stmt->fetch();
 
-// Заявки по дням для графика
+// Заявки по дням для графика (с динамическими статусами)
 $requestsChart = [];
-$stmt = $pdo->prepare("
+$dynamicStatusColumns = [];
+foreach ($statusList as $code => $status) {
+    $dynamicStatusColumns[] = "SUM(CASE WHEN status = '{$code}' THEN 1 ELSE 0 END) as {$code}_count";
+}
+$statusColumnsGraph = implode(', ', $dynamicStatusColumns);
+
+$sql = "
     SELECT 
         DATE(datetime) as d, 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
-        SUM(CASE WHEN status = 'processed' THEN 1 ELSE 0 END) as processed_count,
-        SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_count,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
+        {$statusColumnsGraph}
     FROM request 
     WHERE datetime >= ? AND datetime <= ?
     GROUP BY d ORDER BY d ASC
-");
+";
+$stmt = $pdo->prepare($sql);
 $stmt->execute($requestsParams);
 $requestsChart = $stmt->fetchAll();
 
-// Для руговой диаграммы
-$statusDistribution = [
-    'Новые' => (int)($requestsSummary['new_count'] ?? 0),
-    'В работе' => (int)($requestsSummary['processed_count'] ?? 0),
-    'Закрытые' => (int)($requestsSummary['closed_count'] ?? 0),
-    'Отклонённые' => (int)($requestsSummary['cancelled_count'] ?? 0)
-];
+// Круговая диаграмма статусов
+$statusDistribution = [];
+foreach ($statusList as $code => $status) {
+    $count = (int)($requestsSummary["{$code}_count"] ?? 0);
+    if ($count > 0 || count($statusList) <= 5) {
+        $statusDistribution[$statusLabels[$code]] = $count;
+    }
+}
 
 // ТОП пользователей по заявкам
 $topUsers = [];
@@ -123,6 +158,14 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute($requestsParams);
 $topUsers = $stmt->fetchAll();
+
+// Цвета для графиков
+$statusColorsArray = array_values($statusColors);
+$statusLabelsArray = array_values($statusLabels);
+$statusValuesArray = [];
+foreach ($statusList as $code => $status) {
+    $statusValuesArray[] = (int)($requestsSummary["{$code}_count"] ?? 0);
+}
 
 // Экспорт таблицы
 if (isset($_GET['export']) && $_GET['export'] === 'csv' && $activeTab === 'visits' && $visitsTableExists) {
@@ -178,7 +221,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv_requests' && $activeTab =
     $stmt->execute($requestsParams);
     
     $typeMap = ['q' => 'Вопрос', 'r' => 'Заказ', 's' => 'Услуга'];
-    $statusMap = ['new' => 'Новая', 'processed' => 'В работе', 'closed' => 'Закрыта', 'cancelled' => 'Отклонена'];
     
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         fputcsv($output, [
@@ -187,7 +229,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv_requests' && $activeTab =
             $row['user_email'] ?? '—',
             $typeMap[$row['type']] ?? $row['type'],
             mb_substr($row['message'], 0, 200),
-            $statusMap[$row['status']] ?? $row['status'],
+            $statusLabels[$row['status']] ?? $row['status'],
             date('d.m.Y H:i', strtotime($row['datetime'])),
             $row['product_name'] ?? '—'
         ], ';', '"');
@@ -197,7 +239,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv_requests' && $activeTab =
 }
 
 // Для графиков
-
 $pageScript = '
 const chartScript = document.createElement("script");
 chartScript.src = "https://cdn.jsdelivr.net/npm/chart.js";
@@ -260,65 +301,46 @@ chartScript.onload = function() {
         });
     }
 
-    // График заявок (с cancelled)
+    // График заявок (динамические статусы)
     const requestsCtx = document.getElementById("requestsLineChart");
     if (requestsCtx) {
+        const datasets = [
+            {
+                label: "Всего заявок",
+                data: ' . json_encode(array_column($requestsChart, "total")) . ',
+                borderColor: "#2563eb",
+                backgroundColor: "rgba(37,99,235,0.05)",
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 3
+            }
+        ];
+        
+        // Добавляем датасет для каждого статуса
+        const statusColors = ' . json_encode($statusColors) . ';
+        const statusList = ' . json_encode($statusList) . ';
+        
+        Object.keys(statusList).forEach(function(code) {
+            if (statusList[code].is_active) {
+                datasets.push({
+                    label: statusList[code].name,
+                    data: ' . json_encode(array_column($requestsChart, $code . "_count")) . ',
+                    borderColor: statusColors[code] || "#6b7280",
+                    borderDash: [6, 4],
+                    fill: false,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3
+                });
+            }
+        });
+        
         new Chart(requestsCtx, {
             type: "line",
             data: {
                 labels: ' . json_encode(array_column($requestsChart, "d")) . ',
-                datasets: [
-                    {
-                        label: "Всего заявок",
-                        data: ' . json_encode(array_column($requestsChart, "total")) . ',
-                        borderColor: "#2563eb",
-                        backgroundColor: "rgba(37,99,235,0.05)",
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 3
-                    },
-                    {
-                        label: "Новые",
-                        data: ' . json_encode(array_column($requestsChart, "new_count")) . ',
-                        borderColor: "#ef4444",
-                        borderDash: [6, 4],
-                        fill: false,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 3
-                    },
-                    {
-                        label: "В работе",
-                        data: ' . json_encode(array_column($requestsChart, "processed_count")) . ',
-                        borderColor: "#f59e0b",
-                        borderDash: [6, 4],
-                        fill: false,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 3
-                    },
-                    {
-                        label: "Закрытые",
-                        data: ' . json_encode(array_column($requestsChart, "closed_count")) . ',
-                        borderColor: "#10b981",
-                        borderDash: [6, 4],
-                        fill: false,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 3
-                    },
-                    {
-                        label: "Отклонённые",
-                        data: ' . json_encode(array_column($requestsChart, "cancelled_count")) . ',
-                        borderColor: "#6b7280",
-                        borderDash: [10, 5],
-                        fill: false,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 3
-                    }
-                ]
+                datasets: datasets
             },
             options: {
                 responsive: true,
@@ -344,7 +366,7 @@ chartScript.onload = function() {
         });
     }
 
-    // Круговая диаграмма статусов (с cancelled)
+    // Круговая диаграмма статусов (динамическая)
     const statusPieCtx = document.getElementById("statusPieChart");
     if (statusPieCtx) {
         new Chart(statusPieCtx, {
@@ -353,7 +375,7 @@ chartScript.onload = function() {
                 labels: ' . json_encode(array_keys($statusDistribution)) . ',
                 datasets: [{
                     data: ' . json_encode(array_values($statusDistribution)) . ',
-                    backgroundColor: ["#ef4444", "#f59e0b", "#10b981", "#6b7280"],
+                    backgroundColor: ' . json_encode(array_slice($statusColorsArray, 0, count($statusDistribution))) . ',
                     borderWidth: 0,
                     hoverOffset: 10
                 }]
@@ -377,6 +399,9 @@ require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 require_once 'includes/sidebar.php';
 ?>
+
+<!-- Остальной HTML оставляем без изменений, 
+     только меняем badge статусов на динамические -->
 
 <style>
     .content-wrapper {
@@ -542,12 +567,6 @@ require_once 'includes/sidebar.php';
         border-radius: 6px;
         font-size: 0.8rem;
     }
-    .badge-danger { background: #fee2e2; color: #991b1b; }
-    .badge-warning { background: #fed7aa; color: #92400e; }
-    .badge-success { background: #dcfce7; color: #166534; }
-    .badge-secondary { background: #e5e7eb; color: #374151; }
-    .badge-info { background: #dbeafe; color: #1e40af; }
-    .badge-primary { background: #dbeafe; color: #1e40af; }
     
     .chart-container {
         position: relative;
@@ -717,46 +736,30 @@ require_once 'includes/sidebar.php';
                         <div class="label">Всего заявок</div>
                     </div>
                 </div>
+                <?php foreach ($statusList as $code => $status): ?>
                 <div class="col-lg-3 col-6">
-                    <div class="stat-card" style="border-left: 3px solid #ef4444;">
-                        <div class="value"><?= number_format($requestsSummary['new_count'] ?? 0) ?></div>
-                        <div class="label">Новые</div>
+                    <div class="stat-card" style="border-left: 3px solid <?= $status['color'] ?>;">
+                        <div class="value"><?= number_format($requestsSummary["{$code}_count"] ?? 0) ?></div>
+                        <div class="label"><?= $status['name'] ?></div>
                     </div>
                 </div>
-                <div class="col-lg-3 col-6">
-                    <div class="stat-card" style="border-left: 3px solid #f59e0b;">
-                        <div class="value"><?= number_format($requestsSummary['processed_count'] ?? 0) ?></div>
-                        <div class="label">В работе</div>
-                    </div>
-                </div>
-                <div class="col-lg-3 col-6">
-                    <div class="stat-card" style="border-left: 3px solid #10b981;">
-                        <div class="value"><?= number_format($requestsSummary['closed_count'] ?? 0) ?></div>
-                        <div class="label">Закрытые</div>
-                    </div>
-                </div>
+                <?php endforeach; ?>
             </div>
             
             <div class="row mb-4">
-                <div class="col-lg-3 col-6">
-                    <div class="stat-card" style="border-left: 3px solid #6b7280;">
-                        <div class="value"><?= number_format($requestsSummary['cancelled_count'] ?? 0) ?></div>
-                        <div class="label">Отклонённые</div>
-                    </div>
-                </div>
-                <div class="col-lg-3 col-6">
+                <div class="col-lg-4 col-6">
                     <div class="stat-card" style="background: #eff6ff;">
                         <div class="value" style="color: #2563eb;"><?= number_format($requestsSummary['questions'] ?? 0) ?></div>
                         <div class="label">Вопросы</div>
                     </div>
                 </div>
-                <div class="col-lg-3 col-6">
+                <div class="col-lg-4 col-6">
                     <div class="stat-card" style="background: #fef3c7;">
                         <div class="value" style="color: #d97706;"><?= number_format($requestsSummary['orders'] ?? 0) ?></div>
                         <div class="label">Заказы</div>
                     </div>
                 </div>
-                <div class="col-lg-3 col-6">
+                <div class="col-lg-4 col-6">
                     <div class="stat-card" style="background: #ecfdf5;">
                         <div class="value" style="color: #059669;"><?= number_format($requestsSummary['services'] ?? 0) ?></div>
                         <div class="label">Услуги</div>
