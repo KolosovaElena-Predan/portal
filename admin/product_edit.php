@@ -37,20 +37,46 @@ if (!file_exists($uploadBaseDir)) {
 }
 
 // ============================================
-// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ (исправленная)
+// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ (ИСПРАВЛЕННАЯ)
 // ============================================
-function checkAndNotifyWaitingList($pdo, $productId, $newStock, $oldStock) {
-    // Отправляем уведомления только если товар был недоступен (0 или -1) и стал доступен (>0)
-    if ($oldStock > 0 || $newStock <= 0) return 0;
+function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
+    // Логируем вызов
+    error_log("=== checkAndNotifyWaitingList вызван ===");
+    error_log("Product ID: $productId, New stock: $newStock");
+    
+    if ($newStock <= 0) {
+        error_log("Новый остаток <= 0, уведомления не отправляются");
+        return 0;
+    }
     
     try {
         // Получаем информацию о товаре
         $stmt = $pdo->prepare("SELECT name FROM products WHERE id = ?");
         $stmt->execute([$productId]);
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$product) return 0;
+        if (!$product) {
+            error_log("Товар не найден");
+            return 0;
+        }
         
-        // Получаем главное изображение товара
+        // Получаем ВСЕХ пользователей из листа ожидания
+        $stmt = $pdo->prepare("
+            SELECT r.id, r.user_id, r.message, r.is_notified, u.email, u.name 
+            FROM request r
+            JOIN user u ON r.user_id = u.id
+            WHERE r.product_id = ? AND r.type = 'wl' AND r.status = 'waiting'
+        ");
+        $stmt->execute([$productId]);
+        $waitingRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("Найдено заявок в листе ожидания: " . count($waitingRequests));
+        
+        if (empty($waitingRequests)) return 0;
+        
+        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/mip';
+        $productUrl = $siteUrl . '/product.php?id=' . $productId;
+        
+        // Получаем главное изображение
         $stmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? AND is_main = 1 LIMIT 1");
         $stmt->execute([$productId]);
         $productImage = $stmt->fetchColumn();
@@ -58,55 +84,44 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock, $oldStock) {
         // Подключаем функции уведомлений
         require_once __DIR__ . '/../mip/includes/notifications.php';
         
-        // Получаем пользователей из листа ожидания
-        $stmt = $pdo->prepare("
-            SELECT r.id, r.user_id, r.message, u.email, u.name 
-            FROM request r
-            JOIN user u ON r.user_id = u.id
-            WHERE r.product_id = ? AND r.type = 'wl' AND r.status = 'waiting' AND r.is_notified = 0
-        ");
-        $stmt->execute([$productId]);
-        $waitingRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if (empty($waitingRequests)) return 0;
-        
-        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/mip';
-        $productUrl = $siteUrl . '/product.php?id=' . $productId;
         $notifiedCount = 0;
         
         foreach ($waitingRequests as $req) {
             $userData = json_decode($req['message'], true);
             $requestedQty = $userData['quantity'] ?? 1;
             
-            // Уведомляем только если доступное количество >= запрошенному
-            if ($newStock >= $requestedQty) {
+            error_log("Обработка заявки ID {$req['id']}: запрошено {$requestedQty} шт., is_notified={$req['is_notified']}");
+            
+            // Отправляем уведомление только если ещё не отправляли
+            if ($req['is_notified'] == 0) {
                 $title = "Товар '{$product['name']}' поступил в наличие!";
                 $message = "Запрошенное вами количество ({$requestedQty} шт.) теперь доступно для заказа в каталоге.";
                 $link = "/mip/product.php?id=" . $productId;
                 
-                // Добавляем уведомление в систему
+                // 1. Добавляем уведомление в систему
                 addNotification($pdo, $req['user_id'], 'stock_available', $title, $message, $link);
+                error_log("Уведомление добавлено в БД для user_id={$req['user_id']}");
                 
-                // Отправляем email
+                // 2. Отправляем email
                 $htmlMessage = getProductAvailableEmailTemplate($product['name'], $productUrl, $requestedQty, $productImage);
                 sendEmailNotification($req['email'], $req['name'], $title, $htmlMessage);
+                error_log("Email отправлен на {$req['email']}");
                 
-                // Отмечаем как уведомлённого
+                // 3. Отмечаем как уведомлённого
                 $updateReq = $pdo->prepare("UPDATE request SET is_notified = 1 WHERE id = ?");
                 $updateReq->execute([$req['id']]);
                 
                 $notifiedCount++;
+            } else {
+                error_log("Уведомление уже было отправлено ранее, пропускаем");
             }
         }
         
-        if ($notifiedCount > 0) {
-            error_log("Отправлено уведомлений о поступлении товара ID {$productId}: {$notifiedCount}");
-        }
-        
+        error_log("ИТОГО отправлено уведомлений: {$notifiedCount}");
         return $notifiedCount;
         
     } catch (Exception $e) {
-        error_log("Ошибка при отправке уведомлений о поступлении товара (Product ID: $productId): " . $e->getMessage());
+        error_log("ОШИБКА при отправке уведомлений: " . $e->getMessage());
         return 0;
     }
 }
@@ -206,9 +221,6 @@ if (isset($_POST['save'])) {
     $is_slider = isset($_POST['is_slider']) && $_POST['is_slider'] == '1' ? 1 : 0;
     $sort_order = (int)($_POST['sort_order'] ?? 0);
     $mainSelected = $_POST['main_image_selected'] ?? '';
-
-    // Сохраняем старый остаток для проверки уведомлений
-    $oldStock = (int)$product['stock'];
 
     if (!$name) {
         $error = 'Название обязательно';
@@ -456,10 +468,10 @@ if (isset($_POST['save'])) {
 
             $pdo->commit();
             
-            // 7. ОТПРАВКА УВЕДОМЛЕНИЙ (если остаток увеличился и стал положительным)
+            // 7. ОТПРАВКА УВЕДОМЛЕНИЙ (если остаток стал положительным)
             $notifiedCount = 0;
-            if ($newStock > 0 && $oldStock <= 0) {
-                $notifiedCount = checkAndNotifyWaitingList($pdo, $productId, $newStock, $oldStock);
+            if ($newStock > 0) {
+                $notifiedCount = checkAndNotifyWaitingList($pdo, $productId, $newStock);
             }
             
             $success = 'Товар успешно обновлён!';
@@ -503,6 +515,11 @@ $productConfigs = $stmt->fetchAll();
 $stmt = $pdo->prepare("SELECT * FROM product_modifications WHERE product_id = ? ORDER BY sort_order, id");
 $stmt->execute([$productId]);
 $productMods = $stmt->fetchAll();
+
+// Получаем количество привязанных услуг
+$stmtServices = $pdo->prepare("SELECT COUNT(*) FROM product_services WHERE product_id = ? AND is_active = 1");
+$stmtServices->execute([$productId]);
+$servicesCount = $stmtServices->fetchColumn();
 
 $tempImages = $_SESSION['temp_product_images'] ?? [];
 
@@ -595,6 +612,24 @@ require_once 'includes/sidebar.php';
                                     <option value="inactive" <?= $formData['status'] === 'inactive' ? 'selected' : '' ?>>Неактивен</option>
                                 </select>
                             </div>
+                            
+                            <!-- Привязка услуг -->
+                            <div class="form-section mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span><i class="fas fa-link"></i> Привязка услуг</span>
+                                    <a href="product_services.php?product_id=<?= $productId ?>" class="btn btn-sm btn-info">
+                                        <i class="fas fa-edit"></i> Управление
+                                    </a>
+                                </div>
+                                <small class="text-muted">
+                                    <?php if ($servicesCount > 0): ?>
+                                        ✅ Привязано услуг: <?= $servicesCount ?>
+                                    <?php else: ?>
+                                        ⚠️ Нет привязанных услуг
+                                    <?php endif; ?>
+                                </small>
+                            </div>
+                            
                             <div class="form-section mb-3">
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="is_new" id="is_new" value="1" <?= $formData['is_new'] ? 'checked' : '' ?>>
