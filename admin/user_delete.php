@@ -11,6 +11,15 @@ if (isset($_GET['id'])) {
         redirect('users.php?error=cannot_delete_self');
     }
 
+    // Нельзя удалить админа, если не админ
+    $stmt = $pdo->prepare("SELECT role FROM user WHERE id = ?");
+    $stmt->execute([$id]);
+    $user = $stmt->fetch();
+    
+    if ($user && $user['role'] === 'admin' && $_SESSION['role'] !== 'admin') {
+        redirect('users.php?error=cannot_delete_admin');
+    }
+
     $stmt = $pdo->prepare("DELETE FROM user WHERE id = ?");
     $stmt->execute([$id]);
 }

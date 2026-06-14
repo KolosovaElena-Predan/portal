@@ -33,20 +33,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $user = $auth->attempt($login, $password);
     if ($user && !($user instanceof GuestUser)) {
-        if (!$user->isVerified()) {
-            $error = 'Подтвердите email перед входом. Проверьте почту.';
-            $showResendTimer = true;
-            $resendEmail = $user->email;
-            $activeTab = 'login';
-        } else {
-            $auth->login($user);
-            header("Location: " . $user->getDashboardUrl());
-            exit;
+    // Проверка блокировки
+    $stmt = $pdo->prepare("SELECT is_blocked, block_reason FROM user WHERE id = ?");
+    $stmt->execute([$user->id]);
+    $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($userData && $userData['is_blocked'] == 1) {
+        $error = 'Ваш аккаунт заблокирован. ';
+        if ($userData['block_reason']) {
+            $error .= 'Причина: ' . $userData['block_reason'];
         }
-    } else {
-        $error = 'Неверный логин или пароль';
         $activeTab = 'login';
+    } elseif (!$user->isVerified()) {
+        $error = 'Подтвердите email перед входом. Проверьте почту.';
+        $showResendTimer = true;
+        $resendEmail = $user->email;
+        $activeTab = 'login';
+    } else {
+        $auth->login($user);
+        header("Location: " . $user->getDashboardUrl());
+        exit;
     }
+}
 }
 
 // Обработка регистрации

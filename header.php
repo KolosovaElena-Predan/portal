@@ -51,6 +51,26 @@ if ($context === 'mip') {
         default: $lk_link = '/lab/main_lab.php';
     }
 }
+// Блокировка пользователя - перенаправление на страницу блокировки
+if ($is_logged && $user_role === 'client') {
+    try {
+        $stmt = $pdo->prepare("SELECT is_blocked FROM user WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $isBlocked = $stmt->fetchColumn();
+        
+        if ($isBlocked) {
+            // Завершаем сессию и перенаправляем на страницу блокировки
+            session_destroy();
+            header('Location: /blocked.php');
+            exit;
+        }
+    } catch (Exception $e) {
+        // Если поле is_blocked ещё не добавлено, игнорируем
+        if (strpos($e->getMessage(), 'is_blocked') === false) {
+            error_log("Block check error: " . $e->getMessage());
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
