@@ -32,6 +32,15 @@ try {
     $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
     $statusColors = ['new' => '#ef4444', 'processed' => '#f59e0b', 'closed' => '#10b981', 'cancelled' => '#6b7280'];
     $closedStatusCodes = ['closed', 'cancelled'];
+    foreach ($statusLabels as $code => $name) {
+        $statusList[$code] = [
+            'code' => $code,
+            'name' => $name,
+            'color' => $statusColors[$code],
+            'is_active' => 1,
+            'is_closed' => in_array($code, $closedStatusCodes)
+        ];
+    }
 }
 
 // Строим динамические столбцы для SQL
@@ -66,6 +75,11 @@ if ($visitsTableExists) {
     ");
     $stmt->execute($params);
     $chartData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$visitsChartData = [];
+foreach ($chartData as $row) {
+    $visitsChartData[] = ['d' => $row['d'], 'c' => (int)$row['c'], 'u' => (int)$row['u']];
 }
 
 $summary = [];
@@ -133,13 +147,33 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($requestsParams);
 $requestsChart = $stmt->fetchAll();
 
+// Подготовка данных для графика
+$requestsChartData = [];
+foreach ($requestsChart as $row) {
+    $item = ['d' => $row['d'], 'total' => (int)$row['total']];
+    foreach ($statusList as $code => $status) {
+        $item[$code . '_count'] = (int)($row[$code . '_count'] ?? 0);
+    }
+    $requestsChartData[] = $item;
+}
+
 // Круговая диаграмма статусов
-$statusDistribution = [];
+$statusDistributionLabels = [];
+$statusDistributionValues = [];
+$statusDistributionColors = [];
 foreach ($statusList as $code => $status) {
     $count = (int)($requestsSummary["{$code}_count"] ?? 0);
-    if ($count > 0 || count($statusList) <= 5) {
-        $statusDistribution[$statusLabels[$code]] = $count;
+    if ($count > 0) {
+        $statusDistributionLabels[] = $status['name'];
+        $statusDistributionValues[] = $count;
+        $statusDistributionColors[] = $status['color'];
     }
+}
+// Если нет данных, показываем пустые массивы
+if (empty($statusDistributionLabels)) {
+    $statusDistributionLabels = ['Нет данных'];
+    $statusDistributionValues = [1];
+    $statusDistributionColors = ['#e2e8f0'];
 }
 
 // ТОП пользователей по заявкам
@@ -158,14 +192,6 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute($requestsParams);
 $topUsers = $stmt->fetchAll();
-
-// Цвета для графиков
-$statusColorsArray = array_values($statusColors);
-$statusLabelsArray = array_values($statusLabels);
-$statusValuesArray = [];
-foreach ($statusList as $code => $status) {
-    $statusValuesArray[] = (int)($requestsSummary["{$code}_count"] ?? 0);
-}
 
 // Экспорт таблицы
 if (isset($_GET['export']) && $_GET['export'] === 'csv' && $activeTab === 'visits' && $visitsTableExists) {
@@ -238,8 +264,25 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv_requests' && $activeTab =
     exit;
 }
 
-// Для графиков
+// Подготовка JSON для JavaScript
+$statusListJson = json_encode($statusList, JSON_UNESCAPED_UNICODE);
+$statusColorsJson = json_encode($statusColors, JSON_UNESCAPED_UNICODE);
+$requestsChartDataJson = json_encode($requestsChartData);
+$visitsChartDataJson = json_encode($visitsChartData);
+$statusDistributionJson = json_encode([
+    'labels' => $statusDistributionLabels,
+    'values' => $statusDistributionValues,
+    'colors' => $statusDistributionColors
+]);
+
 $pageScript = '
+// Объявляем глобальные переменные для данных графиков
+window.statusList = ' . $statusListJson . ';
+window.statusColors = ' . $statusColorsJson . ';
+window.visitsChartData = ' . $visitsChartDataJson . ';
+const requestsChartData = ' . $requestsChartDataJson . ';
+const statusDistribution = ' . $statusDistributionJson . ';
+
 const chartScript = document.createElement("script");
 chartScript.src = "https://cdn.jsdelivr.net/npm/chart.js";
 document.head.appendChild(chartScript);
@@ -247,15 +290,15 @@ document.head.appendChild(chartScript);
 chartScript.onload = function() {
     // График посещений
     const visitsCtx = document.getElementById("visitsLineChart");
-    if (visitsCtx) {
+    if (visitsCtx && window.visitsChartData && window.visitsChartData.length > 0) {
         new Chart(visitsCtx, {
             type: "line",
             data: {
-                labels: ' . json_encode(array_column($chartData, "d")) . ',
+                labels: window.visitsChartData.map(item => item.d),
                 datasets: [
                     {
                         label: "Всего посещений",
-                        data: ' . json_encode(array_column($chartData, "c")) . ',
+                        data: window.visitsChartData.map(item => item.c),
                         borderColor: "#2563eb",
                         backgroundColor: "rgba(37,99,235,0.1)",
                         fill: true,
@@ -266,7 +309,7 @@ chartScript.onload = function() {
                     },
                     {
                         label: "Уникальные",
-                        data: ' . json_encode(array_column($chartData, "u")) . ',
+                        data: window.visitsChartData.map(item => item.u),
                         borderColor: "#10b981",
                         borderDash: [6, 4],
                         fill: false,
@@ -284,6 +327,10 @@ chartScript.onload = function() {
                     legend: { 
                         position: "top",
                         labels: { padding: 20, usePointStyle: true, font: { size: 12 } }
+                    },
+                    tooltip: {
+                        mode: "index",
+                        intersect: false
                     }
                 },
                 scales: { 
@@ -303,11 +350,11 @@ chartScript.onload = function() {
 
     // График заявок (динамические статусы)
     const requestsCtx = document.getElementById("requestsLineChart");
-    if (requestsCtx) {
+    if (requestsCtx && requestsChartData && requestsChartData.length > 0) {
         const datasets = [
             {
                 label: "Всего заявок",
-                data: ' . json_encode(array_column($requestsChart, "total")) . ',
+                data: requestsChartData.map(item => item.total),
                 borderColor: "#2563eb",
                 backgroundColor: "rgba(37,99,235,0.05)",
                 fill: true,
@@ -317,29 +364,32 @@ chartScript.onload = function() {
             }
         ];
         
-        // Добавляем датасет для каждого статуса
-        const statusColors = ' . json_encode($statusColors) . ';
-        const statusList = ' . json_encode($statusList) . ';
+        const statusList = window.statusList || {};
+        const statusColors = window.statusColors || {};
         
         Object.keys(statusList).forEach(function(code) {
-            if (statusList[code].is_active) {
-                datasets.push({
-                    label: statusList[code].name,
-                    data: ' . json_encode(array_column($requestsChart, $code . "_count")) . ',
-                    borderColor: statusColors[code] || "#6b7280",
-                    borderDash: [6, 4],
-                    fill: false,
-                    tension: 0.4,
-                    borderWidth: 2,
-                    pointRadius: 3
-                });
+            if (statusList[code] && statusList[code].is_active) {
+                const statusData = requestsChartData.map(item => item[code + "_count"] || 0);
+                const hasData = statusData.some(v => v > 0);
+                if (hasData) {
+                    datasets.push({
+                        label: statusList[code].name,
+                        data: statusData,
+                        borderColor: statusColors[code] || "#6b7280",
+                        borderDash: [6, 4],
+                        fill: false,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 3
+                    });
+                }
             }
         });
         
         new Chart(requestsCtx, {
             type: "line",
             data: {
-                labels: ' . json_encode(array_column($requestsChart, "d")) . ',
+                labels: requestsChartData.map(item => item.d),
                 datasets: datasets
             },
             options: {
@@ -348,7 +398,18 @@ chartScript.onload = function() {
                 plugins: { 
                     legend: { 
                         position: "top",
-                        labels: { padding: 20, usePointStyle: true, font: { size: 12 } }
+                        labels: { 
+                            padding: 20, 
+                            usePointStyle: true, 
+                            font: { size: 12 },
+                            filter: function(legendItem, data) {
+                                return legendItem.index < 8;
+                            }
+                        } 
+                    },
+                    tooltip: {
+                        mode: "index",
+                        intersect: false
                     }
                 },
                 scales: { 
@@ -364,18 +425,25 @@ chartScript.onload = function() {
                 }
             }
         });
+    } else if (requestsCtx) {
+        // Показываем сообщение, если нет данных
+        const ctx = requestsCtx.getContext("2d");
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#94a3b8";
+        ctx.textAlign = "center";
+        ctx.fillText("Нет данных за выбранный период", requestsCtx.width / 2, requestsCtx.height / 2);
     }
 
-    // Круговая диаграмма статусов (динамическая)
+    // Круговая диаграмма статусов
     const statusPieCtx = document.getElementById("statusPieChart");
-    if (statusPieCtx) {
+    if (statusPieCtx && statusDistribution && statusDistribution.labels && statusDistribution.labels.length > 0) {
         new Chart(statusPieCtx, {
             type: "doughnut",
             data: {
-                labels: ' . json_encode(array_keys($statusDistribution)) . ',
+                labels: statusDistribution.labels,
                 datasets: [{
-                    data: ' . json_encode(array_values($statusDistribution)) . ',
-                    backgroundColor: ' . json_encode(array_slice($statusColorsArray, 0, count($statusDistribution))) . ',
+                    data: statusDistribution.values,
+                    backgroundColor: statusDistribution.colors,
                     borderWidth: 0,
                     hoverOffset: 10
                 }]
@@ -387,6 +455,17 @@ chartScript.onload = function() {
                     legend: {
                         position: "bottom",
                         labels: { padding: 15, font: { size: 12 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || "";
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} (${percent}%)`;
+                            }
+                        }
                     }
                 }
             }
@@ -399,9 +478,6 @@ require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 require_once 'includes/sidebar.php';
 ?>
-
-<!-- Остальной HTML оставляем без изменений, 
-     только меняем badge статусов на динамические -->
 
 <style>
     .content-wrapper {
@@ -593,6 +669,15 @@ require_once 'includes/sidebar.php';
         opacity: 0.6;
     }
     
+    /* Динамические цвета для бейджей статусов */
+    .badge-status {
+        display: inline-block;
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
     @media (max-width: 768px) {
         .filter-card .row > div {
             margin-bottom: 0.75rem;
@@ -687,7 +772,8 @@ require_once 'includes/sidebar.php';
                                     <canvas id="visitsLineChart"></canvas>
                                 <?php else: ?>
                                     <div class="empty-state">
-                                        Нет данных за выбранный период
+                                        <i class="fas fa-chart-line"></i>
+                                        <p>Нет данных за выбранный период</p>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -712,12 +798,12 @@ require_once 'includes/sidebar.php';
                                         <?php foreach ($topPages as $p): ?>
                                         <tr>
                                             <td><code class="text-muted" style="font-size: 0.85rem;"><?= e($p['page_url']) ?></code></td>
-                                            <td class="text-center"><span class="badge badge-info"><?= $p['cnt'] ?></span></td>
-                                            <td class="text-center"><span class="badge badge-success"><?= $p['uniq'] ?></span></td>
+                                            <td class="text-center"><span class="badge" style="background: #dbeafe; color: #1e40af;"><?= $p['cnt'] ?></span></td>
+                                            <td class="text-center"><span class="badge" style="background: #dcfce7; color: #166534;"><?= $p['uniq'] ?></span></td>
                                         </tr>
                                         <?php endforeach; ?>
                                         <?php if (empty($topPages)): ?>
-                                        <tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>
+                                        <tr><td colspan="3" class="text-center text-muted py-4">Нет数据</td></tr>
                                         <?php endif; ?>
                                     </tbody>
                                 </table>
@@ -727,7 +813,7 @@ require_once 'includes/sidebar.php';
                 </div>
             </div>
             
-            <?php else: ?>
+            <?php else: // Заявки ?>
             
             <div class="row mb-4">
                 <div class="col-lg-3 col-6">
@@ -779,7 +865,8 @@ require_once 'includes/sidebar.php';
                                     <canvas id="requestsLineChart"></canvas>
                                 <?php else: ?>
                                     <div class="empty-state">
-                                        Нет данных за выбранный период
+                                        <i class="fas fa-chart-line"></i>
+                                        <p>Нет данных за выбранный период</p>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -792,15 +879,9 @@ require_once 'includes/sidebar.php';
                             <h3 class="card-title">Распределение по статусам</h3>
                         </div>
                         <div class="card-body">
-                            <?php if (array_sum($statusDistribution) > 0): ?>
-                                <div class="pie-chart-container">
-                                    <canvas id="statusPieChart"></canvas>
-                                </div>
-                            <?php else: ?>
-                                <div class="empty-state">
-                                    Нет данных
-                                </div>
-                            <?php endif; ?>
+                            <div class="pie-chart-container">
+                                <canvas id="statusPieChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -824,11 +905,11 @@ require_once 'includes/sidebar.php';
                                             <tr>
                                                 <td><strong><?= e($u['user_name'] ?? 'Гость') ?></strong></td>
                                                 <td><?= e($u['user_email'] ?? '—') ?></td>
-                                                <td class="text-center"><span class="badge badge-primary"><?= $u['request_count'] ?></span></td>
+                                                <td class="text-center"><span class="badge" style="background: #dbeafe; color: #1e40af;"><?= $u['request_count'] ?></span></td>
                                             </tr>
                                             <?php endforeach; ?>
                                         <?php else: ?>
-                                            <tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>
+                                        <tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>
                                         <?php endif; ?>
                                     </tbody>
                                 </table>
