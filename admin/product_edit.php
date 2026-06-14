@@ -133,7 +133,7 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
             if ($req['is_notified'] == 0) {
                 $title = "Товар '{$product['name']}' поступил в наличие!";
                 $message = "Запрошенное вами количество ({$requestedQty} шт.) теперь доступно для заказа в каталоге.";
-                $link = "/mip/product.php?id=" . $productId;
+                $link = "/mip/waiting_list.php";
                 
                 // 1. Добавляем уведомление в систему
                 addNotification($pdo, $req['user_id'], 'stock_available', $title, $message, $link);

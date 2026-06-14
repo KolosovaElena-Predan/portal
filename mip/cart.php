@@ -522,6 +522,42 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
 
         $processedCartKeys = [];
         $processedServiceKeys = [];
+        $hasAnyPayableItem = false;
+        $totalOrderAmount = 0;
+
+        // ПРОВЕРКА: есть ли хоть один товар с availableToBuy > 0
+        $tempAvailableItems = [];
+        if (!empty($_SESSION['cart'])) {
+            foreach ($_SESSION['cart'] as $configKey => $item) {
+                if (!isset($_SESSION['selected_items'][$configKey])) continue;
+
+                $configurationId = $item['configuration_id'] ?? null;
+                $hasMods = !empty($item['modifications']);
+                $isMadeToOrderFlag = $item['is_made_to_order'] || $hasMods;
+                $requestedQuantity = (int)$item['quantity'];
+                $currentStock = !$isMadeToOrderFlag ? getProductStock($pdo, $item['product_id'], $configurationId) : -1;
+                
+                if ($isMadeToOrderFlag) {
+                    $tempAvailableItems[$configKey] = $requestedQuantity;
+                    $hasAnyPayableItem = true;
+                } else {
+                    if ($currentStock > 0) {
+                        $availableToBuy = ($requestedQuantity > $currentStock) ? $currentStock : $requestedQuantity;
+                        if ($availableToBuy > 0) {
+                            $tempAvailableItems[$configKey] = $availableToBuy;
+                            $hasAnyPayableItem = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Если нет доступных товаров и нет услуг
+        if (!$hasAnyPayableItem && empty($_SESSION['selected_services'])) {
+            echo json_encode(['success' => false, 'error' => 'Нет доступных для оплаты товаров. Выберите товары, которые есть в наличии, или добавьте их в лист ожидания']);
+            $pdo->rollBack();
+            exit;
+        }
 
         // Обработка товаров
         if (!empty($_SESSION['cart'])) {
@@ -554,12 +590,39 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                     }
                 }
 
+                // Если нет доступных для покупки, отправляем только в лист ожидания
+                if ($availableToBuy == 0 && $waitingQuantity > 0) {
+                    $waitingMessageData = [
+                        'quantity' => $waitingQuantity,
+                        'product_name' => $item['name'],
+                        'product_id' => $item['product_id'],
+                        'configuration' => $item['configuration'],
+                        'configuration_name' => $item['configuration_name'],
+                        'modifications' => $item['modifications'],
+                        'unit_price' => (float)$item['total_price'],
+                        'reason' => 'out_of_stock'
+                    ];
+                    $stmt = $pdo->prepare("INSERT INTO request (user_id, product_id, message, status, datetime, type, requested_quantity) VALUES (?, ?, ?, 'waiting', NOW(), 'wl', ?)");
+                    $stmt->execute([$_SESSION['user_id'], $item['product_id'], json_encode($waitingMessageData, JSON_UNESCAPED_UNICODE), $waitingQuantity]);
+                    
+                    $processedCartKeys[] = $configKey;
+                    continue;
+                }
+
+                // Если availableToBuy == 0 и нет waitingQuantity, пропускаем
+                if ($availableToBuy == 0) {
+                    $processedCartKeys[] = $configKey;
+                    continue;
+                }
+
                 if (!$isMadeToOrderFlag && $availableToBuy > 0) {
                     $newStock = $currentStock - $availableToBuy;
                     updateProductStock($pdo, $item['product_id'], $configurationId, $newStock);
                 }
 
                 $lineTotal = (float)$item['total_price'] * $availableToBuy;
+                $totalOrderAmount += $lineTotal;
+                
                 $messageData = [
                     'quantity' => $requestedQuantity,
                     'available_to_buy' => $availableToBuy,
@@ -601,11 +664,27 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                 } else {
                     $status = $isMadeToOrderFlag ? 'processed' : 'new';
                     $stmt = $pdo->prepare("INSERT INTO request (user_id, product_id, message, status, datetime, type, requested_quantity, shipped_quantity) VALUES (?, ?, ?, ?, NOW(), 'r', ?, ?)");
-                    $stmt->execute([$_SESSION['user_id'], $item['product_id'], $message, $status, $requestedQuantity, $requestedQuantity]);
+                    $stmt->execute([$_SESSION['user_id'], $item['product_id'], $message, $status, $requestedQuantity, $availableToBuy]);
                 }
                 
                 $processedCartKeys[] = $configKey;
             }
+        }
+
+        // Добавляем сумму услуг к общей сумме заказа
+        if (!empty($_SESSION['selected_services'])) {
+            foreach ($_SESSION['selected_services'] as $serviceKey => $service) {
+                if ($service['selected']) {
+                    $totalOrderAmount += $service['total_price'] ?? (float)$service['price'];
+                }
+            }
+        }
+
+        // ФИНАЛЬНАЯ ПРОВЕРКА: если сумма заказа 0, отменяем
+        if ($totalOrderAmount == 0) {
+            echo json_encode(['success' => false, 'error' => 'Нет товаров для оплаты. Сумма заказа не может быть 0.']);
+            $pdo->rollBack();
+            exit;
         }
 
         // Обработка услуг
@@ -647,7 +726,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
             unset($_SESSION['selected_services'][$key]);
         }
 
-        echo json_encode(['success' => true]);
+        echo json_encode(['success' => true, 'total_amount' => $totalOrderAmount]);
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => 'Ошибка оформления: ' . $e->getMessage()]);
@@ -2128,6 +2207,29 @@ document.querySelectorAll('.service-select-checkbox').forEach(cb => { cb.addEven
 async function checkout() {
     const method = currentDeliveryMethod;
     
+    // Проверяем, есть ли выбранные товары с положительной суммой к оплате
+    let hasPayableItems = false;
+    document.querySelectorAll('.item-select:checked').forEach(cb => {
+        const cartItem = cb.closest('.cart-item');
+        if (cartItem) {
+            const subtotalSpan = cartItem.querySelector('.cart-subtotal-display span');
+            if (subtotalSpan) {
+                const subtotalText = subtotalSpan.textContent;
+                const subtotalValue = parseFloat(subtotalText.replace(/[^0-9,-]/g, '').replace(',', '.'));
+                if (subtotalValue > 0) {
+                    hasPayableItems = true;
+                }
+            }
+        }
+    });
+    
+    const hasSelectedServices = document.querySelectorAll('.service-select-checkbox:checked').length > 0;
+    
+    if (!hasPayableItems && !hasSelectedServices) {
+        alert('Нет товаров, доступных для оплаты.\n\nВыберите товары, которые есть в наличии, или добавьте их в лист ожидания.');
+        return;
+    }
+    
     if (method !== 'pickup') {
         const isValid = validateAddressFields();
         if (!isValid) {
@@ -2137,11 +2239,6 @@ async function checkout() {
     }
     
     const addr = getAddressValues();
-    
-    if (document.querySelectorAll('.item-select:checked').length === 0 && document.querySelectorAll('.service-select-checkbox:checked').length === 0) { 
-        alert('Выберите хотя бы один товар или услугу'); 
-        return; 
-    }
     
     const btn = document.querySelector('.checkout-btn'), original = btn.textContent;
     btn.disabled = true; btn.textContent = 'Оформление...';
@@ -2158,10 +2255,20 @@ async function checkout() {
         
         const res = await fetch('cart.php', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.success) { alert('Заказ оформлен!'); window.location.href = 'lk_user.php'; }
-        else alert('Ошибка: ' + (data.error || 'Не удалось оформить заказ'));
-    } catch(err) { console.error(err); alert('Произошла ошибка'); }
-    finally { btn.disabled = false; btn.textContent = original; document.querySelectorAll('.qty-btn, .cart-remove, .item-select, .service-select-checkbox').forEach(el => el.disabled = false); }
+        if (data.success) { 
+            alert('Заказ оформлен!'); 
+            window.location.href = 'lk_user.php'; 
+        } else {
+            alert('Ошибка: ' + (data.error || 'Не удалось оформить заказ'));
+        }
+    } catch(err) { 
+        console.error(err); 
+        alert('Произошла ошибка'); 
+    } finally { 
+        btn.disabled = false; 
+        btn.textContent = original; 
+        document.querySelectorAll('.qty-btn, .cart-remove, .item-select, .service-select-checkbox').forEach(el => el.disabled = false); 
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
