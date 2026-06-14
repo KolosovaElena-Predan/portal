@@ -1,6 +1,11 @@
 <?php
 // header.php — Единая шапка
 
+// Запускаем сессию в самом начале
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($context)) {
     $context = 'lab'; 
 }
@@ -10,9 +15,14 @@ $lab_path = $BASE . '/lab';
 $mip_path = $BASE . '/mip';
 
 require_once __DIR__ . '/includes/track_visit.php';
-if (isset($pdo)) trackVisit($pdo);
 
-//session_start();
+// Получаем PDO глобально
+global $pdo;
+
+if (isset($pdo)) {
+    trackVisit($pdo);
+}
+
 $is_logged = isset($_SESSION['user_id']);
 $user_name = $_SESSION['name'] ?? $_SESSION['user_name'] ?? 'Гость';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -24,12 +34,48 @@ $show_cart = ($is_logged && $user_role === 'client' && $context === 'mip');
 $unreadCount = 0;
 $notifications_dropdown = [];
 
+// ============================================
+// ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ
+// ============================================
+if ($is_logged && $user_role === 'client') {
+    try {
+        // Проверяем, существует ли PDO и поле is_blocked
+        if (isset($pdo)) {
+            // Проверяем существование колонки is_blocked
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM user LIKE 'is_blocked'");
+            $stmt->execute();
+            $columnExists = $stmt->fetch();
+            
+            if ($columnExists) {
+                $stmt = $pdo->prepare("SELECT is_blocked FROM user WHERE id = ?");
+                $stmt->execute([$user_id]);
+                $isBlocked = $stmt->fetchColumn();
+                
+                if ($isBlocked == 1) {
+                    // Завершаем сессию и перенаправляем
+                    session_destroy();
+                    if (!headers_sent()) {
+                        header('Location: /blocked.php');
+                    } else {
+                        echo '<meta http-equiv="refresh" content="0;url=/blocked.php">';
+                    }
+                    exit;
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Block check error in header: " . $e->getMessage());
+    }
+}
+
+// Уведомления (только если пользователь не заблокирован)
 if ($is_logged && $context === 'mip' && $user_role === 'client') {
     if (file_exists(__DIR__ . '/includes/notifications.php')) {
         require_once __DIR__ . '/includes/notifications.php';
-        global $pdo;
-        $unreadCount = getUnreadCount($pdo, $user_id);
-        $notifications_dropdown = getUnreadNotifications($pdo, $user_id);
+        if (isset($pdo)) {
+            $unreadCount = getUnreadCount($pdo, $user_id);
+            $notifications_dropdown = getUnreadNotifications($pdo, $user_id);
+        }
     }
 }
 
@@ -49,26 +95,6 @@ if ($context === 'mip') {
         case 'support_specialist': $lk_link = '/lk_support.php'; break;
         case 'client': $lk_link = '/mip/lk_user.php'; break;
         default: $lk_link = '/lab/main_lab.php';
-    }
-}
-// Блокировка пользователя - перенаправление на страницу блокировки
-if ($is_logged && $user_role === 'client') {
-    try {
-        $stmt = $pdo->prepare("SELECT is_blocked FROM user WHERE id = ?");
-        $stmt->execute([$user_id]);
-        $isBlocked = $stmt->fetchColumn();
-        
-        if ($isBlocked) {
-            // Завершаем сессию и перенаправляем на страницу блокировки
-            session_destroy();
-            header('Location: /blocked.php');
-            exit;
-        }
-    } catch (Exception $e) {
-        // Если поле is_blocked ещё не добавлено, игнорируем
-        if (strpos($e->getMessage(), 'is_blocked') === false) {
-            error_log("Block check error: " . $e->getMessage());
-        }
     }
 }
 ?>
