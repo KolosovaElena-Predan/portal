@@ -3,7 +3,61 @@ $activePage = 'requests';
 $pageTitle = 'Заявка #' . $id;
 
 require_once 'includes/auth_check.php';
-require_once __DIR__ . '/../mip/includes/notifications.php';
+
+// ============================================
+// ПОИСК ФАЙЛА notifications.php
+// ============================================
+$notificationsPath = null;
+
+// Вариант 1: ../mip/includes/notifications.php
+if (file_exists(__DIR__ . '/../mip/includes/notifications.php')) {
+    $notificationsPath = __DIR__ . '/../mip/includes/notifications.php';
+}
+// Вариант 2: ../includes/notifications.php
+elseif (file_exists(__DIR__ . '/../includes/notifications.php')) {
+    $notificationsPath = __DIR__ . '/../includes/notifications.php';
+}
+// Вариант 3: ./includes/notifications.php
+elseif (file_exists(__DIR__ . '/includes/notifications.php')) {
+    $notificationsPath = __DIR__ . '/includes/notifications.php';
+}
+// Вариант 4: ../../includes/notifications.php
+elseif (file_exists(__DIR__ . '/../../includes/notifications.php')) {
+    $notificationsPath = __DIR__ . '/../../includes/notifications.php';
+}
+// Вариант 5: ../../mip/includes/notifications.php
+elseif (file_exists(__DIR__ . '/../../mip/includes/notifications.php')) {
+    $notificationsPath = __DIR__ . '/../../mip/includes/notifications.php';
+}
+
+if ($notificationsPath) {
+    require_once $notificationsPath;
+} else {
+    // Если файл не найден, создаём заглушки для функций
+    error_log("Файл notifications.php не найден. Создаём заглушки.");
+    
+    if (!function_exists('addNotification')) {
+        function addNotification($pdo, $userId, $type, $title, $message, $link = null) {
+            try {
+                $stmt = $pdo->prepare("INSERT INTO notifications (user_id, type, title, message, link, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                $stmt->execute([$userId, $type, $title, $message, $link]);
+                return $pdo->lastInsertId();
+            } catch (PDOException $e) {
+                error_log("Add notification error: " . $e->getMessage());
+                return false;
+            }
+        }
+    }
+    
+    if (!function_exists('sendEmailNotification')) {
+        function sendEmailNotification($email, $name, $subject, $htmlMessage) {
+            $headers = "MIME-Version: 1.0\r\n";
+            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $headers .= "From: no-reply@" . ($_SERVER['HTTP_HOST'] ?? 'example.com') . "\r\n";
+            mail($email, $subject, $htmlMessage, $headers);
+        }
+    }
+}
 
 // Загружаем динамические статусы
 $statusLabels = [];
@@ -66,7 +120,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $link = "/mip/lk_user.php#request-{$id}-status";
             
             // Добавляем уведомление в систему
-            addNotification($pdo, $request['user_id'], 'status_change', $title, $message, $link);
+            if (function_exists('addNotification')) {
+                addNotification($pdo, $request['user_id'], 'status_change', $title, $message, $link);
+            }
             
             // Отправляем email клиенту
             if (!empty($request['user_email'])) {
@@ -94,7 +150,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </body>
                 </html>";
                 
-                sendEmailNotification($request['user_email'], $request['user_name'] ?? 'Клиент', $emailSubject, $emailBody);
+                if (function_exists('sendEmailNotification')) {
+                    sendEmailNotification($request['user_email'], $request['user_name'] ?? 'Клиент', $emailSubject, $emailBody);
+                } else {
+                    // Отправляем через стандартную mail()
+                    $headers = "MIME-Version: 1.0\r\n";
+                    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+                    $headers .= "From: no-reply@" . ($_SERVER['HTTP_HOST'] ?? 'example.com') . "\r\n";
+                    mail($request['user_email'], $emailSubject, $emailBody, $headers);
+                }
             }
             
             $success = 'Статус обновлён, клиент получил уведомление';
@@ -159,7 +223,7 @@ require_once 'includes/sidebar.php';
                                 <select name="status" class="form-control">
                                     <?php foreach ($statusList as $code => $status): ?>
                                         <?php if ($code !== 'waiting'): ?>
-                                            <option value="<?= $code ?>" <?= $request['status'] === $code ? 'selected' : '' ?> style="color: <?= $status['color'] ?>;">
+                                            <option value="<?= $code ?>" <?= $request['status'] === $code ? 'selected' : '' ?>>
                                                 <?= htmlspecialchars($status['name']) ?>
                                             </option>
                                         <?php endif; ?>
