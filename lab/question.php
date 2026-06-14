@@ -495,7 +495,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 >
                                 <label for="consent">
                                     Я соглашаюсь на обработку персональных данных и принимаю 
-                                    <a href="privacy_policy.php" target="_blank">политику конфиденциальности</a>
+                                    <a href="/policy.php" target="_blank">политику конфиденциальности</a>
+                                    и 
+                                    <a href="/privacy.php" target="_blank">пользовательское соглашение</a>
                                 </label>
                             </div>
 
