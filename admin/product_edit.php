@@ -17,18 +17,18 @@ $error = '';
 $success = '';
 $productId = (int)($_GET['id'] ?? 0);
 
-if ($productId <= 0) { 
-    header('Location: products.php'); 
-    exit; 
+if ($productId <= 0) {
+    header('Location: products.php');
+    exit;
 }
 
 $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
 $stmt->execute([$productId]);
 $product = $stmt->fetch();
 
-if (!$product) { 
-    header('Location: products.php'); 
-    exit; 
+if (!$product) {
+    header('Location: products.php');
+    exit;
 }
 
 $uploadBaseDir = __DIR__ . '/../mip/img/products/';
@@ -37,111 +37,90 @@ if (!file_exists($uploadBaseDir)) {
 }
 
 // ============================================
-// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ (С ПОИСКОМ ПУТИ)
+// ФУНКЦИЯ ОТПРАВКИ УВЕДОМЛЕНИЙ (ОПТИМИЗИРОВАНА)
 // ============================================
 function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
     error_log("=== checkAndNotifyWaitingList вызван ===");
-    error_log("Product ID: $productId, New stock: $newStock");
-    
-    if ($newStock <= 0) {
-        error_log("Новый остаток <= 0, уведомления не отправляются");
-        return 0;
-    }
-    
+    if ($newStock <= 0) return 0;
+
     try {
         $stmt = $pdo->prepare("SELECT name FROM products WHERE id = ?");
         $stmt->execute([$productId]);
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$product) {
-            error_log("Товар не найден");
-            return 0;
-        }
-        
+        if (!$product) return 0;
+
         $stmt = $pdo->prepare("
-            SELECT r.id, r.user_id, r.message, r.is_notified, u.email, u.name 
+            SELECT r.id, r.user_id, r.message, r.is_notified, u.email, u.name
             FROM request r
             JOIN user u ON r.user_id = u.id
             WHERE r.product_id = ? AND r.type = 'wl' AND r.status = 'waiting'
         ");
         $stmt->execute([$productId]);
         $waitingRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        error_log("Найдено заявок в листе ожидания: " . count($waitingRequests));
-        
+
         if (empty($waitingRequests)) return 0;
-        
+
         $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
         $productUrl = $siteUrl . '/mip/product.php?id=' . $productId;
-        
+
         $stmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? AND is_main = 1 LIMIT 1");
         $stmt->execute([$productId]);
         $productImage = $stmt->fetchColumn();
-        
+
         $notificationsPath = null;
-        
-        if (file_exists(__DIR__ . '/../mip/includes/notifications.php')) {
-            $notificationsPath = __DIR__ . '/../mip/includes/notifications.php';
-        }
-        elseif (file_exists(__DIR__ . '/../includes/notifications.php')) {
-            $notificationsPath = __DIR__ . '/../includes/notifications.php';
-        }
-        elseif (file_exists(__DIR__ . '/includes/notifications.php')) {
-            $notificationsPath = __DIR__ . '/includes/notifications.php';
-        }
-        elseif (file_exists(__DIR__ . '/../../mip/includes/notifications.php')) {
-            $notificationsPath = __DIR__ . '/../../mip/includes/notifications.php';
-        }
-        elseif (file_exists(__DIR__ . '/../../includes/notifications.php')) {
-            $notificationsPath = __DIR__ . '/../../includes/notifications.php';
-        }
-        
-        if (!$notificationsPath) {
-            error_log("Файл notifications.php не найден. Искали в: " . __DIR__);
-            return 0;
-        }
-        
-        error_log("Файл notifications.php найден: " . $notificationsPath);
-        require_once $notificationsPath;
-        
-        if (!function_exists('addNotification')) {
-            error_log("Функция addNotification не определена");
-            return 0;
-        }
-        
-        $notifiedCount = 0;
-        
-        foreach ($waitingRequests as $req) {
-            $userData = json_decode($req['message'], true);
-            $requestedQty = $userData['quantity'] ?? 1;
-            
-            error_log("Обработка заявки ID {$req['id']}: запрошено {$requestedQty} шт., is_notified={$req['is_notified']}");
-            
-            if ($req['is_notified'] == 0) {
-                $title = "Товар '{$product['name']}' поступил в наличие!";
-                $message = "Запрошенное вами количество ({$requestedQty} шт.) теперь доступно для заказа в каталоге.";
-                $link = "/mip/waiting_list.php";
-                
-                addNotification($pdo, $req['user_id'], 'stock_available', $title, $message, $link);
-                error_log("Уведомление добавлено в БД для user_id={$req['user_id']}");
-                
-                if (function_exists('sendEmailNotification') && function_exists('getProductAvailableEmailTemplate')) {
-                    $htmlMessage = getProductAvailableEmailTemplate($product['name'], $productUrl, $requestedQty, $productImage);
-                    sendEmailNotification($req['email'], $req['name'], $title, $htmlMessage);
-                    error_log("Email отправлен на {$req['email']}");
-                }
-                
-                $updateReq = $pdo->prepare("UPDATE request SET is_notified = 1 WHERE id = ?");
-                $updateReq->execute([$req['id']]);
-                
-                $notifiedCount++;
-            } else {
-                error_log("Уведомление уже было отправлено ранее, пропускаем");
+        $pathsToCheck = [
+            __DIR__ . '/../mip/includes/notifications.php',
+            __DIR__ . '/../includes/notifications.php',
+            __DIR__ . '/includes/notifications.php',
+            __DIR__ . '/../../mip/includes/notifications.php',
+            __DIR__ . '/../../includes/notifications.php'
+        ];
+        foreach ($pathsToCheck as $path) {
+            if (file_exists($path)) {
+                $notificationsPath = $path;
+                break;
             }
         }
+
+        if (!$notificationsPath || !file_exists($notificationsPath)) {
+            error_log("Файл notifications.php не найден.");
+            return 0;
+        }
+
+        require_once $notificationsPath;
+        if (!function_exists('addNotification')) return 0;
+
+        $notifiedCount = 0;
         
-        error_log("ИТОГО отправлено уведомлений: {$notifiedCount}");
+        // ОПТИМИЗАЦИЯ: Готовим запрос на обновление один раз вне цикла
+        $updateReqStmt = $pdo->prepare("UPDATE request SET is_notified = 1 WHERE id = ?");
+
+        foreach ($waitingRequests as $req) {
+            if ($req['is_notified'] == 1) continue;
+
+            $userData = json_decode($req['message'], true);
+            $requestedQty = $userData['quantity'] ?? 1;
+            $title = "Товар '{$product['name']}' поступил в наличие!";
+            $message = "Запрошенное вами количество ({$requestedQty} шт.) теперь доступно для заказа в каталоге.";
+            $link = "/mip/waiting_list.php";
+
+            addNotification($pdo, $req['user_id'], 'stock_available', $title, $message, $link);
+
+            // Безопасная отправка email: если один упадет, остальные продолжат отправляться
+            if (function_exists('sendEmailNotification') && function_exists('getProductAvailableEmailTemplate')) {
+                try {
+                    $htmlMessage = getProductAvailableEmailTemplate($product['name'], $productUrl, $requestedQty, $productImage);
+                    sendEmailNotification($req['email'], $req['name'], $title, $htmlMessage);
+                } catch (Exception $e) {
+                    error_log("Ошибка отправки email для {$req['email']}: " . $e->getMessage());
+                }
+            }
+
+            $updateReqStmt->execute([$req['id']]);
+            $notifiedCount++;
+        }
+
         return $notifiedCount;
-        
     } catch (Exception $e) {
         error_log("ОШИБКА при отправке уведомлений: " . $e->getMessage());
         return 0;
@@ -154,7 +133,6 @@ function checkAndNotifyWaitingList($pdo, $productId, $newStock) {
 if (isset($_POST['ajax_upload'])) {
     header('Content-Type: application/json');
     $response = ['success' => false, 'message' => '', 'images' => []];
-    
     if (!empty($_FILES['images']['name'][0])) {
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $maxSize = 5 * 1024 * 1024;
@@ -244,11 +222,9 @@ if (isset($_POST['save'])) {
     $sort_order = (int)($_POST['sort_order'] ?? 0);
     $mainSelected = $_POST['main_image_selected'] ?? '';
     
-    // НОВЫЕ ПОЛЯ для базового товара
     $is_made_to_order = isset($_POST['is_made_to_order']) && $_POST['is_made_to_order'] == '1' ? 1 : 0;
     $lead_time = trim($_POST['lead_time'] ?? '14-21 дней');
     
-    // Если товар под заказ, принудительно ставим stock = -1
     if ($is_made_to_order) $newStock = -1;
 
     if (!$name) {
@@ -259,13 +235,13 @@ if (isset($_POST['save'])) {
         try {
             $pdo->beginTransaction();
 
-            // 1. Обновляем товар (с новыми полями)
-            $pdo->prepare("UPDATE products SET 
-                category_id = ?, name = ?, short_description = ?, full_description = ?, 
+            // 1. Обновляем товар
+            $pdo->prepare("UPDATE products SET
+                category_id = ?, name = ?, short_description = ?, full_description = ?,
                 base_price = ?, stock = ?, is_made_to_order = ?, lead_time = ?, is_new = ?, is_slider = ?, sort_order = ?, status = ?, updated_at = NOW()
                 WHERE id = ?")
-                ->execute([$category_id, $name, $short_description, $full_description, 
-                          $base_price, $newStock, $is_made_to_order, $lead_time, $is_new, $is_slider, $sort_order, $status, $productId]);
+                ->execute([$category_id, $name, $short_description, $full_description,
+                    $base_price, $newStock, $is_made_to_order, $lead_time, $is_new, $is_slider, $sort_order, $status, $productId]);
 
             // 2. Изображения
             $pdo->prepare("UPDATE product_images SET is_main = 0 WHERE product_id = ?")->execute([$productId]);
@@ -314,7 +290,7 @@ if (isset($_POST['save'])) {
                 $fGroup = trim($fileGroups[$i] ?? 'Документация');
                 $fSort = (int)($fileSorts[$i] ?? 0);
                 $fUploaded = !empty($_FILES['product_files']['name'][$i]) && $_FILES['product_files']['error'][$i] === UPLOAD_ERR_OK;
-                
+
                 if ($fid > 0) {
                     $params = [$fName, $fGroup, $fSort, $fid, $productId];
                     $sql = "UPDATE product_files SET file_name = ?, group_name = ?, sort_order = ? WHERE id = ? AND product_id = ?";
@@ -372,7 +348,7 @@ if (isset($_POST['save'])) {
                 $sDesc = trim($schemeDescs[$i] ?? '');
                 $sSort = (int)($schemeSorts[$i] ?? 0);
                 $sUploaded = !empty($_FILES['scheme_images']['name'][$i]) && $_FILES['scheme_images']['error'][$i] === UPLOAD_ERR_OK;
-                
+
                 if ($sid > 0) {
                     if (!$sTitle && !$sUploaded) continue;
                     $params = [$sTitle, $sDesc, $sSort, $sid, $productId];
@@ -407,7 +383,7 @@ if (isset($_POST['save'])) {
                     if ($delId > 0) $pdo->prepare("DELETE FROM product_configurations WHERE id = ? AND product_id = ?")->execute([$delId, $productId]);
                 }
             }
-            
+
             // 5.1 Обновление/добавление комплектаций
             if (!empty($_POST['config_name'])) {
                 foreach ($_POST['config_name'] as $k => $cName) {
@@ -417,13 +393,12 @@ if (isset($_POST['save'])) {
                     $cCharsText = trim($_POST['config_chars'][$k] ?? '');
                     $cSort = (int)($_POST['config_sort'][$k] ?? 0);
                     $cMain = isset($_POST['config_main'][$k]) && $_POST['config_main'][$k] == '1' ? 1 : 0;
-                    
                     $cStock = (int)($_POST['config_stock'][$k] ?? 0);
                     $cIsMadeToOrder = isset($_POST['config_made_to_order'][$k]) && $_POST['config_made_to_order'][$k] == '1' ? 1 : 0;
                     $cLeadTime = trim($_POST['config_lead_time'][$k] ?? '');
                     
                     if ($cIsMadeToOrder) $cStock = -1;
-                    
+
                     $charsArray = [];
                     if ($cCharsText) {
                         foreach (explode("\n", $cCharsText) as $line) {
@@ -436,7 +411,7 @@ if (isset($_POST['save'])) {
                     if ($cLeadTime) $charsArray['lead_time'] = $cLeadTime;
                     
                     $charsJson = json_encode($charsArray, JSON_UNESCAPED_UNICODE);
-                    
+
                     if ($cId > 0) {
                         $pdo->prepare("UPDATE product_configurations SET name = ?, price = ?, characteristics = ?, sort_order = ?, is_main = ? WHERE id = ? AND product_id = ?")
                             ->execute([$cName, $cPrice, $charsJson, $cSort, $cMain, $cId, $productId]);
@@ -454,7 +429,7 @@ if (isset($_POST['save'])) {
                     if ($delId > 0) $pdo->prepare("DELETE FROM product_modifications WHERE id = ? AND product_id = ?")->execute([$delId, $productId]);
                 }
             }
-            
+
             // 6.1 Обновление/добавление модификаций
             if (!empty($_POST['mod_group_name'])) {
                 foreach ($_POST['mod_group_name'] as $k => $mGroup) {
@@ -475,16 +450,16 @@ if (isset($_POST['save'])) {
                                     }
                                 }
                                 $variants[] = [
-                                    'name' => trim($v['name']), 
-                                    'price' => (float)($v['price'] ?? 0), 
-                                    'description' => trim($v['description'] ?? ''), 
+                                    'name' => trim($v['name']),
+                                    'price' => (float)($v['price'] ?? 0),
+                                    'description' => trim($v['description'] ?? ''),
                                     'properties' => $props
                                 ];
                             }
                         }
                     }
                     $variantsJson = json_encode($variants, JSON_UNESCAPED_UNICODE);
-                    
+
                     if ($mId > 0) {
                         $pdo->prepare("UPDATE product_modifications SET group_name = ?, options = ?, sort_order = ? WHERE id = ? AND product_id = ?")
                             ->execute([$mGroup, $variantsJson, $mSort, $mId, $productId]);
@@ -496,28 +471,28 @@ if (isset($_POST['save'])) {
             }
 
             $pdo->commit();
-            
-            // 7. ОТПРАВКА УВЕДОМЛЕНИЙ (если остаток стал положительным)
+
+            // 7. ОТПРАВКА УВЕДОМЛЕНИЙ
             $notifiedCount = 0;
             if ($newStock > 0) {
                 $notifiedCount = checkAndNotifyWaitingList($pdo, $productId, $newStock);
             }
-            
+
             $success = 'Товар успешно обновлён!';
             if ($notifiedCount > 0) {
                 $success .= " Отправлено уведомлений о поступлении: {$notifiedCount}.";
             }
-            
+
             if (isset($_POST['save']) && $_POST['save'] === 'open_preview' && $productId) {
                 header('Location: ../mip/product.php?id=' . $productId);
                 exit;
             }
-            
+
             // Перезагружаем данные товара для отображения
             $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
             $stmt->execute([$productId]);
             $product = $stmt->fetch();
-            
+
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             $error = 'Ошибка БД: ' . $e->getMessage();
@@ -550,19 +525,17 @@ $stmt = $pdo->prepare("SELECT * FROM product_modifications WHERE product_id = ? 
 $stmt->execute([$productId]);
 $productMods = $stmt->fetchAll();
 
-// Получаем количество привязанных услуг
 $stmtServices = $pdo->prepare("SELECT COUNT(*) FROM product_services WHERE product_id = ? AND is_active = 1");
 $stmtServices->execute([$productId]);
 $servicesCount = $stmtServices->fetchColumn();
 
 $tempImages = $_SESSION['temp_product_images'] ?? [];
-
 $mainSelectedValue = '';
-foreach ($productImages as $img) { 
-    if ($img['is_main']) { 
-        $mainSelectedValue = 'db:' . $img['id']; 
-        break; 
-    } 
+foreach ($productImages as $img) {
+    if ($img['is_main']) {
+        $mainSelectedValue = 'db:' . $img['id'];
+        break;
+    }
 }
 if (!$mainSelectedValue && $productImages) {
     $mainSelectedValue = 'db:' . $productImages[0]['id'];
@@ -601,7 +574,7 @@ require_once 'includes/sidebar.php';
         <div class="container-fluid">
             <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
             <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?> <a href="../mip/product.php?id=<?= $productId ?>" target="_blank">Открыть</a></div><?php endif; ?>
-
+            
             <form method="POST" class="card" id="productForm" enctype="multipart/form-data">
                 <div id="deletedItemsContainer" style="display:none;"></div>
                 <input type="hidden" name="main_image_selected" id="mainImageSelected" value="<?= htmlspecialchars($mainSelectedValue) ?>">
@@ -635,13 +608,11 @@ require_once 'includes/sidebar.php';
                                 <label>Цена (руб.)</label>
                                 <input type="number" step="0.01" min="0" name="base_price" class="form-control" value="<?= $formData['base_price'] ?>">
                             </div>
-                            
                             <div class="form-section mb-3">
                                 <label>Остаток на складе</label>
                                 <input type="number" min="-1" name="stock" id="base_stock" class="form-control" value="<?= $formData['stock'] ?>" <?= $formData['is_made_to_order'] ? 'disabled' : '' ?>>
                                 <small class="text-muted">-1 = только под заказ</small>
                             </div>
-                            
                             <div class="form-section mb-3">
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="is_made_to_order" id="base_made_to_order" value="1" <?= $formData['is_made_to_order'] ? 'checked' : '' ?>>
@@ -650,7 +621,6 @@ require_once 'includes/sidebar.php';
                                 <label>Срок изготовления</label>
                                 <input type="text" name="lead_time" class="form-control" value="<?= htmlspecialchars($formData['lead_time']) ?>" placeholder="Напр: 14-21 дней">
                             </div>
-                            
                             <div class="form-section mb-3">
                                 <label>Статус</label>
                                 <select name="status" class="form-control">
@@ -659,14 +629,10 @@ require_once 'includes/sidebar.php';
                                     <option value="inactive" <?= $formData['status'] === 'inactive' ? 'selected' : '' ?>>Неактивен</option>
                                 </select>
                             </div>
-                            
-                            <!-- Привязка услуг -->
                             <div class="form-section mb-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span>Привязка услуг</span>
-                                    <a href="product_services.php?product_id=<?= $productId ?>" class="btn btn-sm btn-info">
-                                        Управление
-                                    </a>
+                                    <a href="product_services.php?product_id=<?= $productId ?>" class="btn btn-sm btn-info">Управление</a>
                                 </div>
                                 <small class="text-muted">
                                     <?php if ($servicesCount > 0): ?>
@@ -676,7 +642,6 @@ require_once 'includes/sidebar.php';
                                     <?php endif; ?>
                                 </small>
                             </div>
-                            
                             <div class="form-section mb-3">
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="is_new" id="is_new" value="1" <?= $formData['is_new'] ? 'checked' : '' ?>>
@@ -696,37 +661,35 @@ require_once 'includes/sidebar.php';
                             <h5>Изображения (<span id="imageCount"><?= count($productImages) + count($tempImages) ?></span>)</h5>
                             <div class="row" id="imagesContainer">
                                 <?php foreach ($productImages as $img): ?>
-                                <div class="col-md-3 mb-3 image-card" data-image-id="<?= $img['id'] ?>">
-                                    <div class="card">
-                                        <img src="../mip/<?= htmlspecialchars($img['image_url']) ?>" class="card-img-top" style="height:150px;object-fit:cover;">
-                                        <div class="card-body p-2">
-                                            <div class="form-check mb-2">
-                                                <input type="radio" name="main_image_selector" class="form-check-input main-radio" value="db:<?= $img['id'] ?>" id="main_db_<?= $img['id'] ?>" <?= $img['is_main'] ? 'checked' : '' ?>>
-                                                <label class="form-check-label" for="main_db_<?= $img['id'] ?>">Главное</label>
+                                    <div class="col-md-3 mb-3 image-card" data-image-id="<?= $img['id'] ?>">
+                                        <div class="card">
+                                            <img src="../mip/<?= htmlspecialchars($img['image_url']) ?>" class="card-img-top" style="height:150px;object-fit:cover;">
+                                            <div class="card-body p-2">
+                                                <div class="form-check mb-2">
+                                                    <input type="radio" name="main_image_selector" class="form-check-input main-radio" value="db:<?= $img['id'] ?>" id="main_db_<?= $img['id'] ?>" <?= $img['is_main'] ? 'checked' : '' ?>>
+                                                    <label class="form-check-label" for="main_db_<?= $img['id'] ?>">Главное</label>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-danger btn-block remove-db-image" data-image-id="<?= $img['id'] ?>">Удалить</button>
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-danger btn-block remove-db-image" data-image-id="<?= $img['id'] ?>">Удалить</button>
                                         </div>
                                     </div>
-                                </div>
                                 <?php endforeach; ?>
-                                
                                 <?php foreach ($tempImages as $img): ?>
-                                <div class="col-md-3 mb-3 image-card" data-temp-id="<?= htmlspecialchars($img['temp_id']) ?>">
-                                    <div class="card">
-                                        <img src="../mip/<?= htmlspecialchars($img['image_url']) ?>" class="card-img-top" style="height:150px;object-fit:cover;">
-                                        <div class="card-body p-2">
-                                            <div class="form-check mb-2">
-                                                <input type="radio" name="main_image_selector" class="form-check-input main-radio" value="temp:<?= htmlspecialchars($img['temp_id']) ?>" id="main_temp_<?= htmlspecialchars($img['temp_id']) ?>" <?= empty($productImages) ? 'checked' : '' ?>>
-                                                <label class="form-check-label" for="main_temp_<?= htmlspecialchars($img['temp_id']) ?>">Главное</label>
+                                    <div class="col-md-3 mb-3 image-card" data-temp-id="<?= htmlspecialchars($img['temp_id']) ?>">
+                                        <div class="card">
+                                            <img src="../mip/<?= htmlspecialchars($img['image_url']) ?>" class="card-img-top" style="height:150px;object-fit:cover;">
+                                            <div class="card-body p-2">
+                                                <div class="form-check mb-2">
+                                                    <input type="radio" name="main_image_selector" class="form-check-input main-radio" value="temp:<?= htmlspecialchars($img['temp_id']) ?>" id="main_temp_<?= htmlspecialchars($img['temp_id']) ?>" <?= empty($productImages) ? 'checked' : '' ?>>
+                                                    <label class="form-check-label" for="main_temp_<?= htmlspecialchars($img['temp_id']) ?>">Главное</label>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-danger btn-block remove-image" data-temp-id="<?= htmlspecialchars($img['temp_id']) ?>">Удалить</button>
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-danger btn-block remove-image" data-temp-id="<?= htmlspecialchars($img['temp_id']) ?>">Удалить</button>
                                         </div>
                                     </div>
-                                </div>
                                 <?php endforeach; ?>
-                                
                                 <?php if (empty($productImages) && empty($tempImages)): ?>
-                                <div class="col-12"><p class="text-muted">Изображений нет</p></div>
+                                    <div class="col-12"><p class="text-muted">Изображений нет</p></div>
                                 <?php endif; ?>
                             </div>
                             <div class="form-group mt-2">
@@ -745,28 +708,27 @@ require_once 'includes/sidebar.php';
                             <h5>Файлы</h5>
                             <div id="filesContainer">
                                 <?php foreach ($productFiles as $f): ?>
-                                <div class="file-entry mb-3 p-3 border rounded" data-file-id="<?= $f['id'] ?>">
-                                    <input type="hidden" name="file_id[]" value="<?= $f['id'] ?>">
-                                    <div class="row align-items-end">
-                                        <div class="col-md-3"><label>Отображаемое имя *</label><input type="text" name="file_name[]" class="form-control" value="<?= htmlspecialchars($f['file_name']) ?>" required></div>
-                                        <div class="col-md-3"><label>Группа</label><input type="text" name="file_group[]" class="form-control" value="<?= htmlspecialchars($f['group_name']) ?>"></div>
-                                        <div class="col-md-4"><label>Файл</label><div class="input-group input-group-sm"><input type="text" class="form-control" value="<?= htmlspecialchars($f['file_url']) ?>" readonly style="background:#f8f9fa;"><div class="input-group-append"><a href="../mip/<?= htmlspecialchars($f['file_url']) ?>" target="_blank" class="btn btn-outline-secondary">Открыть</a></div></div><input type="file" name="product_files[]" class="form-control form-control-sm mt-1" accept=".pdf,.doc,.docx,.zip,.rar,.xls,.xlsx"><small class="text-muted">Загрузите новый, чтобы заменить</small></div>
-                                        <div class="col-md-1"><label>Порядок</label><input type="number" name="file_sort[]" class="form-control" value="<?= $f['sort_order'] ?>" min="0"></div>
-                                        <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-file-btn">X</button></div>
+                                    <div class="file-entry mb-3 p-3 border rounded" data-file-id="<?= $f['id'] ?>">
+                                        <input type="hidden" name="file_id[]" value="<?= $f['id'] ?>">
+                                        <div class="row align-items-end">
+                                            <div class="col-md-3"><label>Отображаемое имя *</label><input type="text" name="file_name[]" class="form-control" value="<?= htmlspecialchars($f['file_name']) ?>" required></div>
+                                            <div class="col-md-3"><label>Группа</label><input type="text" name="file_group[]" class="form-control" value="<?= htmlspecialchars($f['group_name']) ?>"></div>
+                                            <div class="col-md-4"><label>Файл</label><div class="input-group input-group-sm"><input type="text" class="form-control" value="<?= htmlspecialchars($f['file_url']) ?>" readonly style="background:#f8f9fa;"><div class="input-group-append"><a href="../mip/<?= htmlspecialchars($f['file_url']) ?>" target="_blank" class="btn btn-outline-secondary">Открыть</a></div></div><input type="file" name="product_files[]" class="form-control form-control-sm mt-1" accept=".pdf,.doc,.docx,.zip,.rar,.xls,.xlsx"><small class="text-muted">Загрузите новый, чтобы заменить</small></div>
+                                            <div class="col-md-1"><label>Порядок</label><input type="number" name="file_sort[]" class="form-control" value="<?= $f['sort_order'] ?>" min="0"></div>
+                                            <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-file-btn">X</button></div>
+                                        </div>
                                     </div>
-                                </div>
                                 <?php endforeach; ?>
-                                
                                 <?php if (empty($productFiles)): ?>
-                                <div class="file-entry mb-3 p-3 border rounded">
-                                    <div class="row align-items-end">
-                                        <div class="col-md-3"><label>Отображаемое имя *</label><input type="text" name="file_name[]" class="form-control" placeholder="Напр: Инструкция" required></div>
-                                        <div class="col-md-3"><label>Группа</label><input type="text" name="file_group[]" class="form-control" value="Документация"></div>
-                                        <div class="col-md-4"><label>Загрузить файл</label><input type="file" name="product_files[]" class="form-control" accept=".pdf,.doc,.docx,.zip,.rar,.xls,.xlsx" required></div>
-                                        <div class="col-md-1"><label>Порядок</label><input type="number" name="file_sort[]" class="form-control" value="0" min="0"></div>
-                                        <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-file-btn">X</button></div>
+                                    <div class="file-entry mb-3 p-3 border rounded">
+                                        <div class="row align-items-end">
+                                            <div class="col-md-3"><label>Отображаемое имя *</label><input type="text" name="file_name[]" class="form-control" placeholder="Напр: Инструкция" required></div>
+                                            <div class="col-md-3"><label>Группа</label><input type="text" name="file_group[]" class="form-control" value="Документация"></div>
+                                            <div class="col-md-4"><label>Загрузить файл</label><input type="file" name="product_files[]" class="form-control" accept=".pdf,.doc,.docx,.zip,.rar,.xls,.xlsx" required></div>
+                                            <div class="col-md-1"><label>Порядок</label><input type="number" name="file_sort[]" class="form-control" value="0" min="0"></div>
+                                            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-file-btn">X</button></div>
+                                        </div>
                                     </div>
-                                </div>
                                 <?php endif; ?>
                             </div>
                             <button type="button" class="btn btn-secondary btn-sm" id="addFileBtn">+ Добавить файл</button>
@@ -779,18 +741,17 @@ require_once 'includes/sidebar.php';
                             <h5>Схемы</h5>
                             <div id="schemesContainer">
                                 <?php foreach ($productSchemes as $s): ?>
-                                <div class="scheme-entry mb-3 p-3 border rounded" data-scheme-id="<?= $s['id'] ?>">
-                                    <input type="hidden" name="scheme_id[]" value="<?= $s['id'] ?>">
-                                    <div class="row">
-                                        <div class="col-md-4"><label>Название</label><input type="text" name="scheme_title[]" class="form-control" value="<?= htmlspecialchars($s['title']) ?>"></div>
-                                        <div class="col-md-4"><label>Изображение</label><?php if ($s['image_url']): ?><div><img src="../mip/<?= htmlspecialchars($s['image_url']) ?>" style="max-height:60px;" class="mb-1 border rounded"></div><?php endif; ?><input type="file" name="scheme_images[]" class="form-control" accept="image/*"><small class="text-muted">Загрузите новое, чтобы заменить</small></div>
-                                        <div class="col-md-3"><label>Порядок</label><input type="number" name="scheme_sort[]" class="form-control" value="<?= $s['sort_order'] ?>" min="0"></div>
-                                        <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-scheme-btn">X</button></div>
+                                    <div class="scheme-entry mb-3 p-3 border rounded" data-scheme-id="<?= $s['id'] ?>">
+                                        <input type="hidden" name="scheme_id[]" value="<?= $s['id'] ?>">
+                                        <div class="row">
+                                            <div class="col-md-4"><label>Название</label><input type="text" name="scheme_title[]" class="form-control" value="<?= htmlspecialchars($s['title']) ?>"></div>
+                                            <div class="col-md-4"><label>Изображение</label><?php if ($s['image_url']): ?><div><img src="../mip/<?= htmlspecialchars($s['image_url']) ?>" style="max-height:60px;" class="mb-1 border rounded"></div><?php endif; ?><input type="file" name="scheme_images[]" class="form-control" accept="image/*"><small class="text-muted">Загрузите новое, чтобы заменить</small></div>
+                                            <div class="col-md-3"><label>Порядок</label><input type="number" name="scheme_sort[]" class="form-control" value="<?= $s['sort_order'] ?>" min="0"></div>
+                                            <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-scheme-btn">X</button></div>
+                                        </div>
+                                        <div class="mt-2"><label>Описание</label><textarea name="scheme_description[]" class="form-control" rows="2"><?= htmlspecialchars($s['description']) ?></textarea></div>
                                     </div>
-                                    <div class="mt-2"><label>Описание</label><textarea name="scheme_description[]" class="form-control" rows="2"><?= htmlspecialchars($s['description']) ?></textarea></div>
-                                </div>
                                 <?php endforeach; ?>
-                                
                                 <div class="scheme-entry mb-3 p-3 border rounded d-none" id="schemeTemplate">
                                     <div class="row">
                                         <div class="col-md-4"><label>Название</label><input type="text" name="scheme_title[]" class="form-control" placeholder="Напр: Схема подключения" required></div>
@@ -810,52 +771,51 @@ require_once 'includes/sidebar.php';
                         <div class="col-12">
                             <h5>Комплектации</h5>
                             <div id="configsContainer">
-                                <?php foreach ($productConfigs as $c): 
-                                    $chars = json_decode($c['characteristics'], true) ?? []; 
-                                    $charsText = ''; 
-                                    foreach ($chars as $k => $v) { 
+                                <?php foreach ($productConfigs as $c):
+                                    $chars = json_decode($c['characteristics'], true) ?? [];
+                                    $charsText = '';
+                                    foreach ($chars as $k => $v) {
                                         if (!in_array($k, ['stock', 'made_to_order', 'lead_time'])) {
-                                            $charsText .= "$k: $v\n"; 
+                                            $charsText .= "$k: $v\n";
                                         }
-                                    } 
+                                    }
                                     $cStock = $chars['stock'] ?? 0;
                                     $cIsMadeToOrder = $chars['made_to_order'] ?? false;
                                     $cLeadTime = $chars['lead_time'] ?? '';
                                 ?>
-                                <div class="config-entry mb-3 p-3 border rounded" data-config-id="<?= $c['id'] ?>">
-                                    <input type="hidden" name="config_id[]" value="<?= $c['id'] ?>">
-                                    <div class="row">
-                                        <div class="col-md-3"><label>Название</label><input type="text" name="config_name[]" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
-                                        <div class="col-md-2"><label>Цена (руб.)</label><input type="number" step="0.01" name="config_price[]" class="form-control" value="<?= $c['price'] ?>"></div>
-                                        <div class="col-md-2"><label>Остаток</label><input type="number" min="-1" name="config_stock[]" class="form-control config-stock" value="<?= $cStock ?>" <?= $cIsMadeToOrder ? 'disabled' : '' ?>></div>
-                                        <div class="col-md-3"><label>Характеристики</label><textarea name="config_chars[]" class="form-control" rows="2"><?= trim(htmlspecialchars($charsText)) ?></textarea></div>
-                                        <div class="col-md-1"><label>Порядок</label><input type="number" name="config_sort[]" class="form-control" value="<?= $c['sort_order'] ?>" min="0"></div>
-                                        <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-config-btn">X</button></div>
+                                    <div class="config-entry mb-3 p-3 border rounded" data-config-id="<?= $c['id'] ?>">
+                                        <input type="hidden" name="config_id[]" value="<?= $c['id'] ?>">
+                                        <div class="row">
+                                            <div class="col-md-3"><label>Название</label><input type="text" name="config_name[]" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+                                            <div class="col-md-2"><label>Цена (руб.)</label><input type="number" step="0.01" name="config_price[]" class="form-control" value="<?= $c['price'] ?>"></div>
+                                            <div class="col-md-2"><label>Остаток</label><input type="number" min="-1" name="config_stock[]" class="form-control config-stock" value="<?= $cStock ?>" <?= $cIsMadeToOrder ? 'disabled' : '' ?>></div>
+                                            <div class="col-md-3"><label>Характеристики</label><textarea name="config_chars[]" class="form-control" rows="2"><?= trim(htmlspecialchars($charsText)) ?></textarea></div>
+                                            <div class="col-md-1"><label>Порядок</label><input type="number" name="config_sort[]" class="form-control" value="<?= $c['sort_order'] ?>" min="0"></div>
+                                            <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-config-btn">X</button></div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-md-4"><div class="form-check"><input class="form-check-input config-made-to-order" type="checkbox" name="config_made_to_order[]" value="1" <?= $cIsMadeToOrder ? 'checked' : '' ?>><label class="form-check-label">Только под заказ</label></div></div>
+                                            <div class="col-md-4"><label>Срок изготовления</label><input type="text" name="config_lead_time[]" class="form-control" value="<?= htmlspecialchars($cLeadTime) ?>" placeholder="Напр: 14-21 дней"></div>
+                                            <div class="col-md-2"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="config_main[]" value="1" <?= $c['is_main'] ? 'checked' : '' ?>><label class="form-check-label">Основная</label></div></div>
+                                        </div>
                                     </div>
-                                    <div class="row mt-2">
-                                        <div class="col-md-4"><div class="form-check"><input class="form-check-input config-made-to-order" type="checkbox" name="config_made_to_order[]" value="1" <?= $cIsMadeToOrder ? 'checked' : '' ?>><label class="form-check-label">Только под заказ</label></div></div>
-                                        <div class="col-md-4"><label>Срок изготовления</label><input type="text" name="config_lead_time[]" class="form-control" value="<?= htmlspecialchars($cLeadTime) ?>" placeholder="Напр: 14-21 дней"></div>
-                                        <div class="col-md-2"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="config_main[]" value="1" <?= $c['is_main'] ? 'checked' : '' ?>><label class="form-check-label">Основная</label></div></div>
-                                    </div>
-                                </div>
                                 <?php endforeach; ?>
-                                
                                 <?php if (empty($productConfigs)): ?>
-                                <div class="config-entry mb-3 p-3 border rounded" data-config-id="0">
-                                    <div class="row">
-                                        <div class="col-md-3"><label>Название</label><input type="text" name="config_name[]" class="form-control" placeholder="Базовая"></div>
-                                        <div class="col-md-2"><label>Цена (руб.)</label><input type="number" step="0.01" name="config_price[]" class="form-control" value="0"></div>
-                                        <div class="col-md-2"><label>Остаток</label><input type="number" min="-1" name="config_stock[]" class="form-control config-stock" value="0"></div>
-                                        <div class="col-md-3"><label>Характеристики</label><textarea name="config_chars[]" class="form-control" rows="2" placeholder="Мощность: 1000 Вт&#10;Напряжение: 220В"></textarea></div>
-                                        <div class="col-md-1"><label>Порядок</label><input type="number" name="config_sort[]" class="form-control" value="0" min="0"></div>
-                                        <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-config-btn">X</button></div>
+                                    <div class="config-entry mb-3 p-3 border rounded" data-config-id="0">
+                                        <div class="row">
+                                            <div class="col-md-3"><label>Название</label><input type="text" name="config_name[]" class="form-control" placeholder="Базовая"></div>
+                                            <div class="col-md-2"><label>Цена (руб.)</label><input type="number" step="0.01" name="config_price[]" class="form-control" value="0"></div>
+                                            <div class="col-md-2"><label>Остаток</label><input type="number" min="-1" name="config_stock[]" class="form-control config-stock" value="0"></div>
+                                            <div class="col-md-3"><label>Характеристики</label><textarea name="config_chars[]" class="form-control" rows="2" placeholder="Мощность: 1000 Вт&#10;Напряжение: 220В"></textarea></div>
+                                            <div class="col-md-1"><label>Порядок</label><input type="number" name="config_sort[]" class="form-control" value="0" min="0"></div>
+                                            <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-danger btn-sm remove-config-btn">X</button></div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-md-4"><div class="form-check"><input class="form-check-input config-made-to-order" type="checkbox" name="config_made_to_order[]" value="1"><label class="form-check-label">Только под заказ</label></div></div>
+                                            <div class="col-md-4"><label>Срок изготовления</label><input type="text" name="config_lead_time[]" class="form-control" placeholder="Напр: 14-21 дней"></div>
+                                            <div class="col-md-2"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="config_main[]" value="1"><label class="form-check-label">Основная</label></div></div>
+                                        </div>
                                     </div>
-                                    <div class="row mt-2">
-                                        <div class="col-md-4"><div class="form-check"><input class="form-check-input config-made-to-order" type="checkbox" name="config_made_to_order[]" value="1"><label class="form-check-label">Только под заказ</label></div></div>
-                                        <div class="col-md-4"><label>Срок изготовления</label><input type="text" name="config_lead_time[]" class="form-control" placeholder="Напр: 14-21 дней"></div>
-                                        <div class="col-md-2"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="config_main[]" value="1"><label class="form-check-label">Основная</label></div></div>
-                                    </div>
-                                </div>
                                 <?php endif; ?>
                             </div>
                             <button type="button" class="btn btn-secondary btn-sm" id="addConfigBtn">+ Добавить комплектацию</button>
@@ -867,61 +827,59 @@ require_once 'includes/sidebar.php';
                         <div class="col-12">
                             <h5>Модификации</h5>
                             <div id="modsContainer">
-                                <?php foreach ($productMods as $idx => $mod): 
-                                    $variants = json_decode($mod['options'], true) ?? []; 
+                                <?php foreach ($productMods as $idx => $mod):
+                                    $variants = json_decode($mod['options'], true) ?? [];
                                 ?>
-                                <div class="mod-entry mb-3 p-3 border rounded" data-gidx="<?= $idx ?>">
-                                    <input type="hidden" name="mod_id[]" value="<?= $mod['id'] ?>">
-                                    <div class="row">
-                                        <div class="col-md-4"><label>Название группы</label><input type="text" name="mod_group_name[]" class="form-control" value="<?= htmlspecialchars($mod['group_name']) ?>"></div>
-                                        <div class="col-md-2"><label>Порядок</label><input type="number" name="mod_sort[]" class="form-control" value="<?= $mod['sort_order'] ?>" min="0"></div>
-                                        <div class="col-md-6 text-right"><button type="button" class="btn btn-success btn-sm add-variant-btn" data-gidx="<?= $idx ?>">+ Вариант</button></div>
-                                    </div>
-                                    <div class="variants-container mt-3">
-                                        <?php foreach ($variants as $vIdx => $v): ?>
-                                        <div class="variant-item card mb-2">
-                                            <div class="card-body">
-                                                <div class="row align-items-end">
-                                                    <div class="col-md-3"><label>Название *</label><input type="text" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][name]" class="form-control form-control-sm" value="<?= htmlspecialchars($v['name'] ?? '') ?>" required></div>
-                                                    <div class="col-md-2"><label>Цена</label><input type="number" step="0.01" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][price]" class="form-control form-control-sm" value="<?= $v['price'] ?? 0 ?>"></div>
-                                                    <div class="col-md-4"><label>Описание</label><input type="text" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][description]" class="form-control form-control-sm" value="<?= htmlspecialchars($v['description'] ?? '') ?>"></div>
-                                                    <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-variant-btn">X</button></div>
-                                                    <div class="col-md-1"><button type="button" class="btn btn-sm btn-secondary add-prop-btn">+ Св-во</button></div>
-                                                </div>
-                                                <div class="properties-list mt-2">
-                                                    <?php if (!empty($v['properties'])): foreach ($v['properties'] as $pIdx => $p): ?>
-                                                    <div class="prop-item input-group input-group-sm mb-1">
-                                                        <input type="text" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][properties][<?= $pIdx ?>][name]" class="form-control" value="<?= htmlspecialchars($p['name'] ?? '') ?>" placeholder="Свойство">
-                                                        <input type="number" step="0.01" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][properties][<?= $pIdx ?>][price]" class="form-control" style="width:90px" value="<?= $p['price'] ?? 0 ?>" placeholder="Наценка">
-                                                        <div class="input-group-append"><button type="button" class="btn btn-outline-danger remove-prop-btn">X</button></div>
-                                                    </div>
-                                                    <?php endforeach; endif; ?>
-                                                </div>
-                                            </div>
+                                    <div class="mod-entry mb-3 p-3 border rounded" data-gidx="<?= $idx ?>">
+                                        <input type="hidden" name="mod_id[]" value="<?= $mod['id'] ?>">
+                                        <div class="row">
+                                            <div class="col-md-4"><label>Название группы</label><input type="text" name="mod_group_name[]" class="form-control" value="<?= htmlspecialchars($mod['group_name']) ?>"></div>
+                                            <div class="col-md-2"><label>Порядок</label><input type="number" name="mod_sort[]" class="form-control" value="<?= $mod['sort_order'] ?>" min="0"></div>
+                                            <div class="col-md-6 text-right"><button type="button" class="btn btn-success btn-sm add-variant-btn" data-gidx="<?= $idx ?>">+ Вариант</button></div>
                                         </div>
-                                        <?php endforeach; ?>
+                                        <div class="variants-container mt-3">
+                                            <?php foreach ($variants as $vIdx => $v): ?>
+                                                <div class="variant-item card mb-2">
+                                                    <div class="card-body">
+                                                        <div class="row align-items-end">
+                                                            <div class="col-md-3"><label>Название *</label><input type="text" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][name]" class="form-control form-control-sm" value="<?= htmlspecialchars($v['name'] ?? '') ?>" required></div>
+                                                            <div class="col-md-2"><label>Цена</label><input type="number" step="0.01" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][price]" class="form-control form-control-sm" value="<?= $v['price'] ?? 0 ?>"></div>
+                                                            <div class="col-md-4"><label>Описание</label><input type="text" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][description]" class="form-control form-control-sm" value="<?= htmlspecialchars($v['description'] ?? '') ?>"></div>
+                                                            <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-variant-btn">X</button></div>
+                                                            <div class="col-md-1"><button type="button" class="btn btn-sm btn-secondary add-prop-btn">+ Св-во</button></div>
+                                                        </div>
+                                                        <div class="properties-list mt-2">
+                                                            <?php if (!empty($v['properties'])): foreach ($v['properties'] as $pIdx => $p): ?>
+                                                                <div class="prop-item input-group input-group-sm mb-1">
+                                                                    <input type="text" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][properties][<?= $pIdx ?>][name]" class="form-control" value="<?= htmlspecialchars($p['name'] ?? '') ?>" placeholder="Свойство">
+                                                                    <input type="number" step="0.01" name="mod_variants[<?= $idx ?>][<?= $vIdx ?>][properties][<?= $pIdx ?>][price]" class="form-control" style="width:90px" value="<?= $p['price'] ?? 0 ?>" placeholder="Наценка">
+                                                                    <div class="input-group-append"><button type="button" class="btn btn-outline-danger remove-prop-btn">X</button></div>
+                                                                </div>
+                                                            <?php endforeach; endif; ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-variant-btn" data-gidx="<?= $idx ?>">+ Добавить вариант</button>
                                     </div>
-                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-variant-btn" data-gidx="<?= $idx ?>">+ Добавить вариант</button>
-                                </div>
                                 <?php endforeach; ?>
-                                
                                 <?php if (empty($productMods)): ?>
-                                <div class="mod-entry mb-3 p-3 border rounded" data-gidx="0">
-                                    <div class="row">
-                                        <div class="col-md-4"><label>Название группы</label><input type="text" name="mod_group_name[]" class="form-control" placeholder="Напр: Количество входов"></div>
-                                        <div class="col-md-2"><label>Порядок</label><input type="number" name="mod_sort[]" class="form-control" value="0" min="0"></div>
-                                        <div class="col-md-6 text-right"><button type="button" class="btn btn-success btn-sm add-variant-btn" data-gidx="0">+ Вариант</button></div>
+                                    <div class="mod-entry mb-3 p-3 border rounded" data-gidx="0">
+                                        <div class="row">
+                                            <div class="col-md-4"><label>Название группы</label><input type="text" name="mod_group_name[]" class="form-control" placeholder="Напр: Количество входов"></div>
+                                            <div class="col-md-2"><label>Порядок</label><input type="number" name="mod_sort[]" class="form-control" value="0" min="0"></div>
+                                            <div class="col-md-6 text-right"><button type="button" class="btn btn-success btn-sm add-variant-btn" data-gidx="0">+ Вариант</button></div>
+                                        </div>
+                                        <div class="variants-container mt-3"></div>
+                                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-variant-btn" data-gidx="0">+ Добавить вариант</button>
                                     </div>
-                                    <div class="variants-container mt-3"></div>
-                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-variant-btn" data-gidx="0">+ Добавить вариант</button>
-                                </div>
                                 <?php endif; ?>
                             </div>
                             <button type="button" class="btn btn-secondary btn-sm" id="addModGroupBtn">+ Добавить группу</button>
                         </div>
                     </div>
                 </div>
-                
                 <div class="card-footer">
                     <button type="submit" name="save" value="default" class="btn btn-primary">Сохранить изменения</button>
                     <button type="submit" name="save" value="open_preview" formnovalidate class="btn btn-success">Сохранить и открыть</button>
@@ -943,10 +901,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Обработка чекбокса "Только под заказ" для базового товара
     const baseMadeToOrder = document.getElementById('base_made_to_order');
     const baseStock = document.getElementById('base_stock');
-    
     if (baseMadeToOrder && baseStock) {
         baseMadeToOrder.addEventListener('change', function() {
             if (this.checked) {
@@ -960,6 +916,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.getElementById('addFileBtn')?.addEventListener('click', () => cloneField('#filesContainer', '.file-entry'));
+    
+    // ИСПРАВЛЕНИЕ 1: Корректный сброс ID и полей при клонировании комплектации
     document.getElementById('addConfigBtn')?.addEventListener('click', () => {
         const c = document.querySelector('#configsContainer');
         const first = c.querySelector('.config-entry');
@@ -968,10 +926,14 @@ document.addEventListener('DOMContentLoaded', function() {
         f.querySelectorAll('input,textarea').forEach(i => {
             if(i.type==='file') i.value = '';
             else if(i.type==='checkbox') i.checked = false;
+            else if(i.name === 'config_id[]') i.value = '0'; // Сбрасываем ID, чтобы создалась новая запись
             else if(i.type!=='hidden') i.value = i.type==='number' ? '0' : '';
         });
         const stockInput = f.querySelector('.config-stock');
-        if(stockInput) stockInput.disabled = false;
+        if(stockInput) {
+            stockInput.value = '0';
+            stockInput.disabled = false;
+        }
         c.appendChild(f);
     });
 
@@ -986,6 +948,19 @@ document.addEventListener('DOMContentLoaded', function() {
             else if (el.type !== 'hidden') el.value = '';
         });
         container.appendChild(clone);
+    });
+
+    // ИСПРАВЛЕНИЕ 2: Корректный сброс вложенных вариантов при клонировании группы модификаций
+    document.getElementById('addModGroupBtn')?.addEventListener('click', function() {
+        const c = document.getElementById('modsContainer'), idx = c.querySelectorAll('.mod-entry').length;
+        const f = document.querySelector('.mod-entry').cloneNode(true);
+        f.querySelectorAll('input,textarea').forEach(i => { if(i.type !== 'hidden') i.value = i.type==='number' ? '0' : ''; });
+        f.querySelector('input[name="mod_id[]"]')?.remove(); // Удаляем старый ID
+        f.dataset.gidx = idx;
+        // Очищаем старые варианты, чтобы они не сохранялись с неверным gidx
+        f.querySelectorAll('.variants-container, .properties-list').forEach(d => d.innerHTML = '');
+        f.querySelectorAll('.add-variant-btn').forEach(btn => btn.dataset.gidx = idx);
+        c.appendChild(f);
     });
 
     document.body.addEventListener('click', function(e) {
@@ -1014,16 +989,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.addEventListener('click', function(e) {
         if (e.target.closest('.add-variant-btn')) addVariant(e.target.closest('.add-variant-btn'));
         if (e.target.closest('.add-prop-btn')) addProperty(e.target.closest('.add-prop-btn'));
-    });
-    
-    document.getElementById('addModGroupBtn')?.addEventListener('click', function() {
-        const c = document.getElementById('modsContainer'), idx = c.querySelectorAll('.mod-entry').length;
-        const f = document.querySelector('.mod-entry').cloneNode(true);
-        f.querySelectorAll('input,textarea').forEach(i => { if(i.type !== 'hidden') i.value = ''; });
-        f.querySelector('input[name="mod_id[]"]')?.remove();
-        f.dataset.gidx = idx;
-        f.querySelectorAll('.add-variant-btn').forEach(btn => btn.dataset.gidx = idx);
-        c.appendChild(f);
     });
 
     document.body.addEventListener('change', function(e) {
@@ -1076,23 +1041,22 @@ function initImageHandlers() {
     const imageCount = document.getElementById('imageCount');
     const uploadProgress = document.getElementById('uploadProgress');
     const mainImageSelected = document.getElementById('mainImageSelected');
-    
+
     if (imageInput) {
         imageInput.addEventListener('change', function(e) {
             if (this.files.length > 0) {
-                const fd = new FormData(); 
+                const fd = new FormData();
                 fd.append('ajax_upload', '1');
                 for (let f of this.files) fd.append('images[]', f);
-                uploadProgress.style.display = 'block'; 
+                uploadProgress.style.display = 'block';
                 this.disabled = true;
-                
                 fetch('product_edit.php?id=<?= $productId ?>', {method:'POST', body:fd})
                 .then(r => r.json()).then(data => {
-                    uploadProgress.style.display = 'none'; 
-                    this.disabled = false; 
+                    uploadProgress.style.display = 'none';
+                    this.disabled = false;
                     this.value = '';
                     if (data.success && data.images.length) {
-                        const m = imagesContainer.querySelector('.text-muted'); 
+                        const m = imagesContainer.querySelector('.text-muted');
                         if (m) m.remove();
                         data.images.forEach((img, i) => {
                             const isFirst = document.querySelectorAll('.image-card').length === 0;
@@ -1103,19 +1067,18 @@ function initImageHandlers() {
                         });
                         imageCount.textContent = document.querySelectorAll('.image-card').length;
                     }
-                }).catch(err => { 
-                    uploadProgress.style.display='none'; 
-                    this.disabled=false; 
-                    alert('Ошибка: '+err); 
+                }).catch(err => {
+                    uploadProgress.style.display='none';
+                    this.disabled=false;
+                    alert('Ошибка: '+err);
                 });
             }
         });
     }
-    
+
     imagesContainer?.addEventListener('click', function(e) {
-        const btn = e.target.closest('button'); 
+        const btn = e.target.closest('button');
         if (!btn) return;
-        
         if (btn.classList.contains('remove-image')) {
             const tid = btn.dataset.tempId;
             fetch('product_edit.php?id=<?= $productId ?>', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'ajax_remove=1&temp_id='+encodeURIComponent(tid)})
@@ -1160,7 +1123,7 @@ function initImageHandlers() {
             }
         }
     });
-    
+
     imagesContainer?.addEventListener('change', function(e) {
         if (e.target.classList.contains('main-radio')) {
             mainImageSelected.value = e.target.value;
@@ -1170,3 +1133,14 @@ function initImageHandlers() {
 </script>
 
 <?php require_once 'includes/footer.php'; ?>
+
+<?php
+// ============================================
+// ФОНОВАЯ ОТПРАВКА УВЕДОМЛЕНИЙ (ОПТИМИЗАЦИЯ СКОРОСТИ)
+// ============================================
+// Если сервер использует PHP-FPM, эта функция мгновенно отдаст страницу браузеру,
+// а скрипт продолжит работать в фоне, отправляя письма, не заставляя пользователя ждать.
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+?>
