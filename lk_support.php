@@ -34,7 +34,6 @@ try {
         $statusList[$s['code']] = $s;
     }
 } catch (PDOException $e) {
-    // Если таблица не создана, используем стандартные статусы
     $statusLabels = ['new' => 'Новый', 'processed' => 'В обработке', 'closed' => 'Закрыт', 'cancelled' => 'Отклонён'];
     $statusColors = ['new' => '#ffc107', 'processed' => '#17a2b8', 'closed' => '#28a745', 'cancelled' => '#dc3545'];
 }
@@ -76,26 +75,17 @@ function getChatMessagesWithFiles($pdo, $requestId) {
     return array_values($messages);
 }
 
-// Функция для получения списка ID специалистов поддержки
-function getSupportSpecialists($pdo) {
-    $stmt = $pdo->prepare("SELECT id, name, email FROM user WHERE role = 'support_specialist'");
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
 // Обработка AJAX-запросов
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     try {
         $action = $_POST['action'];
         
-        // ДЕЙСТВИЕ: Обновление статуса (с поддержкой динамических статусов)
         if ($action === 'update_status') {
             $requestId = (int)($_POST['request_id'] ?? 0);
             $newStatus = $_POST['status'] ?? '';
             $comment = trim($_POST['comment'] ?? '');
             
-            // Проверяем, существует ли такой статус в таблице request_statuses
             $stmtCheck = $pdo->prepare("SELECT code, name FROM request_statuses WHERE code = ? AND is_active = 1");
             $stmtCheck->execute([$newStatus]);
             $validStatus = $stmtCheck->fetch(PDO::FETCH_ASSOC);
@@ -134,7 +124,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
         
-        // ДЕЙСТВИЕ: Получение сообщений чата
         if ($action === 'get_messages') {
             $requestId = (int)($_POST['request_id'] ?? 0);
             $messages = getChatMessagesWithFiles($pdo, $requestId);
@@ -142,7 +131,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
         
-        // ДЕЙСТВИЕ: Отправка сообщения в чат
         if ($action === 'send_message') {
             $requestId = (int)($_POST['request_id'] ?? 0);
             $message = trim($_POST['message'] ?? '');
@@ -176,7 +164,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
         
-        // ДЕЙСТВИЕ: Загрузка файла в чат
         if ($action === 'upload_file') {
             $requestId = (int)($_POST['request_id'] ?? 0);
             $messageId = (int)($_POST['message_id'] ?? 0);
@@ -244,11 +231,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// ЗАГРУЗКА ДАННЫХ ДЛЯ ОТОБРАЖЕНИЯ
+// ЗАГРУЗКА ДАННЫХ ДЛЯ ОТОБРАЖЕНИЯ (БЕЗ ГРУППИРОВКИ)
 $filter = $_GET['filter'] ?? 'all';
 $search = trim($_GET['search'] ?? '');
 $sort = $_GET['sort'] ?? 'desc';
-$highlightRequestId = isset($_GET['request_id']) ? (int)$_GET['request_id'] : 0;
 
 $sql = "SELECT r.*, u.name AS client_name, u.email AS client_email, p.name AS product_name
 FROM request r
@@ -271,71 +257,13 @@ $sql .= " ORDER BY r.datetime " . ($sort === 'asc' ? 'ASC' : 'DESC');
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$rawRequests = $stmt->fetchAll();
+$requests = $stmt->fetchAll();
 
 function getAddressFromMessage($message) {
     $data = json_decode($message, true);
     if (!is_array($data)) return '';
     return $data['address'] ?? '';
 }
-
-function canGroupRequests($req1, $req2) {
-    $time1 = strtotime($req1['datetime']);
-    $time2 = strtotime($req2['datetime']);
-    $diff = abs($time1 - $time2);
-    return $diff <= 3600;
-}
-
-$groupedRequests = [];
-
-foreach ($rawRequests as $req) {
-    $address = getAddressFromMessage($req['message']);
-    $found = false;
-    
-    foreach ($groupedRequests as $key => &$group) {
-        if ($group['user_id'] == $req['user_id'] && $group['address'] === $address) {
-            $canAdd = false;
-            foreach ($group['items'] as $existingReq) {
-                if (canGroupRequests($existingReq, $req)) {
-                    $canAdd = true;
-                    break;
-                }
-            }
-            $lastReq = end($group['items']);
-            if (canGroupRequests($lastReq, $req)) {
-                $canAdd = true;
-            }
-            
-            if ($canAdd) {
-                $group['items'][] = $req;
-                if (strtotime($req['datetime']) < strtotime($group['first_date'])) {
-                    $group['first_date'] = $req['datetime'];
-                }
-                if (strtotime($req['datetime']) > strtotime($group['latest_date'])) {
-                    $group['latest_date'] = $req['datetime'];
-                }
-                $found = true;
-                break;
-            }
-        }
-    }
-    
-    if (!$found) {
-        $groupedRequests[] = [
-            'user_id' => $req['user_id'],
-            'client_name' => $req['client_name'],
-            'client_email' => $req['client_email'],
-            'address' => $address,
-            'items' => [$req],
-            'first_date' => $req['datetime'],
-            'latest_date' => $req['datetime']
-        ];
-    }
-}
-
-usort($groupedRequests, function($a, $b) {
-    return strtotime($b['latest_date']) - strtotime($a['latest_date']);
-});
 
 function getStatusHistory($pdo, $id) {
     $stmt = $pdo->prepare("
@@ -375,8 +303,14 @@ function parseJsonToTable($message, $type) {
         if (!empty($data['service_name'])) {
             $html .= '<tr><td class="json-label">Услуга</td><td class="json-value">' . htmlspecialchars($data['service_name']) . '</td></tr>';
         }
+        if (!empty($data['quantity']) && $data['quantity'] > 1) {
+            $html .= '<tr><td class="json-label">Количество</td><td class="json-value">' . htmlspecialchars($data['quantity']) . ' шт.</td></tr>';
+        }
         if (!empty($data['price'])) {
-            $html .= '<tr><td class="json-label">Стоимость</td><td class="json-value">' . number_format($data['price'], 0, '.', ' ') . ' ₽</span></td></tr>';
+            $html .= '<tr><td class="json-label">Цена за шт.</td><td class="json-value">' . number_format($data['price'], 0, '.', ' ') . ' ₽</td></tr>';
+        }
+        if (!empty($data['total_price'])) {
+            $html .= '<tr><td class="json-label">Итого</td><td class="json-value"><strong>' . number_format($data['total_price'], 0, '.', ' ') . ' ₽</strong></td></tr>';
         }
     } elseif ($type === 'q') {
         if (!empty($data['subject'])) {
@@ -391,7 +325,6 @@ function parseJsonToTable($message, $type) {
     return $html;
 }
 
-// Загружаем статусы для выпадающего списка в модальном окне
 $statusOptionsHtml = '';
 foreach ($statusList as $code => $status) {
     $statusOptionsHtml .= '<option value="' . htmlspecialchars($code) . '">' . htmlspecialchars($status['name']) . '</option>';
@@ -419,18 +352,6 @@ foreach ($statusList as $code => $status) {
 .chat-file-label:hover { background: #e0e0e0; }
 .chat-file-input { display: none; }
 .selected-file-name { font-size: 12px; color: #666; }
-.group-badge { background: #e3f2fd; color: #2c7da0; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 10px; }
-.group-items-count { background: #f0f0f0; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; }
-.group-header { background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #e0e0e0; margin-bottom: 10px; border-radius: 8px; }
-.sub-request { margin-left: 20px; padding: 8px 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #2c7da0; }
-.sub-request-title { font-size: 12px; font-weight: 600; color: #2c7da0; margin-bottom: 5px; }
-.request-header-left { display: flex; align-items: center; gap: 10px; }
-.highlight-request { background: #fff8e1; border: 2px solid #ffc107; animation: pulse 1s ease; }
-@keyframes pulse {
-    0% { background: #fff8e1; }
-    50% { background: #ffeaa7; }
-    100% { background: #fff8e1; }
-}
 </style>
 <title>Поддержка</title>
 </head>
@@ -443,7 +364,6 @@ foreach ($statusList as $code => $status) {
     <h1 class="lk-title" style="margin-bottom: 0;">Личный кабинет сотрудника</h1>
     
     <div style="display: flex; gap: 15px; align-items: center;">
-        <!-- Кнопка уведомлений -->
         <div class="notifications-wrapper" style="position: relative;">
             <button class="notifications-btn" id="notificationsBtn" style="background: none; border: none; font-size: 24px; cursor: pointer; position: relative; color: #1a1982;">
                 <i class="fas fa-bell"></i>
@@ -464,6 +384,7 @@ foreach ($statusList as $code => $status) {
         </a>
     </div>
 </div>
+
 <div class="lk-controls">
     <form method="GET" class="lk-search">
         <input type="text" name="search" placeholder="Поиск по ID, имени, email..." value="<?= htmlspecialchars($search) ?>" />
@@ -475,97 +396,74 @@ foreach ($statusList as $code => $status) {
         <a href="?filter=<?= urlencode($filter) ?>&sort=asc&search=<?= urlencode($search) ?>" class="sort-btn <?= $sort === 'asc' ? 'active' : '' ?>">Сначала старые</a>
     </div>
 </div>
+
 <div class="tabs">
     <a href="?filter=all&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>" class="tab-btn <?= $filter === 'all' ? 'active' : '' ?>">Все</a>
     <a href="?filter=orders&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>" class="tab-btn <?= $filter === 'orders' ? 'active' : '' ?>">Заказы</a>
     <a href="?filter=services&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>" class="tab-btn <?= $filter === 'services' ? 'active' : '' ?>">Услуги</a>
     <a href="?filter=questions&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>" class="tab-btn <?= $filter === 'questions' ? 'active' : '' ?>">Вопросы</a>
 </div>
+
 <div class="requests-grid">
-<?php if (empty($groupedRequests)): ?>
+<?php if (empty($requests)): ?>
     <div class="no-requests"><p>Нет обращений</p></div>
 <?php else: ?>
-<?php foreach ($groupedRequests as $group):
-    $hasMultiple = count($group['items']) > 1;
-    // Определяем статус группы (наиболее критичный)
-    $statuses = array_column($group['items'], 'status');
-    if (in_array('new', $statuses)) $groupStatus = 'new';
-    elseif (in_array('processed', $statuses)) $groupStatus = 'processed';
-    elseif (in_array('cancelled', $statuses)) $groupStatus = 'cancelled';
-    else $groupStatus = 'closed';
-?>
-<div class="request-card" data-user-id="<?= $group['user_id'] ?>">
-    <div class="request-header">
-        <div class="request-header-left">
-            <?php if ($hasMultiple): ?>
-                <span class="group-badge"><?= count($group['items']) ?> заявок</span>
-            <?php endif; ?>
-        </div>
-        <span class="status-badge" style="background-color: <?= $statusColors[$groupStatus] ?? '#6c757d' ?>20; color: <?= $statusColors[$groupStatus] ?? '#6c757d' ?>;">
-            <?= $statusLabels[$groupStatus] ?? $groupStatus ?>
-        </span>
-    </div>
-    <div class="request-info-grid">
-        <div class="info-row">
-            <span class="info-label">Клиент</span>
-            <span><?= htmlspecialchars($group['client_name'] ?? 'Аноним') ?></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Email</span>
-            <span class="email-with-copy">
-                <?= htmlspecialchars($group['client_email'] ?? '') ?>
-                <?php if (!empty($group['client_email'])): ?>
-                <button class="btn-copy-email"
-                    onclick="copyToClipboard('<?= htmlspecialchars($group['client_email']) ?>', this)"
-                    title="Скопировать email">
-                    Копировать
-                </button>
-                <?php endif; ?>
-            </span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Адрес</span>
-            <span><?= htmlspecialchars($group['address'] ?: 'Не указан') ?></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Период</span>
-            <span><?= date('d.m.Y H:i', strtotime($group['first_date'])) ?>
-            <?php if ($hasMultiple): ?>
-                → <?= date('d.m.Y H:i', strtotime($group['latest_date'])) ?>
-            <?php endif; ?>
-            </span>
-        </div>
-    </div>
-    
-    <?php if ($hasMultiple): ?>
-    <div class="group-header">
-        <i class="fas fa-list"></i> Заявки в группе:
-    </div>
-    <?php foreach ($group['items'] as $req):
-        $isHighlighted = ($highlightRequestId == $req['id']);
+    <?php foreach ($requests as $req): 
+        $address = getAddressFromMessage($req['message']);
     ?>
-    <div class="sub-request <?= $isHighlighted ? 'highlight-request' : '' ?>" data-request-id="<?= $req['id'] ?>">
-        <div class="sub-request-title">
-            Заявка №<?= $req['id'] ?> 
-            <span class="status-badge" style="font-size: 10px; background-color: <?= $statusColors[$req['status']] ?? '#6c757d' ?>20; color: <?= $statusColors[$req['status']] ?? '#6c757d' ?>;">
+    <div class="request-card" data-request-id="<?= $req['id'] ?>">
+        <div class="request-header">
+            <div class="request-id">Заявка №<?= $req['id'] ?></div>
+            <div class="request-date"><?= date('d.m.Y H:i', strtotime($req['datetime'])) ?></div>
+            <span class="status-badge" style="background-color: <?= $statusColors[$req['status']] ?? '#f0f0f0' ?>20; color: <?= $statusColors[$req['status']] ?? '#333' ?>;">
                 <?= $statusLabels[$req['status']] ?? $req['status'] ?>
             </span>
-            <span style="float: right;"><?= date('d.m.Y H:i', strtotime($req['datetime'])) ?></span>
         </div>
-        <div class="request-details" style="padding: 0;">
+        
+        <div class="request-info-grid">
+            <div class="info-row">
+                <span class="info-label">Клиент</span>
+                <span><?= htmlspecialchars($req['client_name'] ?? 'Аноним') ?></span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="email-with-copy">
+                    <?= htmlspecialchars($req['client_email'] ?? '') ?>
+                    <?php if (!empty($req['client_email'])): ?>
+                    <button class="btn-copy-email" onclick="copyToClipboard('<?= htmlspecialchars($req['client_email']) ?>', this)" title="Скопировать email">Копировать</button>
+                    <?php endif; ?>
+                </span>
+            </div>
+            <?php if ($address): ?>
+            <div class="info-row">
+                <span class="info-label">Адрес</span>
+                <span><?= htmlspecialchars($address) ?></span>
+            </div>
+            <?php endif; ?>
+            <?php if ($req['type'] === 'r' && !empty($req['product_name'])): ?>
+            <div class="info-row">
+                <span class="info-label">Товар</span>
+                <span><?= htmlspecialchars($req['product_name']) ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <div class="request-details">
             <?= parseJsonToTable($req['message'], $req['type']) ?>
         </div>
-        <div class="btn-actions" style="padding: 10px 0 0 0; border-top: none;">
+        
+        <div class="btn-actions">
             <?php if ($req['type'] !== 'q'): ?>
                 <button class="btn btn-primary" onclick="openModal('status', <?= $req['id'] ?>)">Статус</button>
                 <button class="btn btn-primary" onclick="openModal('chat', <?= $req['id'] ?>)">Чат</button>
-                <?php if ($req['status'] !== 'cancelled'): ?>
+                <?php if ($req['status'] !== 'cancelled' && $req['status'] !== 'closed'): ?>
                     <button class="btn btn-danger" onclick="openModal('reject', <?= $req['id'] ?>)">Отклонить</button>
                 <?php endif; ?>
             <?php endif; ?>
             <button class="btn btn-secondary" onclick="toggleHistory(<?= $req['id'] ?>)">История</button>
         </div>
-        <div class="status-history" id="history-<?= $req['id'] ?>" style="margin-top: 10px;">
+        
+        <div class="status-history" id="history-<?= $req['id'] ?>">
             <div class="history-title">История статусов</div>
             <div class="status-timeline">
             <?php 
@@ -575,7 +473,7 @@ foreach ($statusList as $code => $status) {
                 <div class="timeline-item <?= $i === count($history) - 1 ? 'current' : 'completed' ?>">
                     <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($h['created_at'])) ?></div>
                     <div class="timeline-status" style="color: <?= $h['status_color'] ?? '#333' ?>; font-weight: 600;">
-                        <?= $h['status_name'] ?? $h['status'] ?>
+                        <?= $h['status_name'] ?? $statusLabels[$h['status']] ?? $h['status'] ?>
                     </div>
                     <?php if ($h['comment']): ?>
                     <div class="timeline-comment"><?= htmlspecialchars($h['comment']) ?></div>
@@ -593,58 +491,12 @@ foreach ($statusList as $code => $status) {
         </div>
     </div>
     <?php endforeach; ?>
-    <?php else: 
-        $req = $group['items'][0];
-        $isHighlighted = ($highlightRequestId == $req['id']);
-    ?>
-    <div class="request-details <?= $isHighlighted ? 'highlight-request' : '' ?>">
-        <?= parseJsonToTable($req['message'], $req['type']) ?>
-    </div>
-    <div class="btn-actions <?= $isHighlighted ? 'highlight-request' : '' ?>">
-        <?php if ($req['type'] !== 'q'): ?>
-            <button class="btn btn-primary" onclick="openModal('status', <?= $req['id'] ?>)">Статус</button>
-            <button class="btn btn-primary" onclick="openModal('chat', <?= $req['id'] ?>)">Чат</button>
-            <?php if ($req['status'] !== 'cancelled'): ?>
-                <button class="btn btn-danger" onclick="openModal('reject', <?= $req['id'] ?>)">Отклонить</button>
-            <?php endif; ?>
-        <?php endif; ?>
-        <button class="btn btn-secondary" onclick="toggleHistory(<?= $req['id'] ?>)">История</button>
-    </div>
-    <div class="status-history" id="history-<?= $req['id'] ?>">
-        <div class="history-title">История статусов</div>
-        <div class="status-timeline">
-        <?php 
-        $history = getStatusHistory($pdo, $req['id']);
-        if (!empty($history)): ?>
-            <?php foreach ($history as $i => $h): ?>
-            <div class="timeline-item <?= $i === count($history) - 1 ? 'current' : 'completed' ?>">
-                <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($h['created_at'])) ?></div>
-                <div class="timeline-status" style="color: <?= $h['status_color'] ?? '#333' ?>; font-weight: 600;">
-                    <?= $h['status_name'] ?? $h['status'] ?>
-                </div>
-                <?php if ($h['comment']): ?>
-                <div class="timeline-comment"><?= htmlspecialchars($h['comment']) ?></div>
-                <?php endif; ?>
-            </div>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <div class="timeline-item current">
-                <div class="timeline-date"><?= date('d.m.Y H:i', strtotime($req['datetime'])) ?></div>
-                <div class="timeline-status"><?= $statusLabels[$req['status']] ?? $req['status'] ?></div>
-                <div class="timeline-comment">Заказ создан</div>
-            </div>
-        <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-</div>
-<?php endforeach; ?>
 <?php endif; ?>
 </div>
 </div>
 </div>
 
-<!-- Модальное окно "Статус" (с динамическими статусами) -->
+<!-- Модальное окно "Статус" -->
 <div class="modal-overlay" id="status-overlay" onclick="closeModal('status')"></div>
 <div class="modal" id="status-modal">
     <h3>Изменить статус</h3>
@@ -659,12 +511,12 @@ foreach ($statusList as $code => $status) {
     </div>
 </div>
 
-<!-- Модальное окно "Отклонить" (использует статус cancelled) -->
+<!-- Модальное окно "Отклонить" -->
 <div class="modal-overlay" id="reject-overlay" onclick="closeModal('reject')"></div>
 <div class="modal" id="reject-modal">
-    <h3 class="text-danger">Отклонить</h3>
+    <h3 class="text-danger">Отклонить заявку</h3>
     <input type="hidden" id="reject-request-id" />
-    <textarea id="reject-comment" class="modal-input" rows="3" placeholder="Причина..."></textarea>
+    <textarea id="reject-comment" class="modal-input" rows="3" placeholder="Причина отклонения..."></textarea>
     <div class="modal-buttons">
         <button class="btn btn-secondary" onclick="closeModal('reject')">Отмена</button>
         <button class="btn btn-danger" onclick="saveReject()">Отклонить</button>
@@ -695,8 +547,6 @@ foreach ($statusList as $code => $status) {
 
 <script>
 let currentFile = null;
-
-// Уведомления для специалиста поддержки
 let notificationsCheckInterval = null;
 
 function loadNotifications() {
@@ -735,7 +585,6 @@ function markNotificationRead(id) {
     }).catch(err => console.error(err));
 }
 
-// Обработчик клика по уведомлению
 document.addEventListener('click', function(e) {
     const item = e.target.closest('.notification-item');
     if (item) {
@@ -747,7 +596,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Кнопка уведомлений
 const notifBtn = document.getElementById('notificationsBtn');
 const notifDropdown = document.getElementById('notificationsDropdown');
 if (notifBtn) {
@@ -823,7 +671,9 @@ async function saveStatus() {
     if (data.success) {
         alert('Статус обновлён, клиент получит уведомление');
         location.reload();
-    } else alert('Ошибка: ' + (data.message || 'Неизвестная'));
+    } else {
+        alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+    }
 }
 
 async function saveReject() {
@@ -839,7 +689,9 @@ async function saveReject() {
     if (data.success) {
         alert('Заявка отклонена, клиент получит уведомление');
         location.reload();
-    } else alert('Ошибка: ' + (data.message || 'Неизвестная'));
+    } else {
+        alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+    }
 }
 
 function formatFileSize(bytes) {
@@ -947,15 +799,15 @@ document.getElementById('chat-message-input').addEventListener('keypress', e => 
 function copyToClipboard(text, btn) {
     navigator.clipboard.writeText(text).then(() => {
         const original = btn.textContent;
-        btn.textContent = '✓';
+        btn.textContent = '✓ Copied!';
         btn.style.background = '#28a745';
         btn.style.color = '#fff';
         setTimeout(() => {
             btn.textContent = original;
             btn.style.background = '';
             btn.style.color = '';
-        }, 1500);
-    }).catch(err => {
+        }, 2000);
+    }).catch(() => {
         const textarea = document.createElement('textarea');
         textarea.value = text;
         document.body.appendChild(textarea);
@@ -963,64 +815,27 @@ function copyToClipboard(text, btn) {
         document.execCommand('copy');
         document.body.removeChild(textarea);
         const original = btn.textContent;
-        btn.textContent = '✓';
+        btn.textContent = '✓ Copied!';
         btn.style.background = '#28a745';
         btn.style.color = '#fff';
         setTimeout(() => {
             btn.textContent = original;
             btn.style.background = '';
             btn.style.color = '';
-        }, 1500);
+        }, 2000);
     });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     if (window.location.hash && window.location.hash.startsWith('#request-')) {
         const hash = window.location.hash;
-        let requestId = null;
-        let targetType = 'chat';
-        if (hash.includes('-status')) {
-            requestId = hash.replace('#request-', '').replace('-status', '');
-            targetType = 'status';
-        } else if (hash.includes('-chat')) {
-            requestId = hash.replace('#request-', '').replace('-chat', '');
-            targetType = 'chat';
-        } else {
-            requestId = hash.replace('#request-', '');
-        }
-        if (requestId) {
-            let targetElement = document.querySelector(`.sub-request[data-request-id="${requestId}"]`);
-            if (!targetElement) {
-                targetElement = document.querySelector(`.request-card .btn-primary[onclick*="${requestId}"]`)?.closest('.request-card');
-            }
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                targetElement.style.transition = 'background 0.3s';
-                targetElement.style.background = '#fff8e1';
-                setTimeout(() => { targetElement.style.background = ''; }, 2000);
-                setTimeout(() => {
-                    if (targetType === 'status') {
-                        const statusBtn = targetElement.querySelector('.btn-primary[onclick*="status"]');
-                        if (statusBtn) statusBtn.click();
-                    } else {
-                        const chatBtn = targetElement.querySelector('.btn-primary[onclick*="chat"]');
-                        if (chatBtn) chatBtn.click();
-                    }
-                }, 500);
-            }
-        }
-    }
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const highlightId = urlParams.get('request_id');
-    if (highlightId) {
-        const targetElement = document.querySelector(`.sub-request[data-request-id="${highlightId}"], .request-details[data-request-id="${highlightId}"]`);
+        let requestId = hash.replace('#request-', '');
+        let targetElement = document.querySelector(`.request-card[data-request-id="${requestId}"]`);
         if (targetElement) {
             targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            targetElement.classList.add('highlight-request');
-            setTimeout(() => {
-                targetElement.classList.remove('highlight-request');
-            }, 3000);
+            targetElement.style.transition = 'background 0.3s';
+            targetElement.style.background = '#fff8e1';
+            setTimeout(() => { targetElement.style.background = ''; }, 2000);
         }
     }
 });
