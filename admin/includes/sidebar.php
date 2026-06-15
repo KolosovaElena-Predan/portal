@@ -51,13 +51,11 @@ $activePage = $activePage ?? '';
 						</li>
 						<li class="nav-item">
 							<a href="services_products_links.php" class="nav-link <?= $activePage === 'services_products_links' ? 'active' : '' ?>">
-								<i class="nav-icon fas fa-link"></i>
 								<p>Связь товаров и услуг</p>
 							</a>
 						</li>
 						<li class="nav-item">
     <a href="request_statuses.php" class="nav-link <?= $activePage === 'request_statuses' ? 'active' : '' ?>">
-        <i class="fas fa-tags nav-icon"></i>
         <p>Статусы заявок</p>
     </a>
 </li>

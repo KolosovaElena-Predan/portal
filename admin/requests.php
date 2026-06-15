@@ -112,7 +112,7 @@ require_once 'includes/sidebar.php';
                                     $productName = $r['product_name'] ?? '';
                                 }
                                 
-                                $typeIcon = ['q' => '❓', 'r' => '🛒', 's' => '⚙️', 'wl' => '⏳'][$r['type']] ?? '';
+                                $typeIcon = ['q' => '', 'r' => '', 's' => '', 'wl' => ''][$r['type']] ?? '';
                                 $typeName = ['q' => 'Вопрос', 'r' => 'Заказ', 's' => 'Услуга', 'wl' => 'Лист ожидания'][$r['type']] ?? $r['type'];
                                 $statusName = $statusLabels[$r['status']] ?? $r['status'];
                                 $statusColor = $statusColors[$r['status']] ?? '#6c757d';
