@@ -646,7 +646,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
                     $stmt = $pdo->prepare("INSERT INTO request (user_id, product_id, message, status, datetime, type, requested_quantity) VALUES (?, ?, ?, 'waiting', NOW(), 'wl', ?)");
                     $stmt->execute([$_SESSION['user_id'], $item['product_id'], json_encode($waitingMessageData, JSON_UNESCAPED_UNICODE), $waitingQuantity]);
                 } else {
-                    $status = $isMadeToOrderFlag ? 'processed' : 'new';
+                    $status = 'new';
                     $stmt = $pdo->prepare("INSERT INTO request (user_id, product_id, message, status, datetime, type, requested_quantity, shipped_quantity) VALUES (?, ?, ?, ?, NOW(), 'r', ?, ?)");
                     $stmt->execute([$_SESSION['user_id'], $item['product_id'], $message, $status, $requestedQuantity, $availableToBuy]);
                 }
