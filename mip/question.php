@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Если пользователь не авторизован - создаем нового гостя
             if ($request_user_id === null) {
-                // ИСПРАВЛЕНО: убраны created_at и NOW(), так как такой колонки нет в БД
+                //  : убраны created_at и NOW(), так как такой колонки нет в БД
                 $stmtCreateUser = $pdo->prepare("
                     INSERT INTO user (name, email, password, role) 
                     VALUES (?, ?, '', 'guest')
