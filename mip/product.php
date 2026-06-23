@@ -87,7 +87,7 @@ function getImageUrl($url) {
     return file_exists($url) ? $url : 'img/placeholder.png';
 }
 
-// Флаг "Позиция на заказ"
+// Определяем, является ли товар "на заказ"
 $isMadeToOrder = ($product['stock'] == -1);
 ?>
 <!DOCTYPE html>
@@ -141,6 +141,7 @@ $isMadeToOrder = ($product['stock'] == -1);
 .cart-success-icon {
     width: 60px;
     height: 60px;
+    background: #00a896;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -159,10 +160,6 @@ $isMadeToOrder = ($product['stock'] == -1);
     font-size: 16px;
     color: #333;
     margin: 5px 0;
-}
-.cart-success-body .highlight {
-    color: #00a896;
-    font-weight: 600;
 }
 .cart-success-footer {
     display: flex;
@@ -201,74 +198,17 @@ $isMadeToOrder = ($product['stock'] == -1);
     to { opacity: 1; transform: scale(1); }
 }
 
-/* ===== СТИЛИ ДЛЯ "ПОЗИЦИЯ НА ЗАКАЗ" ===== */
-.order-to-order-badge {
-    display: inline-block;
-    background: #e6f7f4;
+/* Дополнительный стиль для надписи "Позиция на заказ" */
+.order-total-made-to-order {
     color: #00a896;
     font-weight: 600;
-    padding: 6px 20px;
-    border-radius: 20px;
-    font-size: 15px;
-    border: 1px solid #b2dfdb;
-    letter-spacing: 0.3px;
-}
-
-.order-to-order-total {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 24px;
-    font-weight: 700;
-    color: #00a896;
-}
-
-.order-to-order-total i {
-    font-size: 28px;
-    color: #00a896;
-}
-
-.order-total-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 12px;
-}
-
-/* Стиль для кнопки "Заказать" на позиции на заказ */
-.btn-order-to-order {
-    background: #00a896;
-    color: #ffffff;
-    border: none;
-    padding: 16px 40px;
-    border-radius: 12px;
     font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 12px;
-    box-shadow: 0 4px 15px rgba(0, 168, 150, 0.3);
+    gap: 8px;
 }
-
-.btn-order-to-order:hover {
-    background: #008a7a;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(0, 168, 150, 0.4);
-}
-
-.btn-order-to-order i {
+.order-total-made-to-order i {
     font-size: 20px;
-}
-
-/* Стиль для выбранной конфигурации "Позиция на заказ" */
-.selected-to-order {
-    color: #00a896 !important;
-    font-weight: 600;
-}
-.selected-to-order i {
-    margin-right: 6px;
 }
 </style>
 </head>
@@ -285,13 +225,6 @@ require_once '../header.php';
     <!-- Заголовок -->
     <div class="prod-header">
         <h1 class="prod-title"><?= htmlspecialchars($product['name']) ?></h1>
-        <?php if ($isMadeToOrder): ?>
-            <div style="margin-top: 12px;">
-                <span class="order-to-order-badge">
-                    <i class="fas fa-clock" style="margin-right: 8px;"></i> Позиция на заказ
-                </span>
-            </div>
-        <?php endif; ?>
     </div>
 
     <!-- Галерея -->
@@ -444,21 +377,17 @@ require_once '../header.php';
                 </div>
             </div>
             
-            <div class="order-total-wrapper">
-                <?php if ($isMadeToOrder): ?>
-                    <div class="order-total order-to-order-total">
-                        <i class="fas fa-clock"></i>
-                        <span>Позиция на заказ</span>
-                    </div>
-                    <button class="btn-order-to-order" onclick="addToCart(<?= $product_id ?>, this)">
-                        <i class="fas fa-shopping-cart"></i> Заказать
-                    </button>
-                <?php else: ?>
-                    <div class="order-total">
+            <div class="order-total-block">
+                <div class="order-total" id="orderTotalBlock">
+                    <?php if ($isMadeToOrder): ?>
+                        <span class="order-total-made-to-order">
+                            <i class="fas fa-clipboard-list"></i> Позиция на заказ
+                        </span>
+                    <?php else: ?>
                         Итого: <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
-                    </div>
-                    <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)">В корзину</button>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)">В корзину</button>
             </div>
         </div>
     </section>
@@ -528,32 +457,24 @@ require_once '../header.php';
 
 </div>
 
-<!-- Модальное окно "Товар добавлен" -->
+<!-- Модальное окно "Товар добавлен в корзину" -->
 <div id="cartSuccessModal" class="cart-success-modal">
     <div class="cart-success-content">
         <div class="cart-success-header">
-            <div class="cart-success-icon" style="background: <?= $isMadeToOrder ? '#00a896' : '#00a896' ?>;">
-                <i class="fas <?= $isMadeToOrder ? 'fa-clock' : 'fa-check' ?>"></i>
+            <div class="cart-success-icon">
+                <i class="fas fa-check"></i>
             </div>
-            <h3><?= $isMadeToOrder ? 'Заявка на заказ отправлена!' : 'Товар добавлен в корзину!' ?></h3>
+            <h3>Товар добавлен в корзину!</h3>
         </div>
         <div class="cart-success-body">
-            <?php if ($isMadeToOrder): ?>
-                <p>Товар добавлен в личный кабинет как <span class="highlight">"Позиция на заказ"</span>.</p>
-                <p style="font-size: 14px; color: #4a6a65; margin-top: 10px;">
-                    <i class="fas fa-info-circle" style="color: #00a896;"></i>
-                    С вами свяжется менеджер для уточнения сроков и стоимости.
-                </p>
-            <?php else: ?>
-                <p>Товар успешно добавлен в вашу корзину.</p>
-            <?php endif; ?>
+            <p>Товар успешно добавлен в вашу корзину.</p>
         </div>
         <div class="cart-success-footer">
             <button class="btn-cart-success btn-continue" onclick="closeCartSuccessModal()">
                 Продолжить покупки
             </button>
             <a href="cart.php" class="btn-cart-success btn-to-cart">
-                <?= $isMadeToOrder ? 'Перейти в заявки' : 'Перейти в корзину' ?>
+                Перейти в корзину
             </a>
         </div>
     </div>
@@ -583,8 +504,9 @@ function changeMainImage(src, thumb) {
     });
 }
 
-<?php if (!$isMadeToOrder): // JS для цены только если не "Позиция на заказ" ?>
+
 let basePrice = <?= (float)$product['base_price'] ?>;
+let isMadeToOrder = <?= $isMadeToOrder ? 'true' : 'false' ?>;
 
 document.querySelectorAll('input[name="configuration"]').forEach(radio => {
     radio.addEventListener('change', function() {
@@ -611,6 +533,7 @@ document.querySelectorAll('.mod-property-select').forEach(select => {
         updateTotal();
     });
 });
+
 
 function updatePropertiesList(selectElement) {
     const row = selectElement.closest('tr');
@@ -652,6 +575,7 @@ function updatePropertiesList(selectElement) {
     updateTotal();
 }
 
+// Обновление цены доп. свойства
 function updatePropertyPrice(selectElement) {
     const row = selectElement.closest('tr');
     const propPriceCell = row.querySelector('.mod-prop-price-value');
@@ -663,6 +587,7 @@ function updatePropertyPrice(selectElement) {
     
     updateTotal();
 }
+
 
 function updateSelectedList() {
     const listContainer = document.getElementById('selectedConfigList');
@@ -718,8 +643,13 @@ function updateSelectedList() {
     listContainer.innerHTML = html;
 }
 
+/* Пересчёт итоговой цены */
 function updateTotal() {
     let total = basePrice;
+    let orderTotalBlock = document.getElementById('orderTotalBlock');
+    
+    // Проверяем, выбран ли товар "на заказ" через комплектацию
+    let currentIsMadeToOrder = isMadeToOrder;
     
     const configChecked = document.querySelector('input[name="configuration"]:checked');
     if (configChecked) {
@@ -736,12 +666,14 @@ function updateTotal() {
         }
     });
     
-    const totalElement = document.getElementById('totalPrice');
-    if (totalElement) {
-        totalElement.textContent = total.toFixed(2).replace('.', ',') + ' ₽';
+    if (orderTotalBlock) {
+        if (currentIsMadeToOrder) {
+            orderTotalBlock.innerHTML = '<span class="order-total-made-to-order"><i class="fas fa-clipboard-list"></i> Позиция на заказ</span>';
+        } else {
+            orderTotalBlock.innerHTML = 'Итого: <span id="totalPrice">' + total.toFixed(2).replace('.', ',') + ' ₽</span>';
+        }
     }
 }
-<?php endif; ?>
 
 /* Модальное окно успешного добавления */
 function showCartSuccessModal() {
@@ -762,7 +694,7 @@ function closeCartSuccessModal() {
 
 /* Добавление в корзину с проверкой авторизации */
 function addToCart(productId, btnElement) {
-    const btn = btnElement || document.querySelector('.btn-order1') || document.querySelector('.btn-order-to-order');
+    const btn = btnElement || document.querySelector('.btn-order1');
     
     // Проверка комплектации
     const configRadios = document.querySelectorAll('input[name="configuration"]');
@@ -803,7 +735,6 @@ function addToCart(productId, btnElement) {
 // Оригинальная логика добавления в корзину
 function proceedAddToCart(productId, btn) {
     let totalPrice = basePrice;
-    const isToOrder = <?= $isMadeToOrder ? 'true' : 'false' ?>;
     
     const orderData = {
         product_id: productId,
@@ -812,7 +743,7 @@ function proceedAddToCart(productId, btn) {
         configuration_name: '',
         modifications: [],
         total_price: 0,
-        is_made_to_order: isToOrder  // <-- добавляем флаг
+        is_made_to_order: isMadeToOrder
     };
     
     // Комплектация
@@ -885,6 +816,7 @@ function proceedAddToCart(productId, btn) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Показать модальное окно вместо прямого перехода
             showCartSuccessModal();
             if (btn) {
                 btn.textContent = originalText;
@@ -896,7 +828,7 @@ function proceedAddToCart(productId, btn) {
     })
     .catch(error => {
         console.error('Ошибка:', error);
-        alert('❌ Ошибка добавления:\n' + error.message);
+        alert('❌ Ошибка добавления в корзину:\n' + error.message);
         if (btn) {
             btn.textContent = originalText;
             btn.disabled = false;
@@ -1059,7 +991,7 @@ let currentSchemeIndex = 0;
             <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
         </div>
         <div class="auth-modal-body">
-            <p>Для добавления товара необходимо войти в личный кабинет.</p>
+            <p>Для добавления товара в корзину необходимо войти в личный кабинет.</p>
         </div>
         <div class="auth-modal-footer">
             <a href="../authorization.php" class="btn-auth btn-login-page">Войти</a>
@@ -1077,7 +1009,7 @@ let currentSchemeIndex = 0;
             <button class="role-modal-close" onclick="closeRoleErrorModal()">&times;</button>
         </div>
         <div class="role-modal-body">
-            <p>Добавление товаров доступно только клиентам.</p>
+            <p>Добавление товаров в корзину доступно только клиентам.</p>
             <p>Ваша роль: <strong id="userRoleProduct"></strong></p>
         </div>
         <div class="role-modal-footer">
