@@ -198,21 +198,70 @@ $isMadeToOrder = ($product['stock'] == -1);
     to { opacity: 1; transform: scale(1); }
 }
 
-/* Стиль для "Позиция на заказ" */
+/* ===== СТИЛИ ДЛЯ "ПОЗИЦИЯ НА ЗАКАЗ" ===== */
 .order-to-order-badge {
     display: inline-block;
-    background: #fff3e0;
-    color: #e65100;
+    background: #e6f7f4;
+    color: #00a896;
     font-weight: 600;
-    padding: 6px 18px;
+    padding: 6px 20px;
     border-radius: 20px;
-    font-size: 16px;
-    border: 1px solid #ffcc80;
+    font-size: 15px;
+    border: 1px solid #b2dfdb;
+    letter-spacing: 0.3px;
 }
+
 .order-to-order-total {
-    color: #e65100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
     font-weight: 700;
+    color: #00a896;
+}
+
+.order-to-order-total i {
+    font-size: 28px;
+    color: #00a896;
+}
+
+.order-to-order-btn {
+    background: #00a896;
+    color: #ffffff;
+    border: none;
+    padding: 16px 40px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 15px rgba(0, 168, 150, 0.3);
+}
+
+.order-to-order-btn:hover {
+    background: #008a7a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 168, 150, 0.4);
+}
+
+.order-to-order-btn i {
     font-size: 20px;
+}
+
+.order-total-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.order-total-label {
+    font-size: 16px;
+    color: #4a6a65;
+    font-weight: 500;
 }
 </style>
 </head>
@@ -230,8 +279,10 @@ require_once '../header.php';
     <div class="prod-header">
         <h1 class="prod-title"><?= htmlspecialchars($product['name']) ?></h1>
         <?php if ($isMadeToOrder): ?>
-            <div style="margin-top: 10px;">
-                <span class="order-to-order-badge">📋 Позиция на заказ</span>
+            <div style="margin-top: 12px;">
+                <span class="order-to-order-badge">
+                    <i class="fas fa-clock" style="margin-right: 8px;"></i> Позиция на заказ
+                </span>
             </div>
         <?php endif; ?>
     </div>
@@ -386,20 +437,19 @@ require_once '../header.php';
                 </div>
             </div>
             
-            <div class="order-total-block">
-                <div class="order-total">
-                    Итого: 
-                    <?php if ($isMadeToOrder): ?>
-                        <span class="order-to-order-total">Позиция на заказ</span>
-                    <?php else: ?>
-                        <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
-                    <?php endif; ?>
-                </div>
+            <div class="order-total-wrapper">
                 <?php if ($isMadeToOrder): ?>
-                    <button class="btn-order1" style="opacity:0.6;cursor:not-allowed;background:#999;" disabled>
-                        Позиция на заказ
+                    <div class="order-total order-to-order-total">
+                        <i class="fas fa-clock"></i>
+                        <span>Позиция на заказ</span>
+                    </div>
+                    <button class="order-to-order-btn" onclick="showOrderInfo()">
+                        <i class="fas fa-info-circle"></i> Уточнить сроки
                     </button>
                 <?php else: ?>
+                    <div class="order-total">
+                        Итого: <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
+                    </div>
                     <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)">В корзину</button>
                 <?php endif; ?>
             </div>
@@ -490,6 +540,61 @@ require_once '../header.php';
             <a href="cart.php" class="btn-cart-success btn-to-cart">
                 Перейти в корзину
             </a>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для "Позиция на заказ" -->
+<div id="orderInfoModal" class="cart-success-modal" style="display:none;">
+    <div class="cart-success-content">
+        <div class="cart-success-header">
+            <div class="cart-success-icon" style="background: #00a896;">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h3 style="color: #00a896;">Позиция на заказ</h3>
+        </div>
+        <div class="cart-success-body">
+            <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                Данный товар изготавливается на заказ.
+            </p>
+            <p style="font-size: 15px; color: #4a6a65; margin-top: 10px;">
+                Для получения информации о сроках изготовления и стоимости, 
+                пожалуйста, свяжитесь с нашими менеджерами.
+            </p>
+            <div style="margin-top: 20px; padding: 15px; background: #f0f8f6; border-radius: 10px;">
+                <p style="font-size: 14px; color: #4a6a65; margin: 0;">
+                    <i class="fas fa-phone" style="color: #00a896; margin-right: 8px;"></i>
+                    <?php 
+                        // Получаем телефон из настроек
+                        $phone = '+7 (3022) XX-XX-XX';
+                        try {
+                            $stmt = $pdo->prepare("SELECT value FROM settings WHERE `key` = 'contact_phone'");
+                            $stmt->execute();
+                            $phoneSetting = $stmt->fetch(PDO::FETCH_ASSOC);
+                            if ($phoneSetting) $phone = $phoneSetting['value'];
+                        } catch (Exception $e) {}
+                        echo htmlspecialchars($phone);
+                    ?>
+                </p>
+                <p style="font-size: 14px; color: #4a6a65; margin: 5px 0 0;">
+                    <i class="fas fa-envelope" style="color: #00a896; margin-right: 8px;"></i>
+                    <?php 
+                        $email = 'info@example.com';
+                        try {
+                            $stmt = $pdo->prepare("SELECT value FROM settings WHERE `key` = 'contact_email'");
+                            $stmt->execute();
+                            $emailSetting = $stmt->fetch(PDO::FETCH_ASSOC);
+                            if ($emailSetting) $email = $emailSetting['value'];
+                        } catch (Exception $e) {}
+                        echo htmlspecialchars($email);
+                    ?>
+                </p>
+            </div>
+        </div>
+        <div class="cart-success-footer">
+            <button class="btn-cart-success btn-continue" onclick="closeOrderInfoModal()" style="flex:1;">
+                Закрыть
+            </button>
         </div>
     </div>
 </div>
@@ -695,6 +800,23 @@ function closeCartSuccessModal() {
     }
 }
 
+/* Модальное окно "Позиция на заказ" */
+function showOrderInfo() {
+    const modal = document.getElementById('orderInfoModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeOrderInfoModal() {
+    const modal = document.getElementById('orderInfoModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
 /* Добавление в корзину с проверкой авторизации */
 function addToCart(productId, btnElement) {
     const btn = btnElement || document.querySelector('.btn-order1');
@@ -886,6 +1008,7 @@ document.addEventListener('keydown', function(e) {
         closeAuthModal();
         closeRoleErrorModal();
         closeCartSuccessModal();
+        closeOrderInfoModal();
     }
 });
 
@@ -913,6 +1036,15 @@ if (cartSuccessModal) {
     cartSuccessModal.addEventListener('click', function(e) {
         if (e.target === this) {
             closeCartSuccessModal();
+        }
+    });
+}
+
+const orderInfoModal = document.getElementById('orderInfoModal');
+if (orderInfoModal) {
+    orderInfoModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeOrderInfoModal();
         }
     });
 }
