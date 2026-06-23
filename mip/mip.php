@@ -81,8 +81,14 @@ require_once 'includes/get_news_data.php';
                                                     <?= htmlspecialchars(mb_strimwidth(strip_tags($prod['description']), 0, 250, '...')) ?>
                                                 </p>
                                                 <div class="product-price">
-                                                    от <?= number_format($prod['price'], 0, ',', ' ') ?> ₽
-                                                </div>
+													<?php if (isset($prod['stock']) && $prod['stock'] == -1): ?>
+														<span style="color: #00a896; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+															<i class="fas fa-clipboard-list"></i> Позиция на заказ
+														</span>
+													<?php else: ?>
+														от <?= number_format($prod['price'], 0, ',', ' ') ?> ₽
+													<?php endif; ?>
+												</div>
                                                 <a href="product.php?id=<?= (int)$prod['id'] ?>" class="text-wrapper-3">Подробнее</a>
                                             </div>
                                         </div>
