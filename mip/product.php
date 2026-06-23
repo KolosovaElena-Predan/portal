@@ -141,7 +141,6 @@ $isMadeToOrder = ($product['stock'] == -1);
 .cart-success-icon {
     width: 60px;
     height: 60px;
-    background: #00a896;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -160,6 +159,10 @@ $isMadeToOrder = ($product['stock'] == -1);
     font-size: 16px;
     color: #333;
     margin: 5px 0;
+}
+.cart-success-body .highlight {
+    color: #00a896;
+    font-weight: 600;
 }
 .cart-success-footer {
     display: flex;
@@ -225,7 +228,15 @@ $isMadeToOrder = ($product['stock'] == -1);
     color: #00a896;
 }
 
-.order-to-order-btn {
+.order-total-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+/* Стиль для кнопки "Заказать" на позиции на заказ */
+.btn-order-to-order {
     background: #00a896;
     color: #ffffff;
     border: none;
@@ -241,27 +252,23 @@ $isMadeToOrder = ($product['stock'] == -1);
     box-shadow: 0 4px 15px rgba(0, 168, 150, 0.3);
 }
 
-.order-to-order-btn:hover {
+.btn-order-to-order:hover {
     background: #008a7a;
     transform: translateY(-2px);
     box-shadow: 0 6px 25px rgba(0, 168, 150, 0.4);
 }
 
-.order-to-order-btn i {
+.btn-order-to-order i {
     font-size: 20px;
 }
 
-.order-total-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 12px;
+/* Стиль для выбранной конфигурации "Позиция на заказ" */
+.selected-to-order {
+    color: #00a896 !important;
+    font-weight: 600;
 }
-
-.order-total-label {
-    font-size: 16px;
-    color: #4a6a65;
-    font-weight: 500;
+.selected-to-order i {
+    margin-right: 6px;
 }
 </style>
 </head>
@@ -443,8 +450,8 @@ require_once '../header.php';
                         <i class="fas fa-clock"></i>
                         <span>Позиция на заказ</span>
                     </div>
-                    <button class="order-to-order-btn" onclick="showOrderInfo()">
-                        <i class="fas fa-info-circle"></i> Уточнить сроки
+                    <button class="btn-order-to-order" onclick="addToCart(<?= $product_id ?>, this)">
+                        <i class="fas fa-shopping-cart"></i> Заказать
                     </button>
                 <?php else: ?>
                     <div class="order-total">
@@ -521,80 +528,33 @@ require_once '../header.php';
 
 </div>
 
-<!-- Модальное окно "Товар добавлен в корзину" -->
+<!-- Модальное окно "Товар добавлен" -->
 <div id="cartSuccessModal" class="cart-success-modal">
     <div class="cart-success-content">
         <div class="cart-success-header">
-            <div class="cart-success-icon">
-                <i class="fas fa-check"></i>
+            <div class="cart-success-icon" style="background: <?= $isMadeToOrder ? '#00a896' : '#00a896' ?>;">
+                <i class="fas <?= $isMadeToOrder ? 'fa-clock' : 'fa-check' ?>"></i>
             </div>
-            <h3>Товар добавлен в корзину!</h3>
+            <h3><?= $isMadeToOrder ? 'Заявка на заказ отправлена!' : 'Товар добавлен в корзину!' ?></h3>
         </div>
         <div class="cart-success-body">
-            <p>Товар успешно добавлен в вашу корзину.</p>
+            <?php if ($isMadeToOrder): ?>
+                <p>Товар добавлен в личный кабинет как <span class="highlight">"Позиция на заказ"</span>.</p>
+                <p style="font-size: 14px; color: #4a6a65; margin-top: 10px;">
+                    <i class="fas fa-info-circle" style="color: #00a896;"></i>
+                    С вами свяжется менеджер для уточнения сроков и стоимости.
+                </p>
+            <?php else: ?>
+                <p>Товар успешно добавлен в вашу корзину.</p>
+            <?php endif; ?>
         </div>
         <div class="cart-success-footer">
             <button class="btn-cart-success btn-continue" onclick="closeCartSuccessModal()">
                 Продолжить покупки
             </button>
             <a href="cart.php" class="btn-cart-success btn-to-cart">
-                Перейти в корзину
+                <?= $isMadeToOrder ? 'Перейти в заявки' : 'Перейти в корзину' ?>
             </a>
-        </div>
-    </div>
-</div>
-
-<!-- Модальное окно для "Позиция на заказ" -->
-<div id="orderInfoModal" class="cart-success-modal" style="display:none;">
-    <div class="cart-success-content">
-        <div class="cart-success-header">
-            <div class="cart-success-icon" style="background: #00a896;">
-                <i class="fas fa-clock"></i>
-            </div>
-            <h3 style="color: #00a896;">Позиция на заказ</h3>
-        </div>
-        <div class="cart-success-body">
-            <p style="font-size: 16px; color: #333; line-height: 1.6;">
-                Данный товар изготавливается на заказ.
-            </p>
-            <p style="font-size: 15px; color: #4a6a65; margin-top: 10px;">
-                Для получения информации о сроках изготовления и стоимости, 
-                пожалуйста, свяжитесь с нашими менеджерами.
-            </p>
-            <div style="margin-top: 20px; padding: 15px; background: #f0f8f6; border-radius: 10px;">
-                <p style="font-size: 14px; color: #4a6a65; margin: 0;">
-                    <i class="fas fa-phone" style="color: #00a896; margin-right: 8px;"></i>
-                    <?php 
-                        // Получаем телефон из настроек
-                        $phone = '+7 (3022) XX-XX-XX';
-                        try {
-                            $stmt = $pdo->prepare("SELECT value FROM settings WHERE `key` = 'contact_phone'");
-                            $stmt->execute();
-                            $phoneSetting = $stmt->fetch(PDO::FETCH_ASSOC);
-                            if ($phoneSetting) $phone = $phoneSetting['value'];
-                        } catch (Exception $e) {}
-                        echo htmlspecialchars($phone);
-                    ?>
-                </p>
-                <p style="font-size: 14px; color: #4a6a65; margin: 5px 0 0;">
-                    <i class="fas fa-envelope" style="color: #00a896; margin-right: 8px;"></i>
-                    <?php 
-                        $email = 'info@example.com';
-                        try {
-                            $stmt = $pdo->prepare("SELECT value FROM settings WHERE `key` = 'contact_email'");
-                            $stmt->execute();
-                            $emailSetting = $stmt->fetch(PDO::FETCH_ASSOC);
-                            if ($emailSetting) $email = $emailSetting['value'];
-                        } catch (Exception $e) {}
-                        echo htmlspecialchars($email);
-                    ?>
-                </p>
-            </div>
-        </div>
-        <div class="cart-success-footer">
-            <button class="btn-cart-success btn-continue" onclick="closeOrderInfoModal()" style="flex:1;">
-                Закрыть
-            </button>
         </div>
     </div>
 </div>
@@ -800,26 +760,9 @@ function closeCartSuccessModal() {
     }
 }
 
-/* Модальное окно "Позиция на заказ" */
-function showOrderInfo() {
-    const modal = document.getElementById('orderInfoModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeOrderInfoModal() {
-    const modal = document.getElementById('orderInfoModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-    }
-}
-
 /* Добавление в корзину с проверкой авторизации */
 function addToCart(productId, btnElement) {
-    const btn = btnElement || document.querySelector('.btn-order1');
+    const btn = btnElement || document.querySelector('.btn-order1') || document.querySelector('.btn-order-to-order');
     
     // Проверка комплектации
     const configRadios = document.querySelectorAll('input[name="configuration"]');
@@ -860,6 +803,7 @@ function addToCart(productId, btnElement) {
 // Оригинальная логика добавления в корзину
 function proceedAddToCart(productId, btn) {
     let totalPrice = basePrice;
+    const isToOrder = <?= $isMadeToOrder ? 'true' : 'false' ?>;
     
     const orderData = {
         product_id: productId,
@@ -867,7 +811,8 @@ function proceedAddToCart(productId, btn) {
         configuration: null,
         configuration_name: '',
         modifications: [],
-        total_price: 0
+        total_price: 0,
+        is_made_to_order: isToOrder  // <-- добавляем флаг
     };
     
     // Комплектация
@@ -940,7 +885,6 @@ function proceedAddToCart(productId, btn) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Показать модальное окно вместо прямого перехода
             showCartSuccessModal();
             if (btn) {
                 btn.textContent = originalText;
@@ -952,7 +896,7 @@ function proceedAddToCart(productId, btn) {
     })
     .catch(error => {
         console.error('Ошибка:', error);
-        alert('❌ Ошибка добавления в корзину:\n' + error.message);
+        alert('❌ Ошибка добавления:\n' + error.message);
         if (btn) {
             btn.textContent = originalText;
             btn.disabled = false;
@@ -1008,7 +952,6 @@ document.addEventListener('keydown', function(e) {
         closeAuthModal();
         closeRoleErrorModal();
         closeCartSuccessModal();
-        closeOrderInfoModal();
     }
 });
 
@@ -1036,15 +979,6 @@ if (cartSuccessModal) {
     cartSuccessModal.addEventListener('click', function(e) {
         if (e.target === this) {
             closeCartSuccessModal();
-        }
-    });
-}
-
-const orderInfoModal = document.getElementById('orderInfoModal');
-if (orderInfoModal) {
-    orderInfoModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeOrderInfoModal();
         }
     });
 }
@@ -1125,7 +1059,7 @@ let currentSchemeIndex = 0;
             <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
         </div>
         <div class="auth-modal-body">
-            <p>Для добавления товара в корзину необходимо войти в личный кабинет.</p>
+            <p>Для добавления товара необходимо войти в личный кабинет.</p>
         </div>
         <div class="auth-modal-footer">
             <a href="../authorization.php" class="btn-auth btn-login-page">Войти</a>
@@ -1143,7 +1077,7 @@ let currentSchemeIndex = 0;
             <button class="role-modal-close" onclick="closeRoleErrorModal()">&times;</button>
         </div>
         <div class="role-modal-body">
-            <p>Добавление товаров в корзину доступно только клиентам.</p>
+            <p>Добавление товаров доступно только клиентам.</p>
             <p>Ваша роль: <strong id="userRoleProduct"></strong></p>
         </div>
         <div class="role-modal-footer">
