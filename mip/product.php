@@ -381,7 +381,7 @@ require_once '../header.php';
                 <div class="order-total" id="orderTotalBlock">
                     <?php if ($isMadeToOrder): ?>
                         <span class="order-total-made-to-order">
-                            <i class="fas fa-clipboard-list"></i> Позиция на заказ
+                            Позиция на заказ
                         </span>
                     <?php else: ?>
                         Итого: <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
