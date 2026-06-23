@@ -82,9 +82,7 @@ require_once 'includes/get_news_data.php';
                                                 </p>
                                                 <div class="product-price">
 													<?php if (isset($prod['stock']) && $prod['stock'] == -1): ?>
-														<span style="color: #00a896; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-															<i class="fas fa-clipboard-list"></i> Позиция на заказ
-														</span>
+														<span style="color: #00a896; font-weight: 700; font-size: 18px;">На заказ</span>
 													<?php else: ?>
 														от <?= number_format($prod['price'], 0, ',', ' ') ?> ₽
 													<?php endif; ?>

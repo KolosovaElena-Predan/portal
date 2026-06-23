@@ -100,9 +100,9 @@ require_once '../header.php';
                                     <p class="device-desc">
                                         <?= htmlspecialchars(mb_strimwidth(strip_tags($product['short_description']), 0, 120, '...')) ?>
                                     </p>
-                                    <div class="device-price">
+                                    <!--<div class="device-price">
                                         от <?= number_format($product['min_price'] ?? $product['base_price'], 2, ',', ' ') ?> ₽
-                                    </div>
+                                    </div>-->
                                     <a href="product.php?id=<?= $product['id'] ?>#orderBlock"
                                        class="btn-order"
                                        onclick="event.stopPropagation();">
