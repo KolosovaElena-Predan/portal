@@ -86,6 +86,9 @@ function getImageUrl($url) {
     $url = ltrim($url, './');
     return file_exists($url) ? $url : 'img/placeholder.png';
 }
+
+// Флаг "Позиция на заказ"
+$isMadeToOrder = ($product['stock'] == -1);
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -195,30 +198,21 @@ function getImageUrl($url) {
     to { opacity: 1; transform: scale(1); }
 }
 
-/* Стили для "Позиция на заказ" */
-.order-to-order {
+/* Стиль для "Позиция на заказ" */
+.order-to-order-badge {
+    display: inline-block;
+    background: #fff3e0;
     color: #e65100;
     font-weight: 600;
-    background: #fff3e0;
-    padding: 4px 12px;
+    padding: 6px 18px;
     border-radius: 20px;
-    display: inline-block;
-    font-size: 14px;
+    font-size: 16px;
+    border: 1px solid #ffcc80;
 }
-.config-to-order td:last-child {
-    opacity: 0.7;
-}
-.config-to-order input[type="radio"] {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-.mod-option-to-order {
+.order-to-order-total {
     color: #e65100;
-    font-style: italic;
-    background: #fff3e0;
-    padding: 2px 10px;
-    border-radius: 12px;
-    display: inline-block;
+    font-weight: 700;
+    font-size: 20px;
 }
 </style>
 </head>
@@ -235,6 +229,11 @@ require_once '../header.php';
     <!-- Заголовок -->
     <div class="prod-header">
         <h1 class="prod-title"><?= htmlspecialchars($product['name']) ?></h1>
+        <?php if ($isMadeToOrder): ?>
+            <div style="margin-top: 10px;">
+                <span class="order-to-order-badge">📋 Позиция на заказ</span>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Галерея -->
@@ -277,7 +276,7 @@ require_once '../header.php';
                 <tr>
                     <th>Название</th>
                     <th>Характеристики</th>
-                    <th>Цена / Статус</th>
+                    <th>Цена</th>
                     <th>Выбор</th>
                 </tr>
             </thead>
@@ -285,9 +284,8 @@ require_once '../header.php';
                 <?php foreach ($configurations as $cfg): 
                     $chars = !empty($cfg['characteristics']) ? json_decode($cfg['characteristics'], true) : [];
                     if (!is_array($chars)) $chars = [];
-                    $isToOrder = ($cfg['stock'] == -1);
                 ?>
-                <tr class="<?= $isToOrder ? 'config-to-order' : '' ?>">
+                <tr>
                     <td><strong><?= htmlspecialchars($cfg['name']) ?></strong></td>
                     <td>
                         <?php if (!empty($chars)): ?>
@@ -300,24 +298,12 @@ require_once '../header.php';
                             <span style="color:#999;">—</span>
                         <?php endif; ?>
                     </td>
-                    <td>
-                        <?php if ($isToOrder): ?>
-                            <span class="order-to-order">Позиция на заказ</span>
-                        <?php else: ?>
-                            <strong><?= number_format($cfg['price'], 0, ',', ' ') ?> ₽</strong>
-                        <?php endif; ?>
-                    </td>
+                    <td><strong><?= number_format($cfg['price'], 0, ',', ' ') ?> ₽</strong></td>
                     <td>
                         <input type="radio" name="configuration" value="<?= $cfg['id'] ?>" 
                                data-price="<?= $cfg['price'] ?>"
                                data-name="<?= htmlspecialchars($cfg['name']) ?>"
-                               data-stock="<?= (int)$cfg['stock'] ?>"
-                               onchange="updateTotal()" 
-                               style="transform: scale(1.5);"
-                               <?= $isToOrder ? 'disabled' : '' ?>>
-                        <?php if ($isToOrder): ?>
-                            <span style="font-size:12px;color:#999;display:block;">(недоступно для заказа)</span>
-                        <?php endif; ?>
+                               onchange="updateTotal()" style="transform: scale(1.5);">
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -335,7 +321,7 @@ require_once '../header.php';
                         <th style="width: 15%">Модификация</th>
                         <th style="width: 20%">Вариант</th>
                         <th style="width: 25%">Описание</th>
-                        <th style="width: 15%">Цена / Статус</th>
+                        <th style="width: 15%">Цена</th>
                         <th style="width: 15%">Доп. свойство</th>
                         <th style="width: 10%">Цена доп.</th>
                     </tr>
@@ -350,23 +336,18 @@ require_once '../header.php';
                         
                         <td class="mod-select-cell">
                             <select class="mod-variant-select" onchange="updatePropertiesList(this)">
-                                <option value="0" data-props='[]' data-desc="" data-price="0" data-name="" data-stock="1">— Не выбрано —</option>
+                                <option value="0" data-props='[]' data-desc="" data-price="0" data-name="">— Не выбрано —</option>
                                 <?php foreach ($options as $opt):
                                 $propsJson = htmlspecialchars(json_encode($opt['properties'] ?? []), ENT_QUOTES, 'UTF-8');
                                 $desc = htmlspecialchars($opt['description'] ?? 'Нет описания', ENT_QUOTES, 'UTF-8');
                                 $price = number_format($opt['price'] ?? 0, 2, ',', ' ');
-                                $stock = $opt['stock'] ?? 1;
-                                $isToOrder = ($stock == -1);
                                 ?>
                                 <option value="<?= $opt['price'] ?>" 
                                         data-props='<?= $propsJson ?>' 
                                         data-desc='<?= $desc ?>'
                                         data-price='<?= $price ?>'
-                                        data-name='<?= htmlspecialchars($opt['name']) ?>'
-                                        data-stock='<?= (int)$stock ?>'
-                                        <?= $isToOrder ? 'class="mod-option-to-order"' : '' ?>>
+                                        data-name='<?= htmlspecialchars($opt['name']) ?>'>
                                     <?= htmlspecialchars($opt['name']) ?>
-                                    <?= $isToOrder ? ' (Позиция на заказ)' : '' ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
@@ -407,9 +388,20 @@ require_once '../header.php';
             
             <div class="order-total-block">
                 <div class="order-total">
-                    Итого: <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
+                    Итого: 
+                    <?php if ($isMadeToOrder): ?>
+                        <span class="order-to-order-total">Позиция на заказ</span>
+                    <?php else: ?>
+                        <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
+                    <?php endif; ?>
                 </div>
-                <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)" id="addToCartBtn">В корзину</button>
+                <?php if ($isMadeToOrder): ?>
+                    <button class="btn-order1" style="opacity:0.6;cursor:not-allowed;background:#999;" disabled>
+                        Позиция на заказ
+                    </button>
+                <?php else: ?>
+                    <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)">В корзину</button>
+                <?php endif; ?>
             </div>
         </div>
     </section>
@@ -526,6 +518,7 @@ function changeMainImage(src, thumb) {
     });
 }
 
+<?php if (!$isMadeToOrder): // JS для цены только если не "Позиция на заказ" ?>
 let basePrice = <?= (float)$product['base_price'] ?>;
 
 document.querySelectorAll('input[name="configuration"]').forEach(radio => {
@@ -536,7 +529,6 @@ document.querySelectorAll('input[name="configuration"]').forEach(radio => {
         this.closest('tr').style.background = '#f0f4ff';
         updateSelectedList();
         updateTotal();
-        updateAddToCartButton();
     });
 });
 
@@ -545,7 +537,6 @@ document.querySelectorAll('.mod-variant-select').forEach(select => {
         updatePropertiesList(this);
         updateSelectedList();
         updateTotal();
-        updateAddToCartButton();
     });
 });
 
@@ -553,52 +544,8 @@ document.querySelectorAll('.mod-property-select').forEach(select => {
     select.addEventListener('change', function() {
         updateSelectedList();
         updateTotal();
-        updateAddToCartButton();
     });
 });
-
-// Обновление состояния кнопки "В корзину"
-function updateAddToCartButton() {
-    const btn = document.getElementById('addToCartBtn');
-    if (!btn) return;
-    
-    // Проверяем, выбрана ли комплектация с stock = -1
-    const configChecked = document.querySelector('input[name="configuration"]:checked');
-    if (configChecked) {
-        const stock = parseInt(configChecked.dataset.stock) || 0;
-        if (stock === -1) {
-            btn.disabled = true;
-            btn.textContent = 'Позиция на заказ';
-            btn.style.opacity = '0.5';
-            btn.style.cursor = 'not-allowed';
-            return;
-        }
-    }
-    
-    // Проверяем, есть ли выбранные модификации с stock = -1
-    let hasToOrderMod = false;
-    document.querySelectorAll('.mod-variant-select').forEach(select => {
-        const selectedOption = select.options[select.selectedIndex];
-        if (selectedOption && selectedOption.value > 0) {
-            const stock = parseInt(selectedOption.dataset.stock) || 0;
-            if (stock === -1) {
-                hasToOrderMod = true;
-            }
-        }
-    });
-    
-    if (hasToOrderMod) {
-        btn.disabled = true;
-        btn.textContent = 'Позиция на заказ';
-        btn.style.opacity = '0.5';
-        btn.style.cursor = 'not-allowed';
-    } else {
-        btn.disabled = false;
-        btn.textContent = 'В корзину';
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-    }
-}
 
 function updatePropertiesList(selectElement) {
     const row = selectElement.closest('tr');
@@ -610,15 +557,9 @@ function updatePropertiesList(selectElement) {
     const propertiesJson = selectedOption.getAttribute('data-props');
     const properties = JSON.parse(propertiesJson || '[]');
     const variantPrice = parseFloat(selectElement.value) || 0;
-    const stock = parseInt(selectedOption.dataset.stock) || 0;
-    const isToOrder = (stock === -1);
     
     if (priceCell) {
-        if (isToOrder) {
-            priceCell.innerHTML = '<span class="order-to-order" style="font-size:13px;">Позиция на заказ</span>';
-        } else {
-            priceCell.textContent = variantPrice.toFixed(2).replace('.', ',') + ' ₽';
-        }
+        priceCell.textContent = variantPrice.toFixed(2).replace('.', ',') + ' ₽';
     }
     
     propertySelect.innerHTML = '<option value="0" data-price="0">— Сначала выберите вариант —</option>';
@@ -644,10 +585,8 @@ function updatePropertiesList(selectElement) {
     }
     
     updateTotal();
-    updateAddToCartButton();
 }
 
-// Обновление цены доп. свойства
 function updatePropertyPrice(selectElement) {
     const row = selectElement.closest('tr');
     const propPriceCell = row.querySelector('.mod-prop-price-value');
@@ -658,7 +597,6 @@ function updatePropertyPrice(selectElement) {
     }
     
     updateTotal();
-    updateAddToCartButton();
 }
 
 function updateSelectedList() {
@@ -672,12 +610,10 @@ function updateSelectedList() {
     if (configChecked) {
         const configName = configChecked.getAttribute('data-name') || 'Комплектация';
         const configPrice = parseFloat(configChecked.dataset.price) || 0;
-        const stock = parseInt(configChecked.dataset.stock) || 0;
-        const isToOrder = (stock === -1);
         
         html += `<div class="selected-item">
             <span class="selected-item-name">${configName}</span>
-            <span class="selected-item-price">${isToOrder ? 'Позиция на заказ' : configPrice.toLocaleString('ru-RU') + ' ₽'}</span>
+            <span class="selected-item-price">${configPrice.toLocaleString('ru-RU')} ₽</span>
         </div>`;
         hasSelection = true;
     }
@@ -691,12 +627,10 @@ function updateSelectedList() {
             const variantOption = variantSelect.options[variantSelect.selectedIndex];
             const variantName = variantOption.getAttribute('data-name') || variantOption.text.split('(')[0].trim();
             const variantPrice = parseFloat(variantSelect.value) || 0;
-            const stock = parseInt(variantOption.dataset.stock) || 0;
-            const isToOrder = (stock === -1);
             
             html += `<div class="selected-item">
                 <span class="selected-item-name">${modName}: ${variantName}</span>
-                <span class="selected-item-price">${isToOrder ? 'Позиция на заказ' : variantPrice.toLocaleString('ru-RU') + ' ₽'}</span>
+                <span class="selected-item-price">${variantPrice.toLocaleString('ru-RU')} ₽</span>
             </div>`;
             hasSelection = true;
             
@@ -719,31 +653,16 @@ function updateSelectedList() {
     listContainer.innerHTML = html;
 }
 
-/* Пересчёт итоговой цены */
 function updateTotal() {
     let total = basePrice;
-    let hasToOrder = false;
     
     const configChecked = document.querySelector('input[name="configuration"]:checked');
     if (configChecked) {
-        const stock = parseInt(configChecked.dataset.stock) || 0;
-        if (stock === -1) {
-            hasToOrder = true;
-        } else {
-            total = parseFloat(configChecked.dataset.price) || basePrice;
-        }
+        total = parseFloat(configChecked.dataset.price) || basePrice;
     }
     
     document.querySelectorAll('.mod-variant-select').forEach(select => {
-        const selectedOption = select.options[select.selectedIndex];
-        if (selectedOption && selectedOption.value > 0) {
-            const stock = parseInt(selectedOption.dataset.stock) || 0;
-            if (stock === -1) {
-                hasToOrder = true;
-            } else {
-                total += parseFloat(select.value) || 0;
-            }
-        }
+        total += parseFloat(select.value) || 0;
     });
     
     document.querySelectorAll('.mod-property-select').forEach(select => {
@@ -754,13 +673,10 @@ function updateTotal() {
     
     const totalElement = document.getElementById('totalPrice');
     if (totalElement) {
-        if (hasToOrder) {
-            totalElement.innerHTML = '<span class="order-to-order" style="font-size:18px;">Позиция на заказ</span>';
-        } else {
-            totalElement.textContent = total.toFixed(2).replace('.', ',') + ' ₽';
-        }
+        totalElement.textContent = total.toFixed(2).replace('.', ',') + ' ₽';
     }
 }
+<?php endif; ?>
 
 /* Модальное окно успешного добавления */
 function showCartSuccessModal() {
@@ -795,31 +711,6 @@ function addToCart(productId, btnElement) {
             });
             return;
         }
-    }
-    
-    // Проверка на "Позиция на заказ"
-    const configChecked = document.querySelector('input[name="configuration"]:checked');
-    if (configChecked) {
-        const stock = parseInt(configChecked.dataset.stock) || 0;
-        if (stock === -1) {
-            alert('⚠️ Выбранная комплектация является "Позицией на заказ" и не может быть добавлена в корзину.');
-            return;
-        }
-    }
-    
-    let hasToOrderMod = false;
-    document.querySelectorAll('.mod-variant-select').forEach(select => {
-        const selectedOption = select.options[select.selectedIndex];
-        if (selectedOption && selectedOption.value > 0) {
-            const stock = parseInt(selectedOption.dataset.stock) || 0;
-            if (stock === -1) {
-                hasToOrderMod = true;
-            }
-        }
-    });
-    if (hasToOrderMod) {
-        alert('⚠️ Одна из выбранных модификаций является "Позицией на заказ" и не может быть добавлена в корзину.');
-        return;
     }
     
     // Сначала проверяем авторизацию и роль
@@ -862,13 +753,6 @@ function proceedAddToCart(productId, btn) {
     if (configChecked) {
         const configPrice = parseFloat(configChecked.dataset.price) || 0;
         const configName = configChecked.getAttribute('data-name') || '';
-        const stock = parseInt(configChecked.dataset.stock) || 0;
-        
-        // Пропускаем, если stock = -1
-        if (stock === -1) {
-            alert('Ошибка: выбрана "Позиция на заказ"');
-            return;
-        }
         
         orderData.configuration = {
             id: configChecked.value,
@@ -889,13 +773,6 @@ function proceedAddToCart(productId, btn) {
             const variantOption = variantSelect.options[variantSelect.selectedIndex];
             const variantPrice = parseFloat(variantSelect.value) || 0;
             const variantName = variantOption.getAttribute('data-name') || variantOption.text.split('(')[0].trim();
-            const stock = parseInt(variantOption.dataset.stock) || 0;
-            
-            // Пропускаем, если stock = -1
-            if (stock === -1) {
-                alert('Ошибка: выбрана "Позиция на заказ" в модификации');
-                return;
-            }
             
             const modData = {
                 group: modName,
