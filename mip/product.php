@@ -464,12 +464,12 @@ require_once '../header.php';
             <div class="order-total-block">
                 <div class="order-total" id="orderTotalBlock">
                     <?php if ($isMadeToOrder): ?>
-                        <span class="order-total-made-to-order">На заказ</span>
+                        <span class="order-total-made-to-order">Позиция на заказ</span>
                     <?php else: ?>
                         Итого: <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
                     <?php endif; ?>
                 </div>
-                <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)">В корзину</button>
+                <button class="btn-order1" onclick="addToCart(<?= $product_id ?>, this)">Заказать</button>
             </div>
         </div>
     </section>
@@ -549,7 +549,7 @@ require_once '../header.php';
             <h3>Заявка отправлена!</h3>
         </div>
         <div class="cart-success-body" id="madeToOrderBody">
-            <p>Ваша заявка на товар "на заказ" успешно отправлена.</p>
+            <p>Ваша заявка на товар успешно отправлена.</p>
             <p style="font-size: 14px; color: #666; margin-top: 10px;">Специалист свяжется с вами для уточнения деталей.</p>
         </div>
         <div class="cart-success-footer">
@@ -788,7 +788,7 @@ function showMadeToOrderModal(requestId) {
         const body = document.getElementById('madeToOrderBody');
         if (body && requestId) {
             body.innerHTML = `
-                <p>Ваша заявка №${requestId} на товар "на заказ" успешно отправлена.</p>
+                <p>Ваша заявка на товар успешно отправлена.</p>
                 <p style="font-size: 14px; color: #666; margin-top: 10px;">Специалист свяжется с вами для уточнения деталей.</p>
             `;
         }
