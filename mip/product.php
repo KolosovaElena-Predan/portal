@@ -201,13 +201,7 @@ $isMadeToOrder = ($product['stock'] == -1);
 /* Дополнительный стиль для надписи "Позиция на заказ" */
 .order-total-made-to-order {
     color: #00a896;
-    font-weight: 600;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.order-total-made-to-order i {
+    font-weight: 700;
     font-size: 20px;
 }
 </style>
@@ -225,6 +219,13 @@ require_once '../header.php';
     <!-- Заголовок -->
     <div class="prod-header">
         <h1 class="prod-title"><?= htmlspecialchars($product['name']) ?></h1>
+        <?php if ($isMadeToOrder): ?>
+            <div style="margin-top: 8px;">
+                <span style="background: #00a896; color: white; padding: 4px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; display: inline-block;">
+                    Изготавливается на заказ
+                </span>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Галерея -->
@@ -380,9 +381,7 @@ require_once '../header.php';
             <div class="order-total-block">
                 <div class="order-total" id="orderTotalBlock">
                     <?php if ($isMadeToOrder): ?>
-                        <span class="order-total-made-to-order">
-                            Позиция на заказ
-                        </span>
+                        <span class="order-total-made-to-order">На заказ</span>
                     <?php else: ?>
                         Итого: <span id="totalPrice"><?= number_format($product['base_price'], 2, ',', ' ') ?> ₽</span>
                     <?php endif; ?>
@@ -457,7 +456,31 @@ require_once '../header.php';
 
 </div>
 
-<!-- Модальное окно "Товар добавлен в корзину" -->
+<!-- Модальное окно для товара "на заказ" -->
+<div id="madeToOrderModal" class="cart-success-modal">
+    <div class="cart-success-content">
+        <div class="cart-success-header">
+            <div class="cart-success-icon">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <h3>Заявка отправлена!</h3>
+        </div>
+        <div class="cart-success-body">
+            <p>Ваша заявка на товар "на заказ" успешно отправлена.</p>
+            <p style="font-size: 14px; color: #666; margin-top: 10px;">Специалист свяжется с вами для уточнения деталей.</p>
+        </div>
+        <div class="cart-success-footer">
+            <button class="btn-cart-success btn-continue" onclick="closeMadeToOrderModal()">
+                Продолжить
+            </button>
+            <a href="lk_user.php" class="btn-cart-success btn-to-cart">
+                Перейти в ЛК
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно "Товар добавлен в корзину" (для обычных товаров) -->
 <div id="cartSuccessModal" class="cart-success-modal">
     <div class="cart-success-content">
         <div class="cart-success-header">
@@ -668,14 +691,31 @@ function updateTotal() {
     
     if (orderTotalBlock) {
         if (currentIsMadeToOrder) {
-            orderTotalBlock.innerHTML = '<span class="order-total-made-to-order"><i class="fas fa-clipboard-list"></i> Позиция на заказ</span>';
+            orderTotalBlock.innerHTML = '<span class="order-total-made-to-order">На заказ</span>';
         } else {
             orderTotalBlock.innerHTML = 'Итого: <span id="totalPrice">' + total.toFixed(2).replace('.', ',') + ' ₽</span>';
         }
     }
 }
 
-/* Модальное окно успешного добавления */
+/* Модальное окно для товара "на заказ" */
+function showMadeToOrderModal() {
+    const modal = document.getElementById('madeToOrderModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeMadeToOrderModal() {
+    const modal = document.getElementById('madeToOrderModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
+/* Модальное окно успешного добавления в корзину */
 function showCartSuccessModal() {
     const modal = document.getElementById('cartSuccessModal');
     if (modal) {
@@ -724,6 +764,13 @@ function addToCart(productId, btnElement) {
             }
             
             // Авторизован и роль client — продолжаем
+            // Если товар "на заказ" — показываем специальное окно
+            if (isMadeToOrder) {
+                showMadeToOrderModal();
+                return;
+            }
+            
+            // Обычный товар — добавляем в корзину
             proceedAddToCart(productId, btn);
         })
         .catch(err => {
@@ -732,7 +779,7 @@ function addToCart(productId, btnElement) {
         });
 }
 
-// Оригинальная логика добавления в корзину
+// Оригинальная логика добавления в корзину (только для обычных товаров)
 function proceedAddToCart(productId, btn) {
     let totalPrice = basePrice;
     
@@ -816,7 +863,7 @@ function proceedAddToCart(productId, btn) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Показать модальное окно вместо прямого перехода
+            // Показать модальное окно
             showCartSuccessModal();
             if (btn) {
                 btn.textContent = originalText;
@@ -884,6 +931,7 @@ document.addEventListener('keydown', function(e) {
         closeAuthModal();
         closeRoleErrorModal();
         closeCartSuccessModal();
+        closeMadeToOrderModal();
     }
 });
 
@@ -911,6 +959,15 @@ if (cartSuccessModal) {
     cartSuccessModal.addEventListener('click', function(e) {
         if (e.target === this) {
             closeCartSuccessModal();
+        }
+    });
+}
+
+const madeToOrderModal = document.getElementById('madeToOrderModal');
+if (madeToOrderModal) {
+    madeToOrderModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeMadeToOrderModal();
         }
     });
 }
@@ -991,7 +1048,7 @@ let currentSchemeIndex = 0;
             <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
         </div>
         <div class="auth-modal-body">
-            <p>Для добавления товара в корзину необходимо войти в личный кабинет.</p>
+            <p>Для отправки заявки необходимо войти в личный кабинет.</p>
         </div>
         <div class="auth-modal-footer">
             <a href="../authorization.php" class="btn-auth btn-login-page">Войти</a>
@@ -1009,7 +1066,7 @@ let currentSchemeIndex = 0;
             <button class="role-modal-close" onclick="closeRoleErrorModal()">&times;</button>
         </div>
         <div class="role-modal-body">
-            <p>Добавление товаров в корзину доступно только клиентам.</p>
+            <p>Отправка заявок доступна только клиентам.</p>
             <p>Ваша роль: <strong id="userRoleProduct"></strong></p>
         </div>
         <div class="role-modal-footer">
