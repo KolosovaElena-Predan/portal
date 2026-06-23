@@ -465,7 +465,7 @@ require_once '../header.php';
             </div>
             <h3>Заявка отправлена!</h3>
         </div>
-        <div class="cart-success-body">
+        <div class="cart-success-body" id="madeToOrderBody">
             <p>Ваша заявка на товар "на заказ" успешно отправлена.</p>
             <p style="font-size: 14px; color: #666; margin-top: 10px;">Специалист свяжется с вами для уточнения деталей.</p>
         </div>
@@ -699,9 +699,16 @@ function updateTotal() {
 }
 
 /* Модальное окно для товара "на заказ" */
-function showMadeToOrderModal() {
+function showMadeToOrderModal(requestId) {
     const modal = document.getElementById('madeToOrderModal');
     if (modal) {
+        const body = document.getElementById('madeToOrderBody');
+        if (body && requestId) {
+            body.innerHTML = `
+                <p>Ваша заявка №${requestId} на товар "на заказ" успешно отправлена.</p>
+                <p style="font-size: 14px; color: #666; margin-top: 10px;">Специалист свяжется с вами для уточнения деталей.</p>
+            `;
+        }
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
     }
@@ -712,6 +719,14 @@ function closeMadeToOrderModal() {
     if (modal) {
         modal.classList.remove('show');
         document.body.style.overflow = '';
+        // Восстанавливаем текст
+        const body = document.getElementById('madeToOrderBody');
+        if (body) {
+            body.innerHTML = `
+                <p>Ваша заявка на товар "на заказ" успешно отправлена.</p>
+                <p style="font-size: 14px; color: #666; margin-top: 10px;">Специалист свяжется с вами для уточнения деталей.</p>
+            `;
+        }
     }
 }
 
@@ -763,10 +778,9 @@ function addToCart(productId, btnElement) {
                 return;
             }
             
-            // Авторизован и роль client — продолжаем
-            // Если товар "на заказ" — показываем специальное окно
+            // Если товар "на заказ" — отправляем заявку и показываем окно
             if (isMadeToOrder) {
-                showMadeToOrderModal();
+                proceedMadeToOrder(productId, btn);
                 return;
             }
             
@@ -779,6 +793,111 @@ function addToCart(productId, btnElement) {
         });
 }
 
+// Логика отправки заявки на товар "на заказ" (с сохранением конфигурации и модификаций)
+function proceedMadeToOrder(productId, btn) {
+    let totalPrice = basePrice;
+    
+    const orderData = {
+        product_id: productId,
+        base_price: basePrice,
+        configuration: null,
+        configuration_name: '',
+        modifications: [],
+        total_price: 0,
+        quantity: 1
+    };
+    
+    // Комплектация
+    const configChecked = document.querySelector('input[name="configuration"]:checked');
+    if (configChecked) {
+        const configPrice = parseFloat(configChecked.dataset.price) || 0;
+        const configName = configChecked.getAttribute('data-name') || '';
+        
+        orderData.configuration = {
+            id: configChecked.value,
+            price: configPrice
+        };
+        orderData.configuration_name = configName;
+        
+        totalPrice = configPrice;
+    }
+    
+    // Модификации
+    document.querySelectorAll('.modifications-table tbody tr').forEach(row => {
+        const variantSelect = row.querySelector('.mod-variant-select');
+        const propertySelect = row.querySelector('.mod-property-select');
+        const modName = row.querySelector('.mod-name')?.textContent?.trim() || '';
+        
+        if (variantSelect && variantSelect.value > 0) {
+            const variantOption = variantSelect.options[variantSelect.selectedIndex];
+            const variantPrice = parseFloat(variantSelect.value) || 0;
+            const variantName = variantOption.getAttribute('data-name') || variantOption.text.split('(')[0].trim();
+            
+            const modData = {
+                group: modName,
+                variant: {
+                    name: variantName,
+                    price: variantPrice
+                },
+                property: null
+            };
+            
+            totalPrice += variantPrice;
+            
+            if (propertySelect && !propertySelect.disabled && propertySelect.value > 0) {
+                const propOption = propertySelect.options[propertySelect.selectedIndex];
+                const propPrice = parseFloat(propertySelect.value) || 0;
+                const propName = propOption.text.split('(')[0].trim();
+                
+                modData.property = {
+                    name: propName,
+                    price: propPrice
+                };
+                
+                totalPrice += propPrice;
+            }
+            
+            orderData.modifications.push(modData);
+        }
+    });
+    
+    orderData.total_price = totalPrice;
+    orderData.quantity = 1;
+    
+    const originalText = btn?.textContent || 'Заказать';
+    if (btn) {
+        btn.textContent = 'Отправка...';
+        btn.disabled = true;
+    }
+    
+    // Отправляем заявку через Ajax на специальный обработчик в этом же файле
+    fetch('?action=add_made_to_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMadeToOrderModal(data.request_id);
+            if (btn) {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        } else {
+            throw new Error(data.error || 'Неизвестная ошибка');
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('❌ Ошибка отправки заявки:\n' + error.message);
+        if (btn) {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    });
+}
+
 // Оригинальная логика добавления в корзину (только для обычных товаров)
 function proceedAddToCart(productId, btn) {
     let totalPrice = basePrice;
@@ -789,8 +908,7 @@ function proceedAddToCart(productId, btn) {
         configuration: null,
         configuration_name: '',
         modifications: [],
-        total_price: 0,
-        is_made_to_order: isMadeToOrder
+        total_price: 0
     };
     
     // Комплектация
@@ -863,7 +981,6 @@ function proceedAddToCart(productId, btn) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Показать модальное окно
             showCartSuccessModal();
             if (btn) {
                 btn.textContent = originalText;
@@ -1038,6 +1155,92 @@ const schemeImages = <?php
     echo json_encode($schemeData);
 ?>;
 let currentSchemeIndex = 0;
+
+// ============================================
+// ОБРАБОТЧИК ДЛЯ ТОВАРОВ "НА ЗАКАЗ" (в этом же файле)
+// ============================================
+<?php
+// Если это AJAX запрос для создания заявки "на заказ"
+if (isset($_GET['action']) && $_GET['action'] === 'add_made_to_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
+    
+    // Проверка авторизации
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'error' => 'Не авторизован']);
+        exit;
+    }
+    
+    $input = json_decode(file_get_contents('php://input'), true);
+    $user_id = $_SESSION['user_id'];
+    
+    if (!$input || !isset($input['product_id'])) {
+        echo json_encode(['success' => false, 'error' => 'Неверные данные']);
+        exit;
+    }
+    
+    try {
+        $product_id = (int)$input['product_id'];
+        $quantity = (int)($input['quantity'] ?? 1);
+        $total_price = (float)($input['total_price'] ?? 0);
+        $configuration_name = $input['configuration_name'] ?? '';
+        $modifications = $input['modifications'] ?? [];
+        $configuration = $input['configuration'] ?? null;
+        
+        // Получаем информацию о товаре
+        $stmt = $pdo->prepare("SELECT name, base_price FROM products WHERE id = ?");
+        $stmt->execute([$product_id]);
+        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$product) {
+            echo json_encode(['success' => false, 'error' => 'Товар не найден']);
+            exit;
+        }
+        
+        // Формируем сообщение заказа с конфигурацией и модификациями
+        $message = [
+            'quantity' => $quantity,
+            'product_name' => $product['name'],
+            'product_id' => $product_id,
+            'configuration' => $configuration,
+            'configuration_name' => $configuration_name,
+            'modifications' => $modifications,
+            'unit_price' => $quantity > 0 ? $total_price / $quantity : 0,
+            'line_total' => $total_price,
+            'is_made_to_order' => true,
+            'address' => '',
+            'delivery_method' => 'pickup'
+        ];
+        
+        $message_json = json_encode($message, JSON_UNESCAPED_UNICODE);
+        
+        // Создаём заявку
+        $stmt = $pdo->prepare("
+            INSERT INTO request (user_id, product_id, message, status, datetime, type) 
+            VALUES (?, ?, ?, 'new', NOW(), 'r')
+        ");
+        $stmt->execute([$user_id, $product_id, $message_json]);
+        $request_id = $pdo->lastInsertId();
+        
+        // Добавляем запись в историю статусов
+        $stmt = $pdo->prepare("
+            INSERT INTO request_status_history (request_id, status, comment, created_at) 
+            VALUES (?, 'new', 'Заказ создан (товар на заказ)', NOW())
+        ");
+        $stmt->execute([$request_id]);
+        
+        echo json_encode([
+            'success' => true,
+            'request_id' => $request_id,
+            'message' => 'Заявка успешно создана'
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('add_made_to_order error: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Ошибка базы данных: ' . $e->getMessage()]);
+    }
+    exit;
+}
+?>
 </script>
 
 <!-- Модальное окно для авторизации -->
