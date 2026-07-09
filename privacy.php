@@ -263,12 +263,11 @@ require_once 'header.php';
         <h2>10. Контактная информация</h2>
         <p>По всем вопросам, связанным с обработкой персональных данных, вы можете обратиться:</p>
         <ul>
-            <li><strong>Email:</strong> <a href="mailto:mip@zabgu.ru">mip@zabgu.ru</a></li>
-            <li><strong>Адрес:</strong> г. Чита, ул. Александрово-Заводская, 30</li>
-            <li><strong>Телефон:</strong> +7 (3022) XX-XX-XX</li>
+            <li><strong>Email:</strong> <a href="mailto:nulpet-lab@mail.ru">nulpet-lab@mail.ru</a></li>
+            <li><strong>Адрес:</strong> г. Чита, ул. Баргузинская, 49</li>
+            <li><strong>Телефон:</strong> +7 (924) 371-62-05</li>
         </ul>
         
-        <a href="authorization.php" class="back-link">← Вернуться к регистрации</a>
     </div>
 </div>
 
